@@ -3,6 +3,7 @@ package com.serverdash.app.presentation.screens.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.serverdash.app.domain.model.*
+import com.serverdash.app.domain.plugin.PluginRegistry
 import com.serverdash.app.domain.repository.*
 import com.serverdash.app.domain.usecase.*
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,7 +29,11 @@ data class DashboardUiState(
     val searchQuery: String = "",
     val isSearchVisible: Boolean = false,
     val statusFilters: Set<ServiceStatus> = emptySet(),
-    val typeFilters: Set<ServiceType> = emptySet()
+    val typeFilters: Set<ServiceType> = emptySet(),
+    // plugin detection
+    val detectedPlugins: Map<String, Boolean> = emptyMap(),
+    val fleetAvailable: Boolean = false,
+    val showNonFleetServices: Boolean = false
 ) {
     val filteredServices: List<Service> get() {
         var result = services
@@ -79,6 +84,7 @@ sealed interface DashboardEvent {
     data class ToggleStatusFilter(val status: ServiceStatus) : DashboardEvent
     data class ToggleTypeFilter(val type: ServiceType) : DashboardEvent
     data object ClearFilters : DashboardEvent
+    data object ToggleShowNonFleetServices : DashboardEvent
 }
 
 @HiltViewModel
@@ -91,11 +97,16 @@ class DashboardViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val refreshServiceStatus: RefreshServiceStatusUseCase,
     private val fetchMetrics: FetchSystemMetricsUseCase,
-    private val evaluateAlertRules: EvaluateAlertRulesUseCase
+    private val evaluateAlertRules: EvaluateAlertRulesUseCase,
+    private val pluginRegistry: PluginRegistry,
+    private val fleetDiscoverServices: FleetDiscoverServicesUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DashboardUiState())
     val state: StateFlow<DashboardUiState> = _state.asStateFlow()
+
+    val preferences: StateFlow<AppPreferences> = preferencesRepository.observePreferences()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppPreferences())
 
     private var pollingJob: Job? = null
     private var serverId: Long = 1L
@@ -132,6 +143,9 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             sshRepository.observeConnectionState().collect { conn ->
                 _state.update { it.copy(connectionState = conn) }
+                if (conn.isConnected) {
+                    detectPlugins()
+                }
             }
         }
         viewModelScope.launch {
@@ -164,8 +178,26 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    private fun detectPlugins() {
+        viewModelScope.launch {
+            try {
+                val detected = pluginRegistry.detectAll(sshRepository)
+                _state.update { it.copy(
+                    detectedPlugins = detected,
+                    fleetAvailable = detected["fleet"] == true
+                )}
+            } catch (_: Exception) {
+                // plugin detection failure is non-fatal
+            }
+        }
+    }
+
     private suspend fun refreshData() {
-        refreshServiceStatus(serverId)
+        if (_state.value.fleetAvailable && !_state.value.showNonFleetServices) {
+            fleetDiscoverServices(serverId)
+        } else {
+            refreshServiceStatus(serverId)
+        }
         fetchMetrics()
         val currentState = _state.value
         if (currentState.metrics != null) {
@@ -222,6 +254,10 @@ class DashboardViewModel @Inject constructor(
             }
             is DashboardEvent.ClearFilters -> {
                 _state.update { it.copy(searchQuery = "", statusFilters = emptySet(), typeFilters = emptySet(), selectedTab = 0, isSearchVisible = false) }
+            }
+            is DashboardEvent.ToggleShowNonFleetServices -> {
+                _state.update { it.copy(showNonFleetServices = !it.showNonFleetServices) }
+                viewModelScope.launch { refreshData() }
             }
         }
     }

@@ -35,6 +35,7 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val preferences by viewModel.preferences.collectAsState()
     val landscape = isLandscape()
     val columns = if (landscape) 4 else 2
 
@@ -84,8 +85,12 @@ fun DashboardScreen(
                             Icon(Icons.Default.FilterListOff, "Clear filters")
                         }
                     }
-                    IconButton(onClick = onNavigateToClaudeCode) {
-                        Icon(Icons.Default.SmartToy, "Claude Code")
+                    val claudeCodeAvailable = state.detectedPlugins["claude-code"] == true &&
+                        !preferences.disabledPlugins.contains("claude-code")
+                    if (claudeCodeAvailable) {
+                        IconButton(onClick = onNavigateToClaudeCode) {
+                            Icon(Icons.Default.SmartToy, "Claude Code")
+                        }
                     }
                     IconButton(onClick = onNavigateToTerminal) {
                         Icon(Icons.Default.Terminal, "Terminal")
@@ -93,15 +98,73 @@ fun DashboardScreen(
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, "Settings")
                     }
+                    var showMenu by remember { mutableStateOf(false) }
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, "More options")
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        if (state.fleetAvailable) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(if (state.showNonFleetServices) "Hide system services"
+                                         else "Show system services")
+                                },
+                                onClick = {
+                                    viewModel.onEvent(DashboardEvent.ToggleShowNonFleetServices)
+                                    showMenu = false
+                                }
+                            )
+                        }
+                    }
                 }
             )
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // Connection status bar
+            // connection status bar
             ConnectionStatusBar(state.connectionState)
 
-            // Alert banner
+            // detected plugin chips
+            if (state.detectedPlugins.any { it.value }) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    state.detectedPlugins.filter { it.value }.forEach { (id, _) ->
+                        AssistChip(
+                            onClick = { },
+                            label = { Text(id.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+            }
+
+            // fleet info banner
+            if (!state.fleetAvailable && state.services.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Info, null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Install Fleet CLI for enhanced service management",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            // alert banner
             if (state.activeAlerts.isNotEmpty()) {
                 AlertBanner(
                     alertCount = state.activeAlerts.size,

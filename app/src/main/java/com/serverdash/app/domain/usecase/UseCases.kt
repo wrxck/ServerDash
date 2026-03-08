@@ -6,6 +6,7 @@ import com.serverdash.app.domain.repository.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.serialization.json.*
 import javax.inject.Inject
 
 private const val TAG = "ServerDash"
@@ -488,7 +489,7 @@ class DetectClaudeCodeUsersUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(users: List<SystemUser>): Result<List<SystemUser>> {
         if (users.isEmpty()) return Result.success(emptyList())
-        // Check each user individually with sudo to handle restricted home dirs like /root
+        // check each user individually with sudo to handle restricted home dirs like /root
         val results = mutableMapOf<String, Boolean>()
         for (user in users) {
             val checkCmd = sshRepository.wrapWithSudo("test -d '${user.homeDirectory}/.claude'")
@@ -499,5 +500,64 @@ class DetectClaudeCodeUsersUseCase @Inject constructor(
         return Result.success(users.map { user ->
             user.copy(hasClaudeCode = results[user.username] == true)
         })
+    }
+}
+
+class FleetDiscoverServicesUseCase @Inject constructor(
+    private val serviceRepository: ServiceRepository,
+    private val sshRepository: SshRepository
+) {
+    suspend operator fun invoke(serverId: Long): Result<List<Service>> {
+        return try {
+            val result = sshRepository.executeCommand("fleet status --json 2>/dev/null")
+            val output = result.getOrNull()?.output?.trim()
+                ?: return Result.failure(Exception("Fleet not available"))
+            val services = parseFleetStatus(output, serverId)
+            serviceRepository.saveServices(services)
+            Result.success(services)
+        } catch (e: Exception) { Result.failure(e) }
+    }
+
+    private fun parseFleetStatus(jsonStr: String, serverId: Long): List<Service> {
+        return try {
+            val root = Json.parseToJsonElement(jsonStr).jsonObject
+            val apps = root["apps"]?.jsonArray ?: return emptyList()
+            apps.mapNotNull { element ->
+                val app = element.jsonObject
+                val name = app["name"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                val systemdState = app["systemd"]?.jsonObject?.get("active")?.jsonPrimitive?.content ?: "unknown"
+                val containers = app["containers"]?.jsonArray?.map { c ->
+                    c.jsonObject["name"]?.jsonPrimitive?.content ?: ""
+                } ?: emptyList()
+                val containerUp = containers.isNotEmpty() && app["containers"]?.jsonArray?.any { c ->
+                    c.jsonObject["state"]?.jsonPrimitive?.content == "running"
+                } ?: false
+                val status = when {
+                    containerUp -> ServiceStatus.RUNNING
+                    systemdState == "active" -> ServiceStatus.RUNNING
+                    systemdState == "failed" -> ServiceStatus.FAILED
+                    else -> ServiceStatus.STOPPED
+                }
+                val domains = app["domains"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+                Service(
+                    serverId = serverId,
+                    name = name,
+                    displayName = app["displayName"]?.jsonPrimitive?.content ?: name,
+                    type = ServiceType.DOCKER,
+                    status = status,
+                    subState = systemdState,
+                    description = domains.joinToString(", "),
+                    group = app["type"]?.jsonPrimitive?.content ?: "service",
+                    fleetMetadata = FleetAppMetadata(
+                        domains = domains,
+                        composePath = app["composePath"]?.jsonPrimitive?.content ?: "",
+                        appType = app["type"]?.jsonPrimitive?.content ?: "service",
+                        healthUrl = app["health"]?.jsonObject?.get("url")?.jsonPrimitive?.content,
+                        port = app["port"]?.jsonPrimitive?.intOrNull,
+                        containers = containers
+                    )
+                )
+            }
+        } catch (e: Exception) { emptyList() }
     }
 }
