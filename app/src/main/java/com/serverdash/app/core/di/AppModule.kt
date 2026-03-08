@@ -7,6 +7,7 @@ import com.serverdash.app.data.preferences.PreferencesManager
 import com.serverdash.app.data.remote.ssh.SshSessionManager
 import com.serverdash.app.data.repository.*
 import com.serverdash.app.domain.repository.*
+import com.serverdash.app.domain.plugin.*
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -42,6 +43,20 @@ object DatabaseModule {
 
     @Provides
     fun provideTerminalHistoryDao(db: AppDatabase): TerminalHistoryDao = db.terminalHistoryDao()
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+object PluginModule {
+    @Provides
+    @Singleton
+    fun providePluginRegistry(): PluginRegistry {
+        return PluginRegistry().apply {
+            register(FleetPlugin())
+            register(ClaudeCodePlugin())
+            register(GuardianPlugin())
+        }
+    }
 }
 
 @Module
