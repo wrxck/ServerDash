@@ -1,0 +1,8 @@
+complexity:
+  LongMethod:
+    threshold: 400
+  LongParameterList:
+    functionThreshold: 12
+    constructorThreshold: 12
+  CyclomaticComplexMethod:
+    threshold: 50
