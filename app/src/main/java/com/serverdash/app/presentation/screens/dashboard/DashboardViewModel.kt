@@ -20,19 +20,71 @@ data class DashboardUiState(
     val isRefreshing: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null,
-    val metricsHistory: List<SystemMetrics> = emptyList()
-)
+    val metricsHistory: List<SystemMetrics> = emptyList(),
+    // Tabs
+    val selectedTab: Int = 0,
+    val availableTabs: List<String> = listOf("All"),
+    // Search & Filters
+    val searchQuery: String = "",
+    val isSearchVisible: Boolean = false,
+    val statusFilters: Set<ServiceStatus> = emptySet(),
+    val typeFilters: Set<ServiceType> = emptySet()
+) {
+    val filteredServices: List<Service> get() {
+        var result = services
+
+        // Tab filter (index 0 = All, 1+ = specific group)
+        if (selectedTab > 0 && selectedTab < availableTabs.size) {
+            val tabGroup = availableTabs[selectedTab]
+            result = result.filter { it.effectiveGroup == tabGroup }
+        }
+
+        // Search filter
+        if (searchQuery.isNotBlank()) {
+            val query = searchQuery.lowercase()
+            result = result.filter {
+                it.name.lowercase().contains(query) ||
+                it.displayName.lowercase().contains(query) ||
+                it.description.lowercase().contains(query) ||
+                it.group.lowercase().contains(query)
+            }
+        }
+
+        // Status filter
+        if (statusFilters.isNotEmpty()) {
+            result = result.filter { it.status in statusFilters }
+        }
+
+        // Type filter
+        if (typeFilters.isNotEmpty()) {
+            result = result.filter { it.type in typeFilters }
+        }
+
+        return result
+    }
+
+    val isFiltered: Boolean get() = searchQuery.isNotBlank() || statusFilters.isNotEmpty() || typeFilters.isNotEmpty() || selectedTab > 0
+}
 
 sealed interface DashboardEvent {
     data object Refresh : DashboardEvent
     data class NavigateToDetail(val service: Service) : DashboardEvent
     data object DismissError : DashboardEvent
     data object AcknowledgeAlerts : DashboardEvent
+    // Tab events
+    data class SelectTab(val index: Int) : DashboardEvent
+    // Search & filter events
+    data class UpdateSearch(val query: String) : DashboardEvent
+    data object ToggleSearchVisibility : DashboardEvent
+    data class ToggleStatusFilter(val status: ServiceStatus) : DashboardEvent
+    data class ToggleTypeFilter(val type: ServiceType) : DashboardEvent
+    data object ClearFilters : DashboardEvent
 }
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val serviceRepository: ServiceRepository,
+    private val serverRepository: ServerRepository,
     private val sshRepository: SshRepository,
     private val metricsRepository: MetricsRepository,
     private val alertRepository: AlertRepository,
@@ -46,18 +98,35 @@ class DashboardViewModel @Inject constructor(
     val state: StateFlow<DashboardUiState> = _state.asStateFlow()
 
     private var pollingJob: Job? = null
+    private var serverId: Long = 1L
     private val _navigateToDetail = MutableSharedFlow<Service>()
     val navigateToDetail: SharedFlow<Service> = _navigateToDetail.asSharedFlow()
 
     init {
-        observeData()
-        startPolling()
+        loadServerId()
+    }
+
+    private fun loadServerId() {
+        viewModelScope.launch {
+            val config = serverRepository.getServerConfig()
+            serverId = config?.id ?: 1L
+            // Reconnect SSH if we have a saved config but aren't connected
+            if (config != null && !sshRepository.isConnected()) {
+                sshRepository.connect(config)
+            }
+            observeData()
+            startPolling()
+        }
     }
 
     private fun observeData() {
         viewModelScope.launch {
-            serviceRepository.observeServices(1L).collect { services ->
-                _state.update { it.copy(services = services, isLoading = false) }
+            serviceRepository.observeServices(serverId).collect { services ->
+                _state.update { state ->
+                    val tabs = buildTabs(services)
+                    val safeTab = if (state.selectedTab >= tabs.size) 0 else state.selectedTab
+                    state.copy(services = services, isLoading = false, availableTabs = tabs, selectedTab = safeTab)
+                }
             }
         }
         viewModelScope.launch {
@@ -77,6 +146,11 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    private fun buildTabs(services: List<Service>): List<String> {
+        val groups = services.map { it.effectiveGroup }.distinct().sorted()
+        return listOf("All") + groups
+    }
+
     private fun startPolling() {
         pollingJob?.cancel()
         pollingJob = viewModelScope.launch {
@@ -91,11 +165,11 @@ class DashboardViewModel @Inject constructor(
     }
 
     private suspend fun refreshData() {
-        refreshServiceStatus(1L)
+        refreshServiceStatus(serverId)
         fetchMetrics()
         val currentState = _state.value
         if (currentState.metrics != null) {
-            evaluateAlertRules(currentState.services, currentState.metrics!!, 1L)
+            evaluateAlertRules(currentState.services, currentState.metrics!!, serverId)
         }
         val history = metricsRepository.getMetricsHistory(60)
         _state.update { it.copy(metricsHistory = history) }
@@ -122,6 +196,32 @@ class DashboardViewModel @Inject constructor(
                         alertRepository.acknowledgeAlert(alert.id)
                     }
                 }
+            }
+            is DashboardEvent.SelectTab -> {
+                _state.update { it.copy(selectedTab = event.index) }
+            }
+            is DashboardEvent.UpdateSearch -> {
+                _state.update { it.copy(searchQuery = event.query) }
+            }
+            is DashboardEvent.ToggleSearchVisibility -> {
+                _state.update { it.copy(isSearchVisible = !it.isSearchVisible, searchQuery = if (it.isSearchVisible) "" else it.searchQuery) }
+            }
+            is DashboardEvent.ToggleStatusFilter -> {
+                _state.update { state ->
+                    val newFilters = state.statusFilters.toMutableSet()
+                    if (event.status in newFilters) newFilters.remove(event.status) else newFilters.add(event.status)
+                    state.copy(statusFilters = newFilters)
+                }
+            }
+            is DashboardEvent.ToggleTypeFilter -> {
+                _state.update { state ->
+                    val newFilters = state.typeFilters.toMutableSet()
+                    if (event.type in newFilters) newFilters.remove(event.type) else newFilters.add(event.type)
+                    state.copy(typeFilters = newFilters)
+                }
+            }
+            is DashboardEvent.ClearFilters -> {
+                _state.update { it.copy(searchQuery = "", statusFilters = emptySet(), typeFilters = emptySet(), selectedTab = 0, isSearchVisible = false) }
             }
         }
     }

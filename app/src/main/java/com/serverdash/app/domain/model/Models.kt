@@ -12,7 +12,15 @@ data class ServerConfig(
     val port: Int = 22,
     val username: String,
     val authMethod: AuthMethod,
-    val label: String = host
+    val label: String = host,
+    val sudoPassword: String = ""
+)
+
+data class SystemUser(
+    val username: String,
+    val homeDirectory: String,
+    val uid: Int,
+    val hasClaudeCode: Boolean = false
 )
 
 sealed class AuthMethod {
@@ -29,8 +37,11 @@ data class Service(
     val status: ServiceStatus = ServiceStatus.UNKNOWN,
     val isPinned: Boolean = false,
     val subState: String = "",
-    val description: String = ""
-)
+    val description: String = "",
+    val group: String = ""
+) {
+    val effectiveGroup: String get() = group.ifBlank { type.name.lowercase().replaceFirstChar { it.uppercase() } }
+}
 
 data class SystemMetrics(
     val cpuUsage: Float = 0f,
@@ -104,6 +115,11 @@ data class WebhookPayload(
 
 enum class ThemeMode { AUTO, LIGHT, DARK, TRUE_BLACK }
 
+enum class DashboardLayout { GRID, LIST, COMPACT }
+enum class ServiceSortOrder { NAME, STATUS, TYPE, PINNED_FIRST }
+enum class MetricsDisplayMode { COMPACT, EXPANDED, HIDDEN }
+enum class LogFontSize { SMALL, MEDIUM, LARGE }
+
 data class AppPreferences(
     val themeMode: ThemeMode = ThemeMode.AUTO,
     val pollingIntervalSeconds: Int = 10,
@@ -112,7 +128,46 @@ data class AppPreferences(
     val kioskMode: Boolean = false,
     val pixelShiftEnabled: Boolean = false,
     val autoStartOnBoot: Boolean = false,
-    val backgroundCheckIntervalMinutes: Int = 15
+    val backgroundCheckIntervalMinutes: Int = 15,
+    // Dashboard layout
+    val dashboardLayout: DashboardLayout = DashboardLayout.GRID,
+    val gridColumns: Int = 0, // 0 = auto
+    val serviceSortOrder: ServiceSortOrder = ServiceSortOrder.PINNED_FIRST,
+    val showServiceDescription: Boolean = false,
+    val compactCards: Boolean = false,
+    // Metrics display
+    val metricsDisplayMode: MetricsDisplayMode = MetricsDisplayMode.COMPACT,
+    val showLoadAverage: Boolean = false,
+    val cpuWarningThreshold: Float = 80f,
+    val memoryWarningThreshold: Float = 80f,
+    val diskWarningThreshold: Float = 90f,
+    // Notifications
+    val notificationsEnabled: Boolean = true,
+    val notifyOnServiceDown: Boolean = true,
+    val notifyOnHighCpu: Boolean = true,
+    val notifyOnHighMemory: Boolean = true,
+    val notifyOnHighDisk: Boolean = true,
+    val notificationSound: Boolean = true,
+    val notificationVibrate: Boolean = true,
+    // Logs
+    val logFontSize: LogFontSize = LogFontSize.MEDIUM,
+    val logLineCount: Int = 100,
+    val logAutoRefresh: Boolean = false,
+    val logAutoRefreshSeconds: Int = 5,
+    val logWrapLines: Boolean = true,
+    // Terminal
+    val terminalFontSize: Int = 14,
+    val terminalMaxHistory: Int = 500,
+    val terminalShowTimestamps: Boolean = true,
+    // Connection
+    val connectionTimeoutSeconds: Int = 30,
+    val autoReconnect: Boolean = true,
+    val autoReconnectDelaySeconds: Int = 5,
+    val maxReconnectAttempts: Int = 3,
+    // Data
+    val metricsRetentionHours: Int = 24,
+    val maxServicesDisplayed: Int = 0, // 0 = unlimited
+    val hideUnknownServices: Boolean = false
 )
 
 data class ConnectionState(

@@ -1,11 +1,15 @@
 package com.serverdash.app.presentation.screens.dashboard
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -27,6 +31,7 @@ fun DashboardScreen(
     onNavigateToDetail: (String, String) -> Unit,
     onNavigateToTerminal: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToClaudeCode: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -42,8 +47,46 @@ fun DashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("ServerDash") },
+                title = {
+                    if (state.isSearchVisible) {
+                        TextField(
+                            value = state.searchQuery,
+                            onValueChange = { viewModel.onEvent(DashboardEvent.UpdateSearch(it)) },
+                            placeholder = { Text("Search services...") },
+                            singleLine = true,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Text("ServerDash")
+                    }
+                },
+                navigationIcon = {
+                    if (state.isSearchVisible) {
+                        IconButton(onClick = { viewModel.onEvent(DashboardEvent.ToggleSearchVisibility) }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close search")
+                        }
+                    }
+                },
                 actions = {
+                    if (!state.isSearchVisible) {
+                        IconButton(onClick = { viewModel.onEvent(DashboardEvent.ToggleSearchVisibility) }) {
+                            Icon(Icons.Default.Search, "Search")
+                        }
+                    }
+                    if (state.isFiltered && !state.isSearchVisible) {
+                        IconButton(onClick = { viewModel.onEvent(DashboardEvent.ClearFilters) }) {
+                            Icon(Icons.Default.FilterListOff, "Clear filters")
+                        }
+                    }
+                    IconButton(onClick = onNavigateToClaudeCode) {
+                        Icon(Icons.Default.SmartToy, "Claude Code")
+                    }
                     IconButton(onClick = onNavigateToTerminal) {
                         Icon(Icons.Default.Terminal, "Terminal")
                     }
@@ -69,6 +112,38 @@ fun DashboardScreen(
             // Metrics summary
             state.metrics?.let { MetricsSummaryRow(it) }
 
+            // Tabs
+            if (state.availableTabs.size > 1) {
+                ScrollableTabRow(
+                    selectedTabIndex = state.selectedTab,
+                    edgePadding = 8.dp,
+                    divider = {}
+                ) {
+                    state.availableTabs.forEachIndexed { index, tab ->
+                        val count = if (index == 0) state.services.size
+                            else state.services.count { it.effectiveGroup == tab }
+                        Tab(
+                            selected = state.selectedTab == index,
+                            onClick = { viewModel.onEvent(DashboardEvent.SelectTab(index)) },
+                            text = { Text("$tab ($count)") }
+                        )
+                    }
+                }
+            }
+
+            // Filter chips
+            FilterChipRow(state, viewModel)
+
+            // Service count when filtered
+            if (state.isFiltered) {
+                Text(
+                    "${state.filteredServices.size} of ${state.services.size} services",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+            }
+
             // Service grid
             PullToRefreshBox(
                 isRefreshing = state.isRefreshing,
@@ -79,9 +154,20 @@ fun DashboardScreen(
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
-                } else if (state.services.isEmpty()) {
+                } else if (state.filteredServices.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No services found", style = MaterialTheme.typography.bodyLarge)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                if (state.isFiltered) "No services match filters" else "No services found",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            if (state.isFiltered) {
+                                Spacer(Modifier.height(8.dp))
+                                TextButton(onClick = { viewModel.onEvent(DashboardEvent.ClearFilters) }) {
+                                    Text("Clear filters")
+                                }
+                            }
+                        }
                     }
                 } else {
                     LazyVerticalGrid(
@@ -90,7 +176,7 @@ fun DashboardScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(state.services, key = { it.id }) { service ->
+                        items(state.filteredServices, key = { "${it.serverId}_${it.name}" }) { service ->
                             ServiceCard(
                                 service = service,
                                 onClick = { viewModel.onEvent(DashboardEvent.NavigateToDetail(service)) }
@@ -99,6 +185,35 @@ fun DashboardScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun FilterChipRow(state: DashboardUiState, viewModel: DashboardViewModel) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        // Status filters
+        items(ServiceStatus.entries.toList()) { status ->
+            val selected = status in state.statusFilters
+            FilterChip(
+                selected = selected,
+                onClick = { viewModel.onEvent(DashboardEvent.ToggleStatusFilter(status)) },
+                label = { Text(status.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                leadingIcon = if (selected) {{ Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }} else null
+            )
+        }
+        // Type filters
+        items(ServiceType.entries.toList()) { type ->
+            val selected = type in state.typeFilters
+            FilterChip(
+                selected = selected,
+                onClick = { viewModel.onEvent(DashboardEvent.ToggleTypeFilter(type)) },
+                label = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                leadingIcon = if (selected) {{ Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }} else null
+            )
         }
     }
 }

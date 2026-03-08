@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -70,6 +71,20 @@ fun SetupScreen(
 internal fun ConnectionStep(state: SetupUiState, onEvent: (SetupEvent) -> Unit) {
     var passwordVisible by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val clipboardManager = LocalClipboardManager.current
+
+    // Detect SSH private key on clipboard
+    var clipboardKey by remember { mutableStateOf<String?>(null) }
+    var dismissed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val clipText = clipboardManager.getText()?.text ?: ""
+            if (clipText.contains("-----BEGIN") && clipText.contains("PRIVATE KEY-----")) {
+                clipboardKey = clipText
+            }
+        } catch (_: Exception) { }
+    }
 
     fun Modifier.scrollOnFocus(bringIntoViewRequester: BringIntoViewRequester): Modifier {
         return this
@@ -81,16 +96,60 @@ internal fun ConnectionStep(state: SetupUiState, onEvent: (SetupEvent) -> Unit) 
             }
     }
 
+    var sudoPasswordVisible by remember { mutableStateOf(false) }
+
     val hostBiv = remember { BringIntoViewRequester() }
     val portBiv = remember { BringIntoViewRequester() }
     val userBiv = remember { BringIntoViewRequester() }
     val authBiv = remember { BringIntoViewRequester() }
+    val sudoBiv = remember { BringIntoViewRequester() }
     val buttonBiv = remember { BringIntoViewRequester() }
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Text("Server Connection", style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(8.dp))
+        }
+        // SSH key detected on clipboard banner
+        if (clipboardKey != null && !dismissed && state.privateKey.isBlank()) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Key, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "SSH private key detected on clipboard",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "Tap to autofill and switch to key auth",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                        TextButton(onClick = {
+                            onEvent(SetupEvent.UpdateAuthType("key"))
+                            onEvent(SetupEvent.UpdatePrivateKey(clipboardKey!!))
+                            dismissed = true
+                        }) {
+                            Text("Use it")
+                        }
+                        IconButton(onClick = { dismissed = true }) {
+                            Icon(Icons.Default.Close, "Dismiss", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                }
+            }
         }
         item {
             OutlinedTextField(
@@ -179,6 +238,26 @@ internal fun ConnectionStep(state: SetupUiState, onEvent: (SetupEvent) -> Unit) 
                     singleLine = true
                 )
             }
+        }
+        item {
+            OutlinedTextField(
+                value = state.sudoPassword,
+                onValueChange = { onEvent(SetupEvent.UpdateSudoPassword(it)) },
+                label = { Text("Sudo Password") },
+                leadingIcon = { Icon(Icons.Default.AdminPanelSettings, null) },
+                trailingIcon = {
+                    IconButton(onClick = { sudoPasswordVisible = !sudoPasswordVisible }) {
+                        Icon(
+                            if (sudoPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            null
+                        )
+                    }
+                },
+                visualTransformation = if (sudoPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                supportingText = { Text("Leave blank for passwordless sudo") },
+                modifier = Modifier.fillMaxWidth().scrollOnFocus(sudoBiv),
+                singleLine = true
+            )
         }
         item {
             state.connectionError?.let { error ->

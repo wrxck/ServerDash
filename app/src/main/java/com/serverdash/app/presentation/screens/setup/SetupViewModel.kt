@@ -23,7 +23,9 @@ data class SetupUiState(
     val connectionError: String? = null,
     val discoveredServices: List<Service> = emptyList(),
     val selectedServices: Set<String> = emptySet(),
-    val isComplete: Boolean = false
+    val sudoPassword: String = "",
+    val isComplete: Boolean = false,
+    val serverId: Long = 1L
 )
 
 sealed interface SetupEvent {
@@ -34,6 +36,7 @@ sealed interface SetupEvent {
     data class UpdatePassword(val password: String) : SetupEvent
     data class UpdatePrivateKey(val key: String) : SetupEvent
     data class UpdatePassphrase(val passphrase: String) : SetupEvent
+    data class UpdateSudoPassword(val password: String) : SetupEvent
     data object Connect : SetupEvent
     data object DiscoverServices : SetupEvent
     data class ToggleService(val serviceName: String) : SetupEvent
@@ -62,6 +65,7 @@ class SetupViewModel @Inject constructor(
             is SetupEvent.UpdatePassword -> _state.update { it.copy(password = event.password) }
             is SetupEvent.UpdatePrivateKey -> _state.update { it.copy(privateKey = event.key) }
             is SetupEvent.UpdatePassphrase -> _state.update { it.copy(passphrase = event.passphrase) }
+            is SetupEvent.UpdateSudoPassword -> _state.update { it.copy(sudoPassword = event.password) }
             is SetupEvent.Connect -> connect()
             is SetupEvent.DiscoverServices -> discover()
             is SetupEvent.ToggleService -> toggleService(event.serviceName)
@@ -89,10 +93,11 @@ class SetupViewModel @Inject constructor(
                 host = s.host,
                 port = s.port.toIntOrNull() ?: 22,
                 username = s.username,
-                authMethod = authMethod
+                authMethod = authMethod,
+                sudoPassword = s.sudoPassword
             )
             connectToServer(config).fold(
-                onSuccess = { _state.update { it.copy(isConnecting = false, currentStep = 1) } },
+                onSuccess = { id -> _state.update { it.copy(isConnecting = false, currentStep = 1, serverId = id) } },
                 onFailure = { e -> _state.update { it.copy(isConnecting = false, connectionError = e.message) } }
             )
         }
@@ -100,8 +105,8 @@ class SetupViewModel @Inject constructor(
 
     private fun discover() {
         viewModelScope.launch {
-            _state.update { it.copy(isDiscovering = true) }
-            discoverServices(1L).fold(
+            _state.update { it.copy(isDiscovering = true, connectionError = null) }
+            discoverServices(_state.value.serverId).fold(
                 onSuccess = { services ->
                     _state.update { it.copy(
                         isDiscovering = false,
@@ -109,7 +114,9 @@ class SetupViewModel @Inject constructor(
                         selectedServices = services.map { s -> s.name }.toSet()
                     )}
                 },
-                onFailure = { _state.update { it.copy(isDiscovering = false) } }
+                onFailure = { e ->
+                    _state.update { it.copy(isDiscovering = false, connectionError = "Discovery failed: ${e.message}") }
+                }
             )
         }
     }

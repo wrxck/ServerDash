@@ -168,6 +168,45 @@ class SshSessionManager @Inject constructor() {
 
     fun isConnected(): Boolean = client?.isConnected == true
 
+    fun getConnectedUsername(): String? = currentConfig?.username
+
+    fun wrapWithSudo(command: String): String {
+        val password = currentConfig?.sudoPassword ?: ""
+        return if (password.isNotEmpty()) {
+            val escaped = password.replace("'", "'\\''")
+            "echo '${escaped}' | sudo -S $command"
+        } else {
+            "sudo $command"
+        }
+    }
+
+    suspend fun executeAsUser(command: String, username: String, timeoutSeconds: Long = 30): Result<CommandResult> {
+        val password = currentConfig?.sudoPassword ?: ""
+        val wrapped = if (password.isNotEmpty()) {
+            val escaped = password.replace("'", "'\\''")
+            "echo '${escaped}' | sudo -S -u $username $command"
+        } else {
+            "sudo -u $username $command"
+        }
+        return executeCommand(wrapped, timeoutSeconds)
+    }
+
+    suspend fun readFileAsUser(path: String, username: String): Result<String> {
+        return executeAsUser("cat '$path'", username).map { it.output }
+    }
+
+    suspend fun writeFileAsUser(path: String, content: String, username: String): Result<Unit> {
+        val password = currentConfig?.sudoPassword ?: ""
+        val sudoPrefix = if (password.isNotEmpty()) {
+            val escaped = password.replace("'", "'\\''")
+            "echo '${escaped}' | sudo -S -u $username"
+        } else {
+            "sudo -u $username"
+        }
+        val command = "$sudoPrefix tee '$path' > /dev/null << 'SERVERDASH_EOF'\n$content\nSERVERDASH_EOF"
+        return executeCommand(command).map { }
+    }
+
     private fun startKeepAlive() {
         reconnectJob?.cancel()
         reconnectJob = scope.launch {

@@ -7,6 +7,7 @@ import com.serverdash.app.data.remote.ssh.SshSessionManager
 import com.serverdash.app.domain.model.*
 import com.serverdash.app.domain.repository.*
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -16,7 +17,10 @@ import javax.inject.Singleton
 class ServerRepositoryImpl @Inject constructor(
     private val dao: ServerConfigDao
 ) : ServerRepository {
-    override suspend fun saveServerConfig(config: ServerConfig): Long = dao.insert(config.toEntity())
+    override suspend fun saveServerConfig(config: ServerConfig): Long {
+        dao.deleteAll()
+        return dao.insert(config.toEntity())
+    }
     override suspend fun getServerConfig(): ServerConfig? = dao.getConfig()?.toDomain()
     override suspend fun deleteServerConfig() = dao.deleteAll()
     override fun observeServerConfig(): Flow<ServerConfig?> = dao.observeConfig().map { it?.toDomain() }
@@ -45,14 +49,24 @@ class ServiceRepositoryImpl @Inject constructor(
 
     override suspend fun saveServices(services: List<Service>) {
         if (services.isNotEmpty()) {
-            dao.deleteByServer(services.first().serverId)
-            dao.insertAll(services.map { it.toEntity() })
+            val serverId = services.first().serverId
+            dao.syncServices(serverId, services.map { it.toEntity() })
         }
     }
 
-    override fun observeServices(serverId: Long): Flow<List<Service>> = dao.observeServices(serverId).map { list -> list.map { it.toDomain() } }
+    override suspend fun updateServiceGroup(serviceId: Long, group: String) = dao.updateGroup(serviceId, group)
 
-    override fun observePinnedServices(serverId: Long): Flow<List<Service>> = dao.observePinnedServices(serverId).map { list -> list.map { it.toDomain() } }
+    override fun observeServices(serverId: Long): Flow<List<Service>> =
+        dao.observeServices(serverId)
+            .map { list -> list.map { it.toDomain() } }
+            .distinctUntilChanged()
+
+    override fun observePinnedServices(serverId: Long): Flow<List<Service>> =
+        dao.observePinnedServices(serverId)
+            .map { list -> list.map { it.toDomain() } }
+            .distinctUntilChanged()
+
+    override fun observeGroups(serverId: Long): Flow<List<String>> = dao.observeGroups(serverId)
 }
 
 @Singleton
@@ -75,6 +89,11 @@ class SshRepositoryImpl @Inject constructor(
     override suspend fun writeFile(path: String, content: String) = sshManager.writeFile(path, content)
     override fun observeConnectionState(): Flow<ConnectionState> = sshManager.connectionState
     override suspend fun isConnected(): Boolean = sshManager.isConnected()
+    override fun wrapWithSudo(command: String): String = sshManager.wrapWithSudo(command)
+    override suspend fun executeAsUser(command: String, username: String) = sshManager.executeAsUser(command, username)
+    override suspend fun readFileAsUser(path: String, username: String) = sshManager.readFileAsUser(path, username)
+    override suspend fun writeFileAsUser(path: String, content: String, username: String) = sshManager.writeFileAsUser(path, content, username)
+    override fun getConnectedUsername(): String? = sshManager.getConnectedUsername()
 }
 
 @Singleton
