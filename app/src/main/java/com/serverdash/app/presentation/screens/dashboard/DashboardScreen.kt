@@ -35,6 +35,7 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val preferences by viewModel.preferences.collectAsState()
     val landscape = isLandscape()
     val columns = if (landscape) 4 else 2
 
@@ -84,8 +85,12 @@ fun DashboardScreen(
                             Icon(Icons.Default.FilterListOff, "Clear filters")
                         }
                     }
-                    IconButton(onClick = onNavigateToClaudeCode) {
-                        Icon(Icons.Default.SmartToy, "Claude Code")
+                    val claudeCodeAvailable = state.detectedPlugins["claude-code"] == true &&
+                        !preferences.disabledPlugins.contains("claude-code")
+                    if (claudeCodeAvailable) {
+                        IconButton(onClick = onNavigateToClaudeCode) {
+                            Icon(Icons.Default.SmartToy, "Claude Code")
+                        }
                     }
                     IconButton(onClick = onNavigateToTerminal) {
                         Icon(Icons.Default.Terminal, "Terminal")
