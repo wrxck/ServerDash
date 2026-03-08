@@ -26,6 +26,8 @@ class SecurityViewModelTest {
     private lateinit var metricsDao: MetricsDao
     private lateinit var alertDao: AlertDao
     private lateinit var serviceDao: ServiceDao
+    private lateinit var serverConfigDao: ServerConfigDao
+    private val preferencesManager: com.serverdash.app.data.preferences.PreferencesManager = mockk(relaxed = true)
 
     private lateinit var mockBiometricManager: BiometricManager
     private lateinit var mockDbFile: File
@@ -40,6 +42,7 @@ class SecurityViewModelTest {
         metricsDao = mockk(relaxed = true)
         alertDao = mockk(relaxed = true)
         serviceDao = mockk(relaxed = true)
+        serverConfigDao = mockk(relaxed = true)
 
         mockDbFile = mockk {
             every { exists() } returns true
@@ -78,7 +81,8 @@ class SecurityViewModelTest {
     }
 
     private fun createViewModel() = SecurityViewModel(
-        context, encryptionManager, terminalHistoryDao, metricsDao, alertDao, serviceDao
+        context, encryptionManager, terminalHistoryDao, metricsDao, alertDao, serviceDao,
+        serverConfigDao, preferencesManager
     )
 
     // ---------------------------------------------------------------
