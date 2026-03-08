@@ -31,35 +31,47 @@ data class ClaudePermission(
 
 enum class SettingsViewMode { UI, JSON }
 
+data class SettingsDiffEntry(
+    val path: String,
+    val oldValue: String?,
+    val newValue: String?,
+    val type: DiffType
+)
+
+enum class DiffType { ADDED, REMOVED, CHANGED }
+
 data class ClaudeCodeUiState(
     val isDetected: Boolean = false,
     val isLoading: Boolean = true,
     val claudeVersion: String = "",
     val selectedTab: Int = 0,
-    // MCP Servers
+    // mcp servers
     val mcpServers: List<McpServer> = emptyList(),
     val isLoadingMcp: Boolean = false,
-    // Settings (from settings.json)
+    // settings
     val settingsJson: String = "",
+    val originalSettingsJson: String = "",
+    val settingsDiff: List<SettingsDiffEntry> = emptyList(),
+    val showDiffDialog: Boolean = false,
     val settingsViewMode: SettingsViewMode = SettingsViewMode.UI,
     val isLoadingSettings: Boolean = false,
     val isSavingSettings: Boolean = false,
-    // Permissions
+    // permissions
     val permissions: List<ClaudePermission> = emptyList(),
     val isLoadingPermissions: Boolean = false,
-    // CLAUDE.md
+    // claude.md
     val claudeMdContent: String = "",
     val isLoadingClaudeMd: Boolean = false,
     val isSavingClaudeMd: Boolean = false,
-    // Users
+    // users
     val systemUsers: List<SystemUser> = emptyList(),
     val claudeCodeUsers: List<SystemUser> = emptyList(),
     val selectedUser: SystemUser? = null,
     val isLoadingUsers: Boolean = false,
-    // General
+    // general
     val error: String? = null,
     val successMessage: String? = null,
-    // Edit dialogs
+    // edit dialogues
     val editingMcpServer: McpServer? = null,
     val isAddingMcpServer: Boolean = false,
     val editingSettings: Boolean = false,
@@ -73,14 +85,14 @@ sealed interface ClaudeCodeEvent {
     data object DismissSuccess : ClaudeCodeEvent
     data class SelectUser(val user: SystemUser) : ClaudeCodeEvent
     data object RefreshUsers : ClaudeCodeEvent
-    // MCP
+    // mcp
     data object LoadMcpServers : ClaudeCodeEvent
     data object ShowAddMcpServer : ClaudeCodeEvent
     data class EditMcpServer(val server: McpServer) : ClaudeCodeEvent
     data class SaveMcpServer(val original: McpServer?, val updated: McpServer) : ClaudeCodeEvent
     data class DeleteMcpServer(val server: McpServer) : ClaudeCodeEvent
     data object DismissMcpDialog : ClaudeCodeEvent
-    // Settings
+    // settings
     data object LoadSettings : ClaudeCodeEvent
     data class UpdateSettingsJson(val json: String) : ClaudeCodeEvent
     data object SaveSettings : ClaudeCodeEvent
@@ -88,7 +100,10 @@ sealed interface ClaudeCodeEvent {
     data object CancelEditSettings : ClaudeCodeEvent
     data object ToggleSettingsViewMode : ClaudeCodeEvent
     data object AutoSaveSettings : ClaudeCodeEvent
-    // CLAUDE.md
+    data object RequestSaveSettings : ClaudeCodeEvent
+    data object ConfirmSaveSettings : ClaudeCodeEvent
+    data object DismissDiffDialog : ClaudeCodeEvent
+    // claude.md
     data object LoadClaudeMd : ClaudeCodeEvent
     data class UpdateClaudeMd(val content: String) : ClaudeCodeEvent
     data object SaveClaudeMd : ClaudeCodeEvent
@@ -159,14 +174,12 @@ class ClaudeCodeViewModel @Inject constructor(
             is ClaudeCodeEvent.DismissSuccess -> _state.update { it.copy(successMessage = null) }
             is ClaudeCodeEvent.SelectUser -> selectUser(event.user)
             is ClaudeCodeEvent.RefreshUsers -> loadUsers()
-            // MCP
             is ClaudeCodeEvent.LoadMcpServers -> loadMcpServers()
             is ClaudeCodeEvent.ShowAddMcpServer -> _state.update { it.copy(isAddingMcpServer = true, editingMcpServer = McpServer()) }
             is ClaudeCodeEvent.EditMcpServer -> _state.update { it.copy(editingMcpServer = event.server, isAddingMcpServer = false) }
             is ClaudeCodeEvent.SaveMcpServer -> saveMcpServer(event.original, event.updated)
             is ClaudeCodeEvent.DeleteMcpServer -> deleteMcpServer(event.server)
             is ClaudeCodeEvent.DismissMcpDialog -> _state.update { it.copy(editingMcpServer = null, isAddingMcpServer = false) }
-            // Settings
             is ClaudeCodeEvent.LoadSettings -> loadSettings()
             is ClaudeCodeEvent.UpdateSettingsJson -> _state.update { it.copy(settingsJson = event.json) }
             is ClaudeCodeEvent.SaveSettings -> saveSettings()
@@ -179,7 +192,21 @@ class ClaudeCodeViewModel @Inject constructor(
                 _state.update { it.copy(editingSettings = false) }
                 loadSettings()
             }
-            // CLAUDE.md
+            is ClaudeCodeEvent.RequestSaveSettings -> {
+                val diffs = computeDiff(_state.value.originalSettingsJson, _state.value.settingsJson)
+                if (diffs.isEmpty()) {
+                    _state.update { it.copy(successMessage = "No changes to save") }
+                } else {
+                    _state.update { it.copy(settingsDiff = diffs, showDiffDialog = true) }
+                }
+            }
+            is ClaudeCodeEvent.ConfirmSaveSettings -> {
+                _state.update { it.copy(showDiffDialog = false) }
+                saveSettings()
+            }
+            is ClaudeCodeEvent.DismissDiffDialog -> {
+                _state.update { it.copy(showDiffDialog = false) }
+            }
             is ClaudeCodeEvent.LoadClaudeMd -> loadClaudeMd()
             is ClaudeCodeEvent.UpdateClaudeMd -> _state.update { it.copy(claudeMdContent = event.content) }
             is ClaudeCodeEvent.SaveClaudeMd -> saveClaudeMd()
@@ -199,6 +226,29 @@ class ClaudeCodeViewModel @Inject constructor(
             val selected = _state.value.selectedUser ?: return false
             return selected.username != connectedUsername
         }
+
+    private fun computeDiff(original: String, current: String): List<SettingsDiffEntry> {
+        val origObj = try { Json.parseToJsonElement(original).jsonObject } catch (e: Exception) { JsonObject(emptyMap()) }
+        val currObj = try { Json.parseToJsonElement(current).jsonObject } catch (e: Exception) { JsonObject(emptyMap()) }
+        return diffJsonObjects("", origObj, currObj)
+    }
+
+    private fun diffJsonObjects(prefix: String, old: JsonObject, new: JsonObject): List<SettingsDiffEntry> {
+        val diffs = mutableListOf<SettingsDiffEntry>()
+        val allKeys = (old.keys + new.keys).toSet()
+        for (key in allKeys) {
+            val path = if (prefix.isEmpty()) key else "$prefix.$key"
+            val oldVal = old[key]
+            val newVal = new[key]
+            when {
+                oldVal == null && newVal != null -> diffs.add(SettingsDiffEntry(path, null, newVal.toString(), DiffType.ADDED))
+                oldVal != null && newVal == null -> diffs.add(SettingsDiffEntry(path, oldVal.toString(), null, DiffType.REMOVED))
+                oldVal is JsonObject && newVal is JsonObject -> diffs.addAll(diffJsonObjects(path, oldVal, newVal))
+                oldVal != newVal -> diffs.add(SettingsDiffEntry(path, oldVal.toString(), newVal.toString(), DiffType.CHANGED))
+            }
+        }
+        return diffs
+    }
 
     private suspend fun readClaudeFile(relativePath: String): Result<String> {
         val selectedUser = _state.value.selectedUser
@@ -372,7 +422,7 @@ class ClaudeCodeViewModel @Inject constructor(
                             val parsed = Json.parseToJsonElement(raw)
                             json.encodeToString(JsonElement.serializer(), parsed)
                         } catch (e: Exception) { raw }
-                        _state.update { it.copy(settingsJson = formatted, isLoadingSettings = false, editingSettings = false) }
+                        _state.update { it.copy(settingsJson = formatted, originalSettingsJson = formatted, isLoadingSettings = false, editingSettings = false) }
                     },
                     onFailure = { e ->
                         _state.update { it.copy(settingsJson = "{}", isLoadingSettings = false, editingSettings = false) }
@@ -394,7 +444,7 @@ class ClaudeCodeViewModel @Inject constructor(
                 val content = _state.value.settingsJson
                 executeForUser("mkdir -p ~/.claude")
                 writeClaudeFile(".claude/settings.json", content)
-                _state.update { it.copy(isSavingSettings = false, editingSettings = false, successMessage = "Settings saved") }
+                _state.update { it.copy(isSavingSettings = false, editingSettings = false, originalSettingsJson = content, successMessage = "Settings saved") }
             } catch (e: Exception) {
                 _state.update { it.copy(isSavingSettings = false, error = "Invalid JSON or save failed: ${e.message}") }
             }

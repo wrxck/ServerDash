@@ -2,7 +2,6 @@ package com.serverdash.app.presentation.screens.claudecode
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -24,7 +23,6 @@ fun ClaudeCodeScreen(
     val state by viewModel.state.collectAsState()
     val tabs = listOf("MCP Servers", "Settings", "CLAUDE.md")
 
-    // Error snackbar
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(state.error) {
         state.error?.let {
@@ -39,7 +37,6 @@ fun ClaudeCodeScreen(
         }
     }
 
-    // MCP Server edit dialog
     if (state.editingMcpServer != null) {
         McpServerDialog(
             server = state.editingMcpServer!!,
@@ -88,19 +85,16 @@ fun ClaudeCodeScreen(
                     }
                 }
             } else {
-                // Version info
                 ListItem(
                     headlineContent = { Text("Claude Code") },
                     supportingContent = { Text(state.claudeVersion) },
                     leadingContent = { Icon(Icons.Default.SmartToy, null, tint = MaterialTheme.colorScheme.primary) }
                 )
 
-                // User selector (only shown when multiple Claude Code users detected)
                 if (state.claudeCodeUsers.size > 1) {
                     UserSelector(state, viewModel)
                 }
 
-                // Tabs
                 TabRow(selectedTabIndex = state.selectedTab) {
                     tabs.forEachIndexed { index, title ->
                         Tab(
@@ -111,7 +105,6 @@ fun ClaudeCodeScreen(
                     }
                 }
 
-                // Tab content
                 when (state.selectedTab) {
                     0 -> McpServersTab(state, viewModel)
                     1 -> SettingsTab(state, viewModel)
@@ -130,9 +123,7 @@ private fun UserSelector(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewMode
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
     ) {
         OutlinedTextField(
             value = state.selectedUser?.let { "${it.username} (${it.homeDirectory})" } ?: "",
@@ -174,136 +165,23 @@ private fun UserSelector(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewMode
     }
 }
 
-@Composable
-private fun McpServersTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
-    Box(Modifier.fillMaxSize()) {
-        if (state.isLoadingMcp) {
-            CircularProgressIndicator(Modifier.align(Alignment.Center))
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (state.mcpServers.isEmpty()) {
-                    item {
-                        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text("No MCP servers configured", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-                items(state.mcpServers) { server ->
-                    McpServerCard(
-                        server = server,
-                        onEdit = { viewModel.onEvent(ClaudeCodeEvent.EditMcpServer(server)) },
-                        onDelete = { viewModel.onEvent(ClaudeCodeEvent.DeleteMcpServer(server)) }
-                    )
-                }
-            }
-        }
-
-        FloatingActionButton(
-            onClick = { viewModel.onEvent(ClaudeCodeEvent.ShowAddMcpServer) },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-        ) {
-            Icon(Icons.Default.Add, "Add MCP Server")
-        }
-    }
-}
-
-@Composable
-private fun McpServerCard(server: McpServer, onEdit: () -> Unit, onDelete: () -> Unit) {
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete MCP Server") },
-            text = { Text("Remove '${server.name}' from Claude Code configuration?") },
-            confirmButton = {
-                TextButton(onClick = { showDeleteConfirm = false; onDelete() }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
-            }
-        )
-    }
-
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Hub, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(server.name, style = MaterialTheme.typography.titleSmall)
-                    Text(server.command, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, "Edit") }
-                IconButton(onClick = { showDeleteConfirm = true }) { Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error) }
-            }
-            if (server.args.isNotEmpty()) {
-                Spacer(Modifier.height(4.dp))
-                Text("Args: ${server.args.joinToString(" ")}", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (server.env.isNotEmpty()) {
-                Spacer(Modifier.height(4.dp))
-                Text("Env: ${server.env.entries.joinToString(", ") { "${it.key}=${it.value}" }}", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
-}
-
-@Composable
-private fun McpServerDialog(server: McpServer, isNew: Boolean, onDismiss: () -> Unit, onSave: (McpServer) -> Unit) {
-    var name by remember { mutableStateOf(server.name) }
-    var command by remember { mutableStateOf(server.command) }
-    var args by remember { mutableStateOf(server.args.joinToString("\n")) }
-    var env by remember { mutableStateOf(server.env.entries.joinToString("\n") { "${it.key}=${it.value}" }) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (isNew) "Add MCP Server" else "Edit MCP Server") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = command, onValueChange = { command = it }, label = { Text("Command") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = args, onValueChange = { args = it }, label = { Text("Arguments (one per line)") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
-                OutlinedTextField(value = env, onValueChange = { env = it }, label = { Text("Environment (KEY=VALUE, one per line)") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onSave(McpServer(
-                        name = name.trim(),
-                        command = command.trim(),
-                        args = args.lines().map { it.trim() }.filter { it.isNotEmpty() },
-                        env = env.lines().map { it.trim() }.filter { it.contains("=") }.associate {
-                            val (k, v) = it.split("=", limit = 2)
-                            k.trim() to v.trim()
-                        }
-                    ))
-                },
-                enabled = name.isNotBlank() && command.isNotBlank()
-            ) { Text("Save") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
-    )
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
+    if (state.showDiffDialog) {
+        DiffDialog(
+            diffs = state.settingsDiff,
+            onConfirm = { viewModel.onEvent(ClaudeCodeEvent.ConfirmSaveSettings) },
+            onDismiss = { viewModel.onEvent(ClaudeCodeEvent.DismissDiffDialog) }
+        )
+    }
+
     Column(Modifier.fillMaxSize()) {
         if (state.isLoadingSettings) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         } else {
-            // Toggle + action buttons row
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -361,7 +239,7 @@ private fun SettingsTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsUiView(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
     val jsonFormatter = remember { Json { prettyPrint = true; ignoreUnknownKeys = true } }
@@ -385,310 +263,94 @@ private fun SettingsUiView(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewMo
         return
     }
 
-    fun updateAndSave(transform: (MutableMap<String, JsonElement>) -> Unit) {
+    fun updateKey(path: String, value: JsonElement?) {
         val current = try { Json.parseToJsonElement(state.settingsJson).jsonObject } catch (e: Exception) { return }
         val mutable = current.toMutableMap()
-        transform(mutable)
+        val parts = path.split(".")
+        if (parts.size == 1) {
+            if (value == null) mutable.remove(parts[0]) else mutable[parts[0]] = value
+        } else if (parts.size == 2) {
+            val parentObj = (mutable[parts[0]] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
+            if (value == null) parentObj.remove(parts[1]) else parentObj[parts[1]] = value
+            mutable[parts[0]] = JsonObject(parentObj)
+        } else if (parts.size == 3) {
+            val p1 = (mutable[parts[0]] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
+            val p2 = (p1[parts[1]] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
+            if (value == null) p2.remove(parts[2]) else p2[parts[2]] = value
+            p1[parts[1]] = JsonObject(p2)
+            mutable[parts[0]] = JsonObject(p1)
+        }
         val newJson = jsonFormatter.encodeToString(JsonObject.serializer(), JsonObject(mutable))
         viewModel.onEvent(ClaudeCodeEvent.UpdateSettingsJson(newJson))
-        viewModel.onEvent(ClaudeCodeEvent.AutoSaveSettings)
     }
 
-    // Parse fields
-    val permissions = try { settingsObj["permissions"]?.jsonObject } catch (e: Exception) { null }
-    val allowPerms = try { permissions?.get("allow")?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList() } catch (e: Exception) { emptyList() }
-    val denyPerms = try { permissions?.get("deny")?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList() } catch (e: Exception) { emptyList() }
-    val model = try { settingsObj["model"]?.jsonPrimitive?.content ?: "" } catch (e: Exception) { "" }
-    val envVars = try {
-        settingsObj["env"]?.jsonObject?.entries?.associate { (k, v) -> k to v.jsonPrimitive.content } ?: emptyMap()
-    } catch (e: Exception) { emptyMap() }
+    val onUpdate: (String, JsonElement?) -> Unit = { path, value -> updateKey(path, value) }
 
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Model
         item {
-            var editModel by remember(model) { mutableStateOf(model) }
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Model", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = editModel,
-                        onValueChange = { editModel = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        placeholder = { Text("Default (not set)") },
-                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        trailingIcon = {
-                            if (editModel != model) {
-                                IconButton(onClick = {
-                                    updateAndSave { root ->
-                                        if (editModel.isBlank()) root.remove("model")
-                                        else root["model"] = JsonPrimitive(editModel)
-                                    }
-                                }) {
-                                    Icon(Icons.Default.Check, "Apply", tint = MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                        }
-                    )
-                }
-            }
-        }
-
-        // Allowed Permissions
-        item {
-            PermissionsCard(
-                title = "Allowed Permissions",
-                icon = Icons.Default.CheckCircle,
-                permissions = allowPerms,
-                onAdd = { pattern ->
-                    updateAndSave { root ->
-                        val permsObj = try { root["permissions"]?.jsonObject?.toMutableMap() ?: mutableMapOf() } catch (e: Exception) { mutableMapOf() }
-                        val current = try { permsObj["allow"]?.jsonArray?.map { it.jsonPrimitive.content }?.toMutableList() ?: mutableListOf() } catch (e: Exception) { mutableListOf() }
-                        current.add(pattern)
-                        permsObj["allow"] = JsonArray(current.map { JsonPrimitive(it) })
-                        root["permissions"] = JsonObject(permsObj)
-                    }
-                },
-                onRemove = { pattern ->
-                    updateAndSave { root ->
-                        val permsObj = try { root["permissions"]?.jsonObject?.toMutableMap() ?: mutableMapOf() } catch (e: Exception) { mutableMapOf() }
-                        val current = try { permsObj["allow"]?.jsonArray?.map { it.jsonPrimitive.content }?.toMutableList() ?: mutableListOf() } catch (e: Exception) { mutableListOf() }
-                        current.remove(pattern)
-                        permsObj["allow"] = JsonArray(current.map { JsonPrimitive(it) })
-                        root["permissions"] = JsonObject(permsObj)
-                    }
-                }
-            )
-        }
-
-        // Denied Permissions
-        item {
-            PermissionsCard(
-                title = "Denied Permissions",
-                icon = Icons.Default.Block,
-                permissions = denyPerms,
-                onAdd = { pattern ->
-                    updateAndSave { root ->
-                        val permsObj = try { root["permissions"]?.jsonObject?.toMutableMap() ?: mutableMapOf() } catch (e: Exception) { mutableMapOf() }
-                        val current = try { permsObj["deny"]?.jsonArray?.map { it.jsonPrimitive.content }?.toMutableList() ?: mutableListOf() } catch (e: Exception) { mutableListOf() }
-                        current.add(pattern)
-                        permsObj["deny"] = JsonArray(current.map { JsonPrimitive(it) })
-                        root["permissions"] = JsonObject(permsObj)
-                    }
-                },
-                onRemove = { pattern ->
-                    updateAndSave { root ->
-                        val permsObj = try { root["permissions"]?.jsonObject?.toMutableMap() ?: mutableMapOf() } catch (e: Exception) { mutableMapOf() }
-                        val current = try { permsObj["deny"]?.jsonArray?.map { it.jsonPrimitive.content }?.toMutableList() ?: mutableListOf() } catch (e: Exception) { mutableListOf() }
-                        current.remove(pattern)
-                        permsObj["deny"] = JsonArray(current.map { JsonPrimitive(it) })
-                        root["permissions"] = JsonObject(permsObj)
-                    }
-                }
-            )
-        }
-
-        // Environment Variables
-        item {
-            EnvVarsCard(
-                envVars = envVars,
-                onAdd = { key, value ->
-                    updateAndSave { root ->
-                        val currentEnv = try { root["env"]?.jsonObject?.toMutableMap() ?: mutableMapOf() } catch (e: Exception) { mutableMapOf() }
-                        currentEnv[key] = JsonPrimitive(value)
-                        root["env"] = JsonObject(currentEnv)
-                    }
-                },
-                onRemove = { key ->
-                    updateAndSave { root ->
-                        val currentEnv = try { root["env"]?.jsonObject?.toMutableMap() ?: mutableMapOf() } catch (e: Exception) { mutableMapOf() }
-                        currentEnv.remove(key)
-                        if (currentEnv.isEmpty()) root.remove("env")
-                        else root["env"] = JsonObject(currentEnv)
-                    }
-                }
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun PermissionsCard(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    permissions: List<String>,
-    onAdd: (String) -> Unit,
-    onRemove: (String) -> Unit
-) {
-    var showAddField by remember { mutableStateOf(false) }
-    var newPermission by remember { mutableStateOf("") }
-
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Button(
+                onClick = { viewModel.onEvent(ClaudeCodeEvent.RequestSaveSettings) },
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
-                    Text(title, style = MaterialTheme.typography.titleSmall)
-                }
-                IconButton(onClick = { showAddField = !showAddField; newPermission = "" }) {
-                    Icon(if (showAddField) Icons.Default.Close else Icons.Default.Add, "Add")
-                }
-            }
-
-            if (showAddField) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = newPermission,
-                        onValueChange = { newPermission = it },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        placeholder = { Text("e.g. Bash(git:*)") },
-                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    IconButton(
-                        onClick = {
-                            if (newPermission.isNotBlank()) {
-                                onAdd(newPermission.trim())
-                                newPermission = ""
-                                showAddField = false
-                            }
-                        },
-                        enabled = newPermission.isNotBlank()
-                    ) {
-                        Icon(Icons.Default.Check, "Add", tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-            }
-
-            if (permissions.isEmpty()) {
-                Text(
-                    "None configured",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-            } else {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    permissions.forEach { perm ->
-                        InputChip(
-                            selected = false,
-                            onClick = { onRemove(perm) },
-                            label = { Text(perm, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, maxLines = 1) },
-                            trailingIcon = { Icon(Icons.Default.Close, "Remove", Modifier.size(16.dp)) }
-                        )
-                    }
-                }
+                Icon(Icons.Default.Save, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Review & Save")
             }
         }
-    }
-}
 
-@Composable
-private fun EnvVarsCard(
-    envVars: Map<String, String>,
-    onAdd: (String, String) -> Unit,
-    onRemove: (String) -> Unit
-) {
-    var showAddFields by remember { mutableStateOf(false) }
-    var newKey by remember { mutableStateOf("") }
-    var newValue by remember { mutableStateOf("") }
+        item { SettingsSectionHeader("Core") }
+        item { StringSetting("Model", "model", settingsObj, onUpdate, placeholder = "default (not set)") }
+        item { CcSegmentedSetting("Effort Level", "effortLevel", settingsObj, onUpdate, options = listOf("low", "medium", "high")) }
+        item { CcSwitchSetting("Fast Mode", "fastMode", settingsObj, onUpdate) }
+        item { CcSwitchSetting("Auto Memory", "autoMemoryEnabled", settingsObj, onUpdate, default = true) }
+        item { IntSliderSetting("Cleanup Period (days)", "cleanupPeriodDays", settingsObj, onUpdate, range = 0..90, default = 0) }
 
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Key, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Environment Variables", style = MaterialTheme.typography.titleSmall)
-                }
-                IconButton(onClick = { showAddFields = !showAddFields; newKey = ""; newValue = "" }) {
-                    Icon(if (showAddFields) Icons.Default.Close else Icons.Default.Add, "Add")
-                }
-            }
+        item { SettingsSectionHeader("Permissions") }
+        item { CcSegmentedSetting("Default Mode", "permissions.defaultMode", settingsObj, onUpdate, options = listOf("default", "acceptEdits", "plan", "bypassPermissions")) }
+        item { StringListSetting("Allow", "permissions.allow", settingsObj, onUpdate, placeholder = "e.g. Bash(git:*)") }
+        item { StringListSetting("Ask", "permissions.ask", settingsObj, onUpdate, placeholder = "e.g. WebFetch") }
+        item { StringListSetting("Deny", "permissions.deny", settingsObj, onUpdate, placeholder = "e.g. Bash(rm:*)") }
+        item { StringListSetting("Additional Directories", "permissions.additionalDirectories", settingsObj, onUpdate, placeholder = "/path/to/dir") }
 
-            if (showAddFields) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = newKey,
-                        onValueChange = { newKey = it },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        placeholder = { Text("KEY") },
-                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    OutlinedTextField(
-                        value = newValue,
-                        onValueChange = { newValue = it },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        placeholder = { Text("value") },
-                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    IconButton(
-                        onClick = {
-                            if (newKey.isNotBlank()) {
-                                onAdd(newKey.trim(), newValue.trim())
-                                newKey = ""
-                                newValue = ""
-                                showAddFields = false
-                            }
-                        },
-                        enabled = newKey.isNotBlank()
-                    ) {
-                        Icon(Icons.Default.Check, "Add", tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-            }
+        item { SettingsSectionHeader("Hooks") }
+        item { HooksViewer(settingsObj) }
 
-            if (envVars.isEmpty()) {
-                Text(
-                    "None configured",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-            } else {
-                envVars.entries.forEachIndexed { index, (key, value) ->
-                    Row(
-                        Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(key, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary)
-                            Text(value, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        IconButton(onClick = { onRemove(key) }) {
-                            Icon(Icons.Default.Delete, "Remove", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
-                        }
-                    }
-                    if (index < envVars.size - 1) {
-                        HorizontalDivider()
-                    }
-                }
-            }
-        }
+        item { SettingsSectionHeader("Sandbox") }
+        item { CcSwitchSetting("Enabled", "sandbox.enabled", settingsObj, onUpdate) }
+        item { CcSwitchSetting("Auto-allow Bash if Sandboxed", "sandbox.autoAllowBashIfSandboxed", settingsObj, onUpdate, default = true) }
+        item { StringListSetting("Allowed Domains", "sandbox.allowedDomains", settingsObj, onUpdate, placeholder = "example.com") }
+        item { StringListSetting("Filesystem Allow Write", "sandbox.filesystem.allowWrite", settingsObj, onUpdate, placeholder = "/path") }
+        item { StringListSetting("Filesystem Deny Write", "sandbox.filesystem.denyWrite", settingsObj, onUpdate, placeholder = "/path") }
+
+        item { SettingsSectionHeader("Plugins") }
+        item { PluginsMapSetting(settingsObj, onUpdate) }
+
+        item { SettingsSectionHeader("UI / Display") }
+        item { CcSegmentedSetting("Theme", "theme", settingsObj, onUpdate, options = listOf("dark", "light", "light-daltonized", "dark-daltonized")) }
+        item { StringSetting("Language", "language", settingsObj, onUpdate, placeholder = "e.g. en") }
+        item { StringSetting("Output Style", "outputStyle", settingsObj, onUpdate) }
+        item { CcSwitchSetting("Verbose", "verbose", settingsObj, onUpdate) }
+        item { CcSwitchSetting("Show Turn Duration", "showTurnDuration", settingsObj, onUpdate, default = true) }
+        item { CcSwitchSetting("Terminal Progress Bar", "terminalProgressBarEnabled", settingsObj, onUpdate, default = true) }
+        item { CcSwitchSetting("Spinner Tips", "spinnerTipsEnabled", settingsObj, onUpdate, default = true) }
+
+        item { SettingsSectionHeader("Git / Attribution") }
+        item { StringSetting("Commit Attribution", "attribution.commit", settingsObj, onUpdate) }
+        item { StringSetting("PR Attribution", "attribution.pr", settingsObj, onUpdate) }
+        item { CcSwitchSetting("Include Git Instructions", "includeGitInstructions", settingsObj, onUpdate, default = true) }
+
+        item { SettingsSectionHeader("Environment") }
+        item { CcEnvVarsCard(settingsObj, onUpdate) }
+
+        item { SettingsSectionHeader("Advanced") }
+        item { StringSetting("API Key Helper", "apiKeyHelper", settingsObj, onUpdate) }
+        item { CcSegmentedSetting("Auto-updates Channel", "autoUpdatesChannel", settingsObj, onUpdate, options = listOf("stable", "latest")) }
+        item { CcSwitchSetting("Skip WebFetch Preflight", "skipWebFetchPreflight", settingsObj, onUpdate) }
+
+        item { Spacer(Modifier.height(16.dp)) }
     }
 }
 
