@@ -101,6 +101,8 @@ sealed interface SettingsEvent {
     // App Lock
     data class UpdateAppLockEnabled(val enabled: Boolean) : SettingsEvent
     data class UpdateAppLockTimeout(val timeout: com.serverdash.app.domain.model.LockTimeout) : SettingsEvent
+    // Cache
+    data class UpdateCacheTtl(val seconds: Int) : SettingsEvent
     // Kiosk
     data class UpdateKioskMode(val enabled: Boolean) : SettingsEvent
     data class UpdateAutoStart(val enabled: Boolean) : SettingsEvent
@@ -207,6 +209,8 @@ class SettingsViewModel @Inject constructor(
             // App Lock
             is SettingsEvent.UpdateAppLockEnabled -> updatePref { it.copy(appLockEnabled = event.enabled) }
             is SettingsEvent.UpdateAppLockTimeout -> updatePref { it.copy(appLockTimeout = event.timeout) }
+            // Cache
+            is SettingsEvent.UpdateCacheTtl -> updatePref { it.copy(cacheTtlSeconds = event.seconds) }
             // Kiosk
             is SettingsEvent.UpdateKioskMode -> updatePref { it.copy(kioskMode = event.enabled) }
             is SettingsEvent.UpdateAutoStart -> updatePref { it.copy(autoStartOnBoot = event.enabled) }

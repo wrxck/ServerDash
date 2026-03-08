@@ -21,6 +21,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -31,6 +33,7 @@ import com.serverdash.app.core.util.*
 import com.serverdash.app.data.encryption.EncryptionManager
 import com.serverdash.app.domain.model.*
 import com.serverdash.app.presentation.screens.security.EncryptionPromptDialog
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +54,10 @@ fun DashboardScreen(
     val state by viewModel.state.collectAsState()
     val preferences by viewModel.preferences.collectAsState()
     val landscape = isLandscape()
+    val configuration = LocalConfiguration.current
+    val isCompactScreen = configuration.screenWidthDp < 600
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
     val columns = when {
         preferences.gridColumns > 0 -> preferences.gridColumns
         landscape -> 4
@@ -107,6 +114,10 @@ fun DashboardScreen(
         }
     }
 
+    val claudeCodeAvailable = state.detectedPlugins["claude-code"] == true &&
+        !preferences.disabledPlugins.contains("claude-code")
+
+    val scaffoldContent: @Composable () -> Unit = {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -134,6 +145,10 @@ fun DashboardScreen(
                         IconButton(onClick = { viewModel.onEvent(DashboardEvent.ToggleSearchVisibility) }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close search")
                         }
+                    } else if (isCompactScreen) {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, "Menu")
+                        }
                     }
                 },
                 actions = {
@@ -147,21 +162,26 @@ fun DashboardScreen(
                             Icon(Icons.Default.FilterListOff, "Clear filters")
                         }
                     }
-                    val claudeCodeAvailable = state.detectedPlugins["claude-code"] == true &&
-                        !preferences.disabledPlugins.contains("claude-code")
-                    if (claudeCodeAvailable) {
-                        IconButton(onClick = onNavigateToClaudeCode) {
-                            Icon(Icons.Default.SmartToy, "Claude Code")
+                    if (!isCompactScreen) {
+                        if (claudeCodeAvailable) {
+                            IconButton(onClick = onNavigateToClaudeCode) {
+                                Icon(Icons.Default.SmartToy, "Claude Code")
+                            }
                         }
-                    }
-                    IconButton(onClick = onNavigateToGit) {
-                        Icon(Icons.Default.Code, "Git")
-                    }
-                    IconButton(onClick = onNavigateToTerminal) {
-                        Icon(Icons.Default.Terminal, "Terminal")
-                    }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Settings, "Settings")
+                        IconButton(onClick = onNavigateToGit) {
+                            Icon(Icons.Default.Code, "Git")
+                        }
+                        IconButton(onClick = onNavigateToTerminal) {
+                            Icon(Icons.Default.Terminal, "Terminal")
+                        }
+                        IconButton(onClick = onNavigateToSettings) {
+                            Icon(Icons.Default.Settings, "Settings")
+                        }
+                        if (preferences.appLockEnabled) {
+                            IconButton(onClick = { viewModel.onEvent(DashboardEvent.LockApp) }) {
+                                Icon(Icons.Default.Lock, "Lock", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
                     }
                     Box {
                         var showMenu by remember { mutableStateOf(false) }
@@ -402,6 +422,71 @@ fun DashboardScreen(
             } // end of else (no metric detail)
         }
     }
+    } // end scaffoldContent
+
+    if (isCompactScreen) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                ModalDrawerSheet(modifier = Modifier.width(280.dp)) {
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        "ServerDash",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    if (claudeCodeAvailable) {
+                        DrawerNavItem(Icons.Default.SmartToy, "Claude Code") {
+                            scope.launch { drawerState.close() }; onNavigateToClaudeCode()
+                        }
+                    }
+                    DrawerNavItem(Icons.Default.Code, "Git") {
+                        scope.launch { drawerState.close() }; onNavigateToGit()
+                    }
+                    DrawerNavItem(Icons.Default.Terminal, "Terminal") {
+                        scope.launch { drawerState.close() }; onNavigateToTerminal()
+                    }
+                    DrawerNavItem(Icons.Default.Settings, "Settings") {
+                        scope.launch { drawerState.close() }; onNavigateToSettings()
+                    }
+                    DrawerNavItem(Icons.Default.Shield, "Security") {
+                        scope.launch { drawerState.close() }; onNavigateToSecurity()
+                    }
+                    DrawerNavItem(Icons.Default.Info, "About") {
+                        scope.launch { drawerState.close() }; onNavigateToAbout()
+                    }
+                    if (preferences.appLockEnabled) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        DrawerNavItem(Icons.Default.Lock, "Lock App", tint = MaterialTheme.colorScheme.error) {
+                            scope.launch { drawerState.close() }
+                            viewModel.onEvent(DashboardEvent.LockApp)
+                        }
+                    }
+                }
+            }
+        ) {
+            scaffoldContent()
+        }
+    } else {
+        scaffoldContent()
+    }
+}
+
+@Composable
+private fun DrawerNavItem(
+    icon: ImageVector,
+    label: String,
+    tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    onClick: () -> Unit
+) {
+    NavigationDrawerItem(
+        icon = { Icon(icon, null, tint = tint) },
+        label = { Text(label, color = tint) },
+        selected = false,
+        onClick = onClick,
+        modifier = Modifier.padding(horizontal = 12.dp)
+    )
 }
 
 private val statusEntries = ServiceStatus.entries.toList()

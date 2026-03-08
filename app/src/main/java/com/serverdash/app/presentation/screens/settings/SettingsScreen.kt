@@ -392,6 +392,16 @@ fun SettingsScreen(
                     onValueChange = { viewModel.onEvent(SettingsEvent.UpdateMetricsRetention(it.toInt())) }
                 )
             }
+            item {
+                SliderSetting(
+                    title = "Screen Cache TTL",
+                    value = state.preferences.cacheTtlSeconds.toFloat(),
+                    range = 0f..600f,
+                    steps = 11,
+                    formatValue = { val s = it.toInt(); if (s == 0) "Disabled" else if (s < 60) "${s}s" else "${s / 60}m" },
+                    onValueChange = { viewModel.onEvent(SettingsEvent.UpdateCacheTtl(it.toInt())) }
+                )
+            }
 
             // ── Notifications ──
             item { SectionDivider(); SectionHeader("Notifications") }

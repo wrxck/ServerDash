@@ -208,6 +208,8 @@ data class AppPreferences(
     val headerFont: String = "JetBrains Mono",
     val bodyFont: String = "JetBrains Mono",
     val codeFont: String = "JetBrains Mono",
+    // Cache
+    val cacheTtlSeconds: Int = 300, // 5 minutes default
     // App Lock
     val appLockEnabled: Boolean = false,
     val appLockTimeout: LockTimeout = LockTimeout.IMMEDIATE

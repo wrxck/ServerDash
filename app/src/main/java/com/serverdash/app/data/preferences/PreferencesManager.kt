@@ -88,6 +88,8 @@ class PreferencesManager @Inject constructor(
         val HEADER_FONT = stringPreferencesKey("header_font")
         val BODY_FONT = stringPreferencesKey("body_font")
         val CODE_FONT = stringPreferencesKey("code_font")
+        // Cache
+        val CACHE_TTL = intPreferencesKey("cache_ttl_seconds")
         // App Lock
         val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
         val APP_LOCK_TIMEOUT = stringPreferencesKey("app_lock_timeout")
@@ -175,6 +177,8 @@ class PreferencesManager @Inject constructor(
         headerFont = prefs[Keys.HEADER_FONT] ?: "JetBrains Mono",
         bodyFont = prefs[Keys.BODY_FONT] ?: "JetBrains Mono",
         codeFont = prefs[Keys.CODE_FONT] ?: "JetBrains Mono",
+        // Cache
+        cacheTtlSeconds = prefs[Keys.CACHE_TTL] ?: 300,
         // App Lock
         appLockEnabled = prefs[Keys.APP_LOCK_ENABLED] ?: false,
         appLockTimeout = try { LockTimeout.valueOf(prefs[Keys.APP_LOCK_TIMEOUT] ?: LockTimeout.IMMEDIATE.name) } catch (e: Exception) { LockTimeout.IMMEDIATE }
@@ -253,6 +257,8 @@ class PreferencesManager @Inject constructor(
             prefs[Keys.HEADER_FONT] = updated.headerFont
             prefs[Keys.BODY_FONT] = updated.bodyFont
             prefs[Keys.CODE_FONT] = updated.codeFont
+            // Cache
+            prefs[Keys.CACHE_TTL] = updated.cacheTtlSeconds
             // App Lock
             prefs[Keys.APP_LOCK_ENABLED] = updated.appLockEnabled
             prefs[Keys.APP_LOCK_TIMEOUT] = updated.appLockTimeout.name

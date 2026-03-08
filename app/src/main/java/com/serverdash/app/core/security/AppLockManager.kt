@@ -106,6 +106,14 @@ class AppLockManager @Inject constructor(
     }
 
     /**
+     * Immediately lock the app (e.g. quick lock button).
+     */
+    fun lock() {
+        lastAuthenticatedTime = 0L
+        _isLocked.value = true
+    }
+
+    /**
      * Mark as authenticated (e.g. when lock is first enabled and user is already in app).
      */
     fun markAuthenticated() {
