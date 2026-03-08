@@ -15,8 +15,8 @@ android {
         applicationId = "com.serverdash.app"
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 3
+        versionName = "0.2.0"
 
         testInstrumentationRunner = "com.serverdash.app.HiltTestRunner"
     }
@@ -45,6 +45,19 @@ android {
         compose = true
     }
 
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
+
+    splits {
+        abi {
+            isEnable = project.hasProperty("split_abis")
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -69,6 +82,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
     implementation(libs.compose.runtime)
+    implementation("androidx.compose.ui:ui-text-google-fonts:1.7.6")
     debugImplementation(libs.compose.ui.tooling)
 
     // Activity
@@ -117,6 +131,15 @@ dependencies {
 
     // Serialization
     implementation(libs.kotlinx.serialization)
+
+    // Glance (widgets)
+    implementation(libs.glance.appwidget)
+    implementation(libs.glance.material3)
+
+    // Encryption
+    implementation(libs.sqlcipher)
+    implementation(libs.security.crypto)
+    implementation(libs.biometric)
 
     // Unit Testing
     testImplementation(libs.junit)

@@ -50,10 +50,15 @@ class ServiceDetailViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel() = ServiceDetailViewModel(
-        savedStateHandle, serviceRepository, metricsRepository,
-        controlService, getServiceLogs, readConfigFile, writeConfigFile
-    )
+    private lateinit var serverRepository: com.serverdash.app.domain.repository.ServerRepository
+
+    private fun createViewModel(): ServiceDetailViewModel {
+        serverRepository = mockk()
+        return ServiceDetailViewModel(
+            savedStateHandle, serverRepository, serviceRepository, metricsRepository,
+            controlService, getServiceLogs, readConfigFile, writeConfigFile
+        )
+    }
 
     @Test
     fun `loads service from repository`() = runTest {

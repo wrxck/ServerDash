@@ -3,12 +3,72 @@
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
-    android:viewportHeight="108"
-    android:tint="#2E7D32">
+    android:viewportHeight="108">
+
+    <!-- Server tower body -->
     <path
-        android:fillColor="@android:color/white"
-        android:pathData="M54,30 L54,30 C67.25,30 78,40.75 78,54 L78,54 C78,67.25 67.25,78 54,78 L54,78 C40.75,78 30,67.25 30,54 L30,54 C30,40.75 40.75,30 54,30z" />
+        android:fillColor="#5CCFE6"
+        android:pathData="M38,34 L70,34 C71.66,34 73,35.34 73,37 L73,73 C73,74.66 71.66,76 70,76 L38,76 C36.34,76 35,74.66 35,73 L35,37 C35,35.34 36.34,34 38,34z"
+        android:fillAlpha="0.15" />
+
+    <!-- Server tower outline -->
     <path
-        android:fillColor="#2E7D32"
-        android:pathData="M48,44 L48,64 L52,64 L52,56 L56,56 C59.31,56 62,53.31 62,50 C62,46.69 59.31,44 56,44 L48,44zM52,48 L56,48 C57.1,48 58,48.9 58,50 C58,51.1 57.1,52 56,52 L52,52 L52,48z" />
+        android:fillColor="#5CCFE6"
+        android:pathData="M38,34 L70,34 C71.66,34 73,35.34 73,37 L73,73 C73,74.66 71.66,76 70,76 L38,76 C36.34,76 35,74.66 35,73 L35,37 C35,35.34 36.34,34 38,34z"
+        android:strokeWidth="2"
+        android:strokeColor="#5CCFE6"
+        android:fillAlpha="0" />
+
+    <!-- Server unit 1 (top) - divider line -->
+    <path
+        android:fillColor="#5CCFE6"
+        android:pathData="M35,48 L73,48"
+        android:strokeWidth="1.5"
+        android:strokeColor="#5CCFE6" />
+
+    <!-- Server unit 2 (middle) - divider line -->
+    <path
+        android:fillColor="#5CCFE6"
+        android:pathData="M35,60 L73,60"
+        android:strokeWidth="1.5"
+        android:strokeColor="#5CCFE6" />
+
+    <!-- Drive bay indicators - top unit -->
+    <path
+        android:fillColor="#5CCFE6"
+        android:pathData="M40,39 C40.55,39 41,39.45 41,40 C41,40.55 40.55,41 40,41 C39.45,41 39,40.55 39,40 C39,39.45 39.45,39 40,39z" />
+    <path
+        android:fillColor="#5CCFE6"
+        android:pathData="M44,39 L66,39 C66.55,39 67,39.45 67,40 L67,41 C67,41.55 66.55,42 66,42 L44,42 C43.45,42 43,41.55 43,41 L43,40 C43,39.45 43.45,39 44,39z"
+        android:fillAlpha="0.4" />
+
+    <!-- Drive bay indicators - middle unit -->
+    <path
+        android:fillColor="#5CCFE6"
+        android:pathData="M40,51 C40.55,51 41,51.45 41,52 C41,52.55 40.55,53 40,53 C39.45,53 39,52.55 39,52 C39,51.45 39.45,51 40,51z" />
+    <path
+        android:fillColor="#5CCFE6"
+        android:pathData="M44,51 L66,51 C66.55,51 67,51.45 67,52 L67,53 C67,53.55 66.55,54 66,54 L44,54 C43.45,54 43,53.55 43,53 L43,52 C43,51.45 43.45,51 44,51z"
+        android:fillAlpha="0.4" />
+
+    <!-- Status LED - top (green = running) -->
+    <path
+        android:fillColor="#9ECE6A"
+        android:pathData="M68,40 C68.55,40 69,40.45 69,41 C69,41.55 68.55,42 68,42 C67.45,42 67,41.55 67,41 C67,40.45 67.45,40 68,40z" />
+
+    <!-- Status LED - middle (green = running) -->
+    <path
+        android:fillColor="#9ECE6A"
+        android:pathData="M68,52 C68.55,52 69,52.45 69,53 C69,53.55 68.55,54 68,54 C67.45,54 67,53.55 67,53 C67,52.45 67.45,52 68,52z" />
+
+    <!-- Heartbeat / pulse line across bottom unit -->
+    <path
+        android:pathData="M38,68 L46,68 L49,63 L52,72 L55,65 L58,68 L62,68 L65,63 L68,68 L70,68"
+        android:strokeWidth="2"
+        android:strokeColor="#5CCFE6"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+
 </vector>

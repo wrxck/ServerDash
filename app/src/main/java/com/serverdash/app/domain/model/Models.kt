@@ -28,6 +28,15 @@ sealed class AuthMethod {
     data class KeyBased(val privateKey: String, val passphrase: String = "") : AuthMethod()
 }
 
+data class FleetAppMetadata(
+    val domains: List<String> = emptyList(),
+    val composePath: String = "",
+    val appType: String = "",
+    val healthUrl: String? = null,
+    val port: Int? = null,
+    val containers: List<String> = emptyList()
+)
+
 data class Service(
     val id: Long = 0,
     val serverId: Long,
@@ -38,7 +47,8 @@ data class Service(
     val isPinned: Boolean = false,
     val subState: String = "",
     val description: String = "",
-    val group: String = ""
+    val group: String = "",
+    val fleetMetadata: FleetAppMetadata? = null
 ) {
     val effectiveGroup: String get() = group.ifBlank { type.name.lowercase().replaceFirstChar { it.uppercase() } }
 }
@@ -113,15 +123,25 @@ data class WebhookPayload(
     val severity: String
 )
 
-enum class ThemeMode { AUTO, LIGHT, DARK, TRUE_BLACK }
+enum class ThemeMode(val displayLabel: String) {
+    AUTO("Auto"), LIGHT("Light"), DARK("Dark"), TRUE_BLACK("True Black")
+}
 
 enum class DashboardLayout { GRID, LIST, COMPACT }
 enum class ServiceSortOrder { NAME, STATUS, TYPE, PINNED_FIRST }
 enum class MetricsDisplayMode { COMPACT, EXPANDED, HIDDEN }
 enum class LogFontSize { SMALL, MEDIUM, LARGE }
+enum class LockTimeout(val seconds: Long, val label: String) {
+    IMMEDIATE(0, "Immediately"),
+    THIRTY_SECONDS(30, "After 30 seconds"),
+    ONE_MINUTE(60, "After 1 minute"),
+    FIVE_MINUTES(300, "After 5 minutes")
+}
 
 data class AppPreferences(
     val themeMode: ThemeMode = ThemeMode.AUTO,
+    val selectedThemeId: String = "default_dark",
+    val undoDurationSeconds: Int = 5,
     val pollingIntervalSeconds: Int = 10,
     val brightnessOverride: Float = -1f,
     val keepScreenOn: Boolean = true,
@@ -167,7 +187,32 @@ data class AppPreferences(
     // Data
     val metricsRetentionHours: Int = 24,
     val maxServicesDisplayed: Int = 0, // 0 = unlimited
-    val hideUnknownServices: Boolean = false
+    val hideUnknownServices: Boolean = false,
+    // plugins
+    val disabledPlugins: Set<String> = emptySet(),
+    // Privacy / Streaming mode
+    val streamingModeEnabled: Boolean = false,
+    val privacyFilterIps: Boolean = true,
+    val privacyFilterPorts: Boolean = true,
+    val privacyFilterEmails: Boolean = true,
+    val privacyFilterHostnames: Boolean = true,
+    val privacyFilterPaths: Boolean = true,
+    val privacyFilterSsh: Boolean = true,
+    val privacyFilterTokens: Boolean = true,
+    val privacyFilterPasswords: Boolean = true,
+    val privacyFilterServiceNames: Boolean = false,
+    val privacyRedactedServiceNames: Set<String> = emptySet(),
+    val privacyCustomPatterns: Set<String> = emptySet(),
+    val privacyReplacementText: String = "[REDACTED]",
+    // Fonts
+    val headerFont: String = "JetBrains Mono",
+    val bodyFont: String = "JetBrains Mono",
+    val codeFont: String = "JetBrains Mono",
+    // Cache
+    val cacheTtlSeconds: Int = 300, // 5 minutes default
+    // App Lock
+    val appLockEnabled: Boolean = false,
+    val appLockTimeout: LockTimeout = LockTimeout.IMMEDIATE
 )
 
 data class ConnectionState(

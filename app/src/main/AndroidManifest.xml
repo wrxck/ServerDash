@@ -34,6 +34,19 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data
+                    android:scheme="serverdash"
+                    android:host="dashboard" />
+                <data
+                    android:scheme="serverdash"
+                    android:host="terminal" />
+                <data
+                    android:scheme="serverdash"
+                    android:host="claude_code" />
+            </intent-filter>
         </activity>
 
         <service
@@ -69,6 +82,45 @@
                 <action android:name="com.serverdash.app.GET_STATUS" />
                 <action android:name="com.serverdash.app.GET_LOGS" />
             </intent-filter>
+        </receiver>
+
+        <!-- Widget: Server Status (2x1) -->
+        <receiver
+            android:name=".widget.ServerStatusWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_server_status_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_server_status_info" />
+        </receiver>
+
+        <!-- Widget: Services Overview (2x2) -->
+        <receiver
+            android:name=".widget.ServicesWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_services_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_services_info" />
+        </receiver>
+
+        <!-- Widget: Quick Actions (2x1) -->
+        <receiver
+            android:name=".widget.QuickActionsWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_quick_actions_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_actions_info" />
         </receiver>
 
         <provider

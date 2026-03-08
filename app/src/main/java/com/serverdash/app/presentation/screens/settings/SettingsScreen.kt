@@ -1,5 +1,6 @@
 package com.serverdash.app.presentation.screens.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -9,8 +10,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.serverdash.app.core.privacy.redact
 import com.serverdash.app.domain.model.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -18,6 +24,9 @@ import com.serverdash.app.domain.model.*
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onDisconnected: () -> Unit,
+    onNavigateToSecurity: () -> Unit = {},
+    onNavigateToTheme: () -> Unit = {},
+    onNavigateToPrivacy: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -80,24 +89,130 @@ fun SettingsScreen(
                 SectionHeader("Server")
                 state.serverConfig?.let { config ->
                     ListItem(
-                        headlineContent = { Text(config.label.ifBlank { config.host }) },
-                        supportingContent = { Text("${config.username}@${config.host}:${config.port}") },
+                        headlineContent = { Text(redact(config.label.ifBlank { config.host })) },
+                        supportingContent = { Text(redact("${config.username}@${config.host}:${config.port}")) },
                         leadingContent = { Icon(Icons.Default.Dns, null) }
                     )
+                }
+            }
+
+            // ── Security ──
+            item {
+                SectionDivider()
+                SectionHeader("Security")
+                ListItem(
+                    headlineContent = { Text("Your Data") },
+                    supportingContent = { Text("Encryption, stored data, privacy") },
+                    leadingContent = { Icon(Icons.Default.Shield, null) },
+                    trailingContent = { Icon(Icons.Default.ChevronRight, null) },
+                    modifier = Modifier.clickable { onNavigateToSecurity() }
+                )
+                ListItem(
+                    headlineContent = { Text("Streaming Mode") },
+                    supportingContent = { Text("Privacy filters for streaming and screen sharing") },
+                    leadingContent = { Icon(Icons.Default.VisibilityOff, null) },
+                    trailingContent = { Icon(Icons.Default.ChevronRight, null) },
+                    modifier = Modifier.clickable { onNavigateToPrivacy() }
+                )
+            }
+
+            // ── App Lock ──
+            item {
+                SectionDivider()
+                SectionHeader("App Lock")
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("App Lock", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Require authentication to open",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = state.preferences.appLockEnabled,
+                        onCheckedChange = { viewModel.onEvent(SettingsEvent.UpdateAppLockEnabled(it)) }
+                    )
+                }
+            }
+            if (state.preferences.appLockEnabled) {
+                item {
+                    var expanded by remember { mutableStateOf(false) }
+                    Column {
+                        Text("Lock Timeout", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(4.dp))
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = state.preferences.appLockTimeout.label,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                LockTimeout.entries.forEach { timeout ->
+                                    DropdownMenuItem(
+                                        text = { Text(timeout.label) },
+                                        onClick = {
+                                            viewModel.onEvent(SettingsEvent.UpdateAppLockTimeout(timeout))
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
             // ── Display ──
             item { SectionDivider(); SectionHeader("Display") }
             item {
-                Text("Theme", style = MaterialTheme.typography.bodyMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ListItem(
+                    headlineContent = { Text("Theme Studio") },
+                    supportingContent = { Text("Browse, create and edit themes") },
+                    leadingContent = { Icon(Icons.Default.Palette, null) },
+                    trailingContent = { Icon(Icons.Default.ChevronRight, null) },
+                    modifier = Modifier.clickable { onNavigateToTheme() }
+                )
+            }
+            item {
+                Text("Quick Theme Mode", style = MaterialTheme.typography.bodyMedium)
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     ThemeMode.entries.forEach { mode ->
                         FilterChip(
                             selected = state.preferences.themeMode == mode,
                             onClick = { viewModel.onEvent(SettingsEvent.UpdateThemeMode(mode)) },
-                            label = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                            label = { Text(mode.displayLabel) }
                         )
+                    }
+                }
+            }
+            if (state.availableThemes.isNotEmpty()) {
+                item {
+                    Text("Theme", style = MaterialTheme.typography.bodyMedium)
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        state.availableThemes.forEach { theme ->
+                            FilterChip(
+                                selected = state.preferences.selectedThemeId == theme.id,
+                                onClick = { viewModel.onEvent(SettingsEvent.SelectTheme(theme.id)) },
+                                label = { Text(theme.name) }
+                            )
+                        }
                     }
                 }
             }
@@ -118,6 +233,16 @@ fun SettingsScreen(
                     range = 0.01f..1f,
                     formatValue = { "%.0f%%".format(it * 100) },
                     onValueChange = { viewModel.onEvent(SettingsEvent.UpdateBrightness(it)) }
+                )
+            }
+            item {
+                SliderSetting(
+                    title = "Undo Duration",
+                    value = state.preferences.undoDurationSeconds.toFloat(),
+                    range = 2f..15f,
+                    steps = 12,
+                    formatValue = { "${it.toInt()}s" },
+                    onValueChange = { viewModel.onEvent(SettingsEvent.UpdateUndoDuration(it.toInt())) }
                 )
             }
 
@@ -265,6 +390,16 @@ fun SettingsScreen(
                     steps = 23,
                     formatValue = { val h = it.toInt(); if (h < 24) "${h}h" else "${h / 24}d ${h % 24}h" },
                     onValueChange = { viewModel.onEvent(SettingsEvent.UpdateMetricsRetention(it.toInt())) }
+                )
+            }
+            item {
+                SliderSetting(
+                    title = "Screen Cache TTL",
+                    value = state.preferences.cacheTtlSeconds.toFloat(),
+                    range = 0f..600f,
+                    steps = 11,
+                    formatValue = { val s = it.toInt(); if (s == 0) "Disabled" else if (s < 60) "${s}s" else "${s / 60}m" },
+                    onValueChange = { viewModel.onEvent(SettingsEvent.UpdateCacheTtl(it.toInt())) }
                 )
             }
 
@@ -423,7 +558,48 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Kiosk Mode ──
+            // plugins
+            item { SectionDivider(); SectionHeader("Plugins") }
+            item {
+                Column {
+                    viewModel.pluginRegistry.getAll().forEach { plugin ->
+                        val detected = viewModel.pluginRegistry.isDetected(plugin.id)
+                        val disabled = state.preferences.disabledPlugins.contains(plugin.id)
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 0.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    plugin.icon, null, Modifier.size(24.dp),
+                                    tint = if (detected) MaterialTheme.colorScheme.primary
+                                           else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text(plugin.displayName, style = MaterialTheme.typography.bodyLarge)
+                                    Text(
+                                        if (detected) plugin.description else "Not detected on server",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Switch(
+                                checked = detected && !disabled,
+                                onCheckedChange = { viewModel.onEvent(SettingsEvent.TogglePlugin(plugin.id)) },
+                                enabled = detected
+                            )
+                        }
+                    }
+                }
+            }
+
+            // kiosk mode
             item { SectionDivider(); SectionHeader("Kiosk Mode") }
             item {
                 SwitchSetting("Enable Kiosk Mode", state.preferences.kioskMode) {
@@ -433,6 +609,202 @@ fun SettingsScreen(
             item {
                 SwitchSetting("Auto-start on Boot", state.preferences.autoStartOnBoot) {
                     viewModel.onEvent(SettingsEvent.UpdateAutoStart(it))
+                }
+            }
+
+            // ── About & Updates ──
+            item { SectionDivider(); SectionHeader("About & Updates") }
+            item {
+                val uriHandler = LocalUriHandler.current
+                val updateState = state.updateState
+
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("ServerDash", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "v${state.currentVersion}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                Icons.Default.Info,
+                                null,
+                                Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        // Check for Updates button
+                        if (updateState.isChecking) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Checking for updates...", style = MaterialTheme.typography.bodyMedium)
+                            }
+                        } else if (updateState.latestVersion == null) {
+                            OutlinedButton(
+                                onClick = { viewModel.onEvent(SettingsEvent.CheckForUpdates) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Update, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Check for Updates")
+                            }
+                        }
+
+                        // Error state
+                        if (updateState.error != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Card(
+                                Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                )
+                            ) {
+                                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Warning,
+                                        null,
+                                        Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        updateState.error,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+                        }
+
+                        // Update result
+                        if (updateState.latestVersion != null) {
+                            Spacer(Modifier.height(12.dp))
+                            HorizontalDivider()
+                            Spacer(Modifier.height(12.dp))
+
+                            if (updateState.isUpdateAvailable) {
+                                Card(
+                                    Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                                    )
+                                ) {
+                                    Column(Modifier.padding(12.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.NewReleases,
+                                                null,
+                                                Modifier.size(20.dp),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                "Update Available: ${updateState.latestVersion}",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.CheckCircle,
+                                        null,
+                                        Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "You are on the latest version (${updateState.latestVersion})",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+
+                            // Release notes preview
+                            if (!updateState.releaseNotes.isNullOrBlank()) {
+                                Spacer(Modifier.height(8.dp))
+                                Text("Release Notes", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    updateState.releaseNotes.take(500) + if (updateState.releaseNotes.length > 500) "..." else "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 10,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            // APK assets
+                            if (updateState.apkAssets.isNotEmpty()) {
+                                Spacer(Modifier.height(8.dp))
+                                updateState.apkAssets.filter { it.name.endsWith(".apk") }.forEach { asset ->
+                                    val sizeStr = when {
+                                        asset.size >= 1_048_576 -> "%.1f MB".format(asset.size / 1_048_576.0)
+                                        asset.size >= 1024 -> "%.0f KB".format(asset.size / 1024.0)
+                                        asset.size > 0 -> "${asset.size} B"
+                                        else -> ""
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            try { uriHandler.openUri(asset.downloadUrl) } catch (_: Exception) { }
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Default.Download, null, Modifier.size(18.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Download ${asset.name}")
+                                        if (sizeStr.isNotBlank()) {
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("($sizeStr)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
+
+                            // SHA-256 hashes
+                            if (!updateState.apkHashes.isNullOrBlank()) {
+                                Spacer(Modifier.height(8.dp))
+                                Text("SHA-256", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    updateState.apkHashes,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            // Re-check button
+                            Spacer(Modifier.height(8.dp))
+                            TextButton(
+                                onClick = { viewModel.onEvent(SettingsEvent.CheckForUpdates) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Refresh, null, Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Check Again")
+                            }
+                        }
+                    }
                 }
             }
 

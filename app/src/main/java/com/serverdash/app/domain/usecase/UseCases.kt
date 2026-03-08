@@ -6,9 +6,16 @@ import com.serverdash.app.domain.repository.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.serialization.json.*
 import javax.inject.Inject
 
 private const val TAG = "ServerDash"
+private val WHITESPACE_REGEX = "\\s+".toRegex()
+
+/** Shell-quote a string to prevent injection. Wraps in single quotes and escapes embedded quotes. */
+private fun shellQuote(s: String): String = "'" + s.replace("'", "'\\''") + "'"
+private val JOURNALCTL_TS_REGEX = Regex("""^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+\-]\d{4})\s+\S+\s+(.+)$""")
+private val DOCKER_TS_REGEX = Regex("""^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z?)\s+(.+)$""")
 
 class ConnectToServerUseCase @Inject constructor(
     private val serverRepository: ServerRepository,
@@ -72,7 +79,7 @@ class DiscoverServicesUseCase @Inject constructor(
         return output.lines()
             .filter { it.isNotBlank() }
             .mapNotNull { line ->
-                val parts = line.trim().split("\\s+".toRegex(), limit = 5)
+                val parts = line.trim().split(WHITESPACE_REGEX, limit = 5)
                 if (parts.size >= 4) {
                     val name = parts[0].removeSuffix(".service")
                     val activeState = parts[2]
@@ -141,14 +148,14 @@ class RefreshServiceStatusUseCase @Inject constructor(
             val sections = result.output.split("===SYSTEMCTL===", "===DOCKER===", "===METRICS===")
 
             val services = serviceRepository.getServices(serverId).toMutableList()
-            // Update statuses from current state
+            // Update statuses from current state and discover new services
             if (sections.size > 1) {
                 val systemctlOutput = sections[1].trim()
-                updateServiceStatuses(services, systemctlOutput, ServiceType.SYSTEMD)
+                updateServiceStatuses(services, systemctlOutput, ServiceType.SYSTEMD, serverId)
             }
             if (sections.size > 2) {
                 val dockerOutput = sections[2].trim()
-                updateServiceStatuses(services, dockerOutput, ServiceType.DOCKER)
+                updateServiceStatuses(services, dockerOutput, ServiceType.DOCKER, serverId)
             }
 
             serviceRepository.saveServices(services)
@@ -158,11 +165,12 @@ class RefreshServiceStatusUseCase @Inject constructor(
         }
     }
 
-    private fun updateServiceStatuses(services: MutableList<Service>, output: String, type: ServiceType) {
+    private fun updateServiceStatuses(services: MutableList<Service>, output: String, type: ServiceType, serverId: Long = 1L) {
         val statusMap = mutableMapOf<String, Pair<ServiceStatus, String>>()
+        val descriptionMap = mutableMapOf<String, String>()
         output.lines().filter { it.isNotBlank() }.forEach { line ->
             if (type == ServiceType.SYSTEMD) {
-                val parts = line.trim().split("\\s+".toRegex(), limit = 5)
+                val parts = line.trim().split(WHITESPACE_REGEX, limit = 5)
                 if (parts.size >= 4) {
                     val name = parts[0].removeSuffix(".service")
                     val status = when (parts[2]) {
@@ -172,6 +180,7 @@ class RefreshServiceStatusUseCase @Inject constructor(
                         else -> ServiceStatus.UNKNOWN
                     }
                     statusMap[name] = status to parts[3]
+                    if (parts.size >= 5) descriptionMap[name] = parts[4]
                 }
             } else {
                 val parts = line.split("\t", limit = 2)
@@ -188,11 +197,29 @@ class RefreshServiceStatusUseCase @Inject constructor(
             }
         }
 
+        // Update existing services
+        val existingNames = services.filter { it.type == type }.map { it.name }.toSet()
         services.forEachIndexed { index, service ->
             if (service.type == type) {
                 statusMap[service.name]?.let { (status, subState) ->
                     services[index] = service.copy(status = status, subState = subState)
                 }
+            }
+        }
+
+        // Add newly discovered services not already in the list
+        statusMap.forEach { (name, statusPair) ->
+            if (name !in existingNames) {
+                services.add(Service(
+                    serverId = serverId,
+                    name = name,
+                    displayName = name,
+                    type = type,
+                    status = statusPair.first,
+                    subState = statusPair.second,
+                    description = descriptionMap[name] ?: "",
+                    group = if (type == ServiceType.DOCKER) "Docker" else "System"
+                ))
             }
         }
     }
@@ -202,11 +229,11 @@ class ControlServiceUseCase @Inject constructor(
     private val sshRepository: SshRepository
 ) {
     suspend operator fun invoke(service: Service, action: ServiceAction): Result<CommandResult> {
-        val command = when (service.type) {
-            ServiceType.SYSTEMD -> sshRepository.wrapWithSudo("systemctl ${action.command} ${service.name}")
-            ServiceType.DOCKER -> "docker ${action.command} ${service.name}"
+        val safeName = shellQuote(service.name)
+        return when (service.type) {
+            ServiceType.SYSTEMD -> sshRepository.executeSudoCommand("systemctl ${action.command} $safeName")
+            ServiceType.DOCKER -> sshRepository.executeCommand("docker ${action.command} $safeName")
         }
-        return sshRepository.executeCommand(command)
     }
 }
 
@@ -219,17 +246,30 @@ enum class ServiceAction(val command: String) {
 class GetServiceLogsUseCase @Inject constructor(
     private val sshRepository: SshRepository
 ) {
-    suspend operator fun invoke(service: Service, lines: Int = 100): Result<List<ServiceLog>> {
+    enum class LogScope {
+        SERVICE_ONLY,   // journalctl -u service
+        ALL_SYSTEM,     // journalctl (all system logs)
+        KERNEL,         // journalctl -k (kernel logs)
+        USER_UNIT       // journalctl --user-unit service
+    }
+
+    suspend operator fun invoke(service: Service, lines: Int = 100, scope: LogScope = LogScope.SERVICE_ONLY): Result<List<ServiceLog>> {
         return when (service.type) {
-            ServiceType.SYSTEMD -> fetchSystemdLogs(service, lines)
+            ServiceType.SYSTEMD -> fetchSystemdLogs(service, lines, scope)
             ServiceType.DOCKER -> fetchDockerLogs(service, lines)
         }
     }
 
-    private suspend fun fetchSystemdLogs(service: Service, lines: Int): Result<List<ServiceLog>> {
+    private suspend fun fetchSystemdLogs(service: Service, lines: Int, scope: LogScope): Result<List<ServiceLog>> {
+        val safeName = shellQuote(service.name)
+        val baseCmd = when (scope) {
+            LogScope.SERVICE_ONLY -> "journalctl -u $safeName"
+            LogScope.ALL_SYSTEM -> "journalctl"
+            LogScope.KERNEL -> "journalctl -k"
+            LogScope.USER_UNIT -> "journalctl --user-unit $safeName"
+        }
         // Try with sudo first to get full logs (all users + system)
-        val sudoCommand = sshRepository.wrapWithSudo("journalctl -u ${service.name} -n $lines --no-pager -o short-iso") + " 2>&1"
-        val sudoResult = sshRepository.executeCommand(sudoCommand)
+        val sudoResult = sshRepository.executeSudoCommand("$baseCmd -n $lines --no-pager -o short-iso 2>&1")
         val sudoOutput = sudoResult.getOrNull()?.output ?: ""
         val sudoLogs = parseJournalctlOutput(sudoOutput)
 
@@ -237,7 +277,7 @@ class GetServiceLogsUseCase @Inject constructor(
         if (sudoLogs.isNotEmpty()) return Result.success(sudoLogs)
 
         // If sudo failed (no password, wrong password, etc.), fall back to non-sudo
-        val command = "journalctl -u ${service.name} -n $lines --no-pager -o short-iso 2>&1"
+        val command = "$baseCmd -n $lines --no-pager -o short-iso 2>&1"
         val result = sshRepository.executeCommand(command)
         return result.map { cmdResult ->
             val logs = parseJournalctlOutput(cmdResult.output)
@@ -256,7 +296,7 @@ class GetServiceLogsUseCase @Inject constructor(
             .filter { it.isNotBlank() && !it.startsWith("--") }
             .mapNotNull { line ->
                 // short-iso format: 2024-01-15T10:30:45+0000 hostname service[pid]: message
-                val isoMatch = Regex("""^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+\-]\d{4})\s+\S+\s+(.+)$""").find(line)
+                val isoMatch = JOURNALCTL_TS_REGEX.find(line)
                 if (isoMatch != null) {
                     ServiceLog(
                         timestamp = isoMatch.groupValues[1],
@@ -269,7 +309,7 @@ class GetServiceLogsUseCase @Inject constructor(
     }
 
     private suspend fun fetchDockerLogs(service: Service, lines: Int): Result<List<ServiceLog>> {
-        val command = "docker logs --tail $lines ${service.name} 2>&1"
+        val command = "docker logs --tail $lines ${shellQuote(service.name)} 2>&1"
         var result = sshRepository.executeCommand(command)
         // Retry once after a brief delay if not connected (reconnection may be in progress)
         if (result.isFailure && result.exceptionOrNull()?.message?.contains("Not connected") == true) {
@@ -282,7 +322,7 @@ class GetServiceLogsUseCase @Inject constructor(
             } else {
                 cmdResult.output.lines().filter { it.isNotBlank() }.map { line ->
                     // Docker logs often have timestamps at the start
-                    val tsMatch = Regex("""^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z?)\s+(.+)$""").find(line)
+                    val tsMatch = DOCKER_TS_REGEX.find(line)
                     if (tsMatch != null) {
                         ServiceLog(timestamp = tsMatch.groupValues[1], message = tsMatch.groupValues[2])
                     } else {
@@ -329,7 +369,7 @@ class FetchSystemMetricsUseCase @Inject constructor(
 
         // Parse /proc/loadavg
         if (sections.isNotEmpty()) {
-            val parts = sections[0].split("\\s+".toRegex())
+            val parts = sections[0].split(WHITESPACE_REGEX)
             if (parts.size >= 3) {
                 loadAvg1 = parts[0].toFloatOrNull() ?: 0f
                 loadAvg5 = parts[1].toFloatOrNull() ?: 0f
@@ -342,7 +382,7 @@ class FetchSystemMetricsUseCase @Inject constructor(
             val memLines = sections[1].lines()
             val memLine = memLines.find { it.startsWith("Mem:") }
             if (memLine != null) {
-                val parts = memLine.split("\\s+".toRegex())
+                val parts = memLine.split(WHITESPACE_REGEX)
                 if (parts.size >= 3) {
                     memTotal = parts[1].toLongOrNull() ?: 0
                     memUsed = parts[2].toLongOrNull() ?: 0
@@ -354,7 +394,7 @@ class FetchSystemMetricsUseCase @Inject constructor(
         if (sections.size > 2) {
             val dfLines = sections[2].lines()
             if (dfLines.size >= 2) {
-                val parts = dfLines[1].split("\\s+".toRegex())
+                val parts = dfLines[1].split(WHITESPACE_REGEX)
                 if (parts.size >= 4) {
                     diskTotal = parts[1].toLongOrNull() ?: 0
                     diskUsed = parts[2].toLongOrNull() ?: 0
@@ -364,7 +404,7 @@ class FetchSystemMetricsUseCase @Inject constructor(
 
         // Parse uptime
         if (sections.size > 3) {
-            val uptimeParts = sections[3].split("\\s+".toRegex())
+            val uptimeParts = sections[3].split(WHITESPACE_REGEX)
             uptime = uptimeParts[0].toDoubleOrNull()?.toLong() ?: 0
         }
 
@@ -488,7 +528,7 @@ class DetectClaudeCodeUsersUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(users: List<SystemUser>): Result<List<SystemUser>> {
         if (users.isEmpty()) return Result.success(emptyList())
-        // Check each user individually with sudo to handle restricted home dirs like /root
+        // check each user individually with sudo to handle restricted home dirs like /root
         val results = mutableMapOf<String, Boolean>()
         for (user in users) {
             val checkCmd = sshRepository.wrapWithSudo("test -d '${user.homeDirectory}/.claude'")
@@ -499,5 +539,64 @@ class DetectClaudeCodeUsersUseCase @Inject constructor(
         return Result.success(users.map { user ->
             user.copy(hasClaudeCode = results[user.username] == true)
         })
+    }
+}
+
+class FleetDiscoverServicesUseCase @Inject constructor(
+    private val serviceRepository: ServiceRepository,
+    private val sshRepository: SshRepository
+) {
+    suspend operator fun invoke(serverId: Long): Result<List<Service>> {
+        return try {
+            val result = sshRepository.executeSudoCommand("fleet list --json 2>/dev/null")
+            val output = result.getOrNull()?.output?.trim()
+                ?: return Result.failure(Exception("Fleet not available"))
+            val services = parseFleetStatus(output, serverId)
+            serviceRepository.saveServices(services)
+            Result.success(services)
+        } catch (e: Exception) { Result.failure(e) }
+    }
+
+    private fun parseFleetStatus(jsonStr: String, serverId: Long): List<Service> {
+        return try {
+            val root = Json.parseToJsonElement(jsonStr).jsonObject
+            val apps = root["apps"]?.jsonArray ?: return emptyList()
+            apps.mapNotNull { element ->
+                val app = element.jsonObject
+                val name = app["name"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                val systemdState = app["systemd"]?.jsonObject?.get("active")?.jsonPrimitive?.content ?: "unknown"
+                val containers = app["containers"]?.jsonArray?.map { c ->
+                    c.jsonObject["name"]?.jsonPrimitive?.content ?: ""
+                } ?: emptyList()
+                val containerUp = containers.isNotEmpty() && app["containers"]?.jsonArray?.any { c ->
+                    c.jsonObject["state"]?.jsonPrimitive?.content == "running"
+                } ?: false
+                val status = when {
+                    containerUp -> ServiceStatus.RUNNING
+                    systemdState == "active" -> ServiceStatus.RUNNING
+                    systemdState == "failed" -> ServiceStatus.FAILED
+                    else -> ServiceStatus.STOPPED
+                }
+                val domains = app["domains"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+                Service(
+                    serverId = serverId,
+                    name = name,
+                    displayName = app["displayName"]?.jsonPrimitive?.content ?: name,
+                    type = ServiceType.DOCKER,
+                    status = status,
+                    subState = systemdState,
+                    description = domains.joinToString(", "),
+                    group = app["type"]?.jsonPrimitive?.content ?: "service",
+                    fleetMetadata = FleetAppMetadata(
+                        domains = domains,
+                        composePath = app["composePath"]?.jsonPrimitive?.content ?: "",
+                        appType = app["type"]?.jsonPrimitive?.content ?: "service",
+                        healthUrl = app["health"]?.jsonObject?.get("url")?.jsonPrimitive?.content,
+                        port = app["port"]?.jsonPrimitive?.intOrNull,
+                        containers = containers
+                    )
+                )
+            }
+        } catch (e: Exception) { emptyList() }
     }
 }

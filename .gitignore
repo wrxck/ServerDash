@@ -8,3 +8,23 @@
 /captures
 .externalNativeBuild
 .cxx
+
+# Signing
+*.keystore
+*.jks
+*.p12
+signing.properties
+keystore.properties
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Google services
+google-services.json
+
+# IDE
+.vscode/
+*.swp
+*.swo

@@ -10,8 +10,10 @@ import net.schmizz.sshj.common.IOUtils
 import net.schmizz.sshj.connection.channel.direct.Session
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
 import net.schmizz.sshj.userauth.keyprovider.KeyProvider
+import net.schmizz.sshj.connection.channel.direct.Session.Shell
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.io.OutputStream
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -97,8 +99,8 @@ class SshSessionManager @Inject constructor() {
                     val session: Session = ssh.startSession()
                     try {
                         val cmd = session.exec(command)
-                        val output = IOUtils.readFully(cmd.inputStream).toString(Charsets.UTF_8)
-                        val error = IOUtils.readFully(cmd.errorStream).toString(Charsets.UTF_8)
+                        val output = String(IOUtils.readFully(cmd.inputStream).toByteArray(), Charsets.UTF_8)
+                        val error = String(IOUtils.readFully(cmd.errorStream).toByteArray(), Charsets.UTF_8)
                         cmd.join(timeoutSeconds, TimeUnit.SECONDS)
                         val exitCode = cmd.exitStatus ?: -1
                         Result.success(CommandResult(exitCode = exitCode, output = output, error = error))
@@ -109,6 +111,47 @@ class SshSessionManager @Inject constructor() {
                     handleConnectionError(e)
                     Result.failure(e)
                 }
+            }
+        }
+    }
+
+    suspend fun executeSudoCommand(command: String, timeoutSeconds: Long = 30): Result<CommandResult> {
+        val password = currentConfig?.sudoPassword ?: ""
+        if (password.isEmpty()) {
+            // Try without password first (user may have NOPASSWD in sudoers)
+            val result = executeCommand("sudo -n $command 2>&1", timeoutSeconds)
+            val output = result.getOrNull()?.output ?: ""
+            // If sudo requires a password we don't have, fall back to non-sudo
+            if (output.contains("password is required") || output.contains("a terminal is required")) {
+                return executeCommand(command, timeoutSeconds)
+            }
+            return result
+        }
+        // Use echo piped to sudo -S via sh -c for reliable password delivery.
+        // This avoids SSHJ stdin timing issues with sudo -S reading from stdin directly.
+        val escaped = password.replace("'", "'\\''")
+        val wrappedCmd = "sh -c 'echo '\"'\"'${escaped}'\"'\"' | sudo -S -p \"\" $command 2>&1; echo \"===SUDO_EXIT=\$?===\"'"
+        val result = executeCommand(wrappedCmd, timeoutSeconds)
+        return result.map { cmdResult ->
+            val fullOutput = cmdResult.output
+            // Check for sudo auth failure in the combined output
+            if (fullOutput.contains("incorrect password attempt") ||
+                fullOutput.contains("Sorry, try again") ||
+                fullOutput.contains("is not in the sudoers file")) {
+                CommandResult(
+                    exitCode = 1,
+                    output = "",
+                    error = "Sudo authentication failed. Check your sudo password in Settings."
+                )
+            } else {
+                // Strip the exit code marker and password prompt noise
+                val cleaned = fullOutput
+                    .replace(Regex("\\[sudo\\] password for \\w+:\\s*"), "")
+                    .replace(Regex("===SUDO_EXIT=\\d+===\\s*$"), "")
+                    .trim()
+                val exitMatch = Regex("===SUDO_EXIT=(\\d+)===").find(fullOutput)
+                val realExit = exitMatch?.groupValues?.get(1)?.toIntOrNull() ?: cmdResult.exitCode
+                CommandResult(exitCode = realExit, output = cleaned, error = cmdResult.error)
             }
         }
     }
@@ -135,7 +178,7 @@ class SshSessionManager @Inject constructor() {
                 val sftp = ssh.newSFTPClient()
                 try {
                     val file = sftp.open(path)
-                    val content = IOUtils.readFully(file.RemoteFileInputStream()).toString(Charsets.UTF_8)
+                    val content = String(IOUtils.readFully(file.RemoteFileInputStream()).toByteArray(), Charsets.UTF_8)
                     file.close()
                     Result.success(content)
                 } finally {
@@ -166,6 +209,62 @@ class SshSessionManager @Inject constructor() {
         }
     }
 
+    /**
+     * Start an interactive PTY shell session for running TUI apps like `claude`.
+     * Returns an InteractiveSession that allows reading output and writing input.
+     */
+    suspend fun startInteractiveShell(
+        cols: Int = 120,
+        rows: Int = 40,
+        initialCommand: String? = null
+    ): Result<InteractiveSession> = withContext(Dispatchers.IO) {
+        val ssh = client ?: return@withContext Result.failure(IllegalStateException("Not connected"))
+        try {
+            val session = ssh.startSession()
+            session.allocatePTY("xterm-256color", cols, rows, 0, 0, emptyMap())
+            val shell = session.startShell()
+            // Send initial command if provided
+            if (initialCommand != null) {
+                shell.outputStream.write("$initialCommand\n".toByteArray())
+                shell.outputStream.flush()
+            }
+            Result.success(InteractiveSession(session, shell))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    class InteractiveSession(
+        private val session: Session,
+        private val shell: Shell
+    ) {
+        val inputStream get() = shell.inputStream
+        val outputStream: OutputStream get() = shell.outputStream
+
+        fun write(data: String) {
+            outputStream.write(data.toByteArray())
+            outputStream.flush()
+        }
+
+        fun write(data: ByteArray) {
+            outputStream.write(data)
+            outputStream.flush()
+        }
+
+        fun resize(cols: Int, rows: Int) {
+            try {
+                shell.changeWindowDimensions(cols, rows, 0, 0)
+            } catch (_: Exception) { }
+        }
+
+        fun close() {
+            try { shell.close() } catch (_: Exception) { }
+            try { session.close() } catch (_: Exception) { }
+        }
+
+        fun isOpen(): Boolean = session.isOpen
+    }
+
     fun isConnected(): Boolean = client?.isConnected == true
 
     fun getConnectedUsername(): String? = currentConfig?.username
@@ -174,21 +273,14 @@ class SshSessionManager @Inject constructor() {
         val password = currentConfig?.sudoPassword ?: ""
         return if (password.isNotEmpty()) {
             val escaped = password.replace("'", "'\\''")
-            "echo '${escaped}' | sudo -S $command"
+            "echo '${escaped}' | sudo -S -p '' $command"
         } else {
-            "sudo $command"
+            "sudo -n $command"
         }
     }
 
     suspend fun executeAsUser(command: String, username: String, timeoutSeconds: Long = 30): Result<CommandResult> {
-        val password = currentConfig?.sudoPassword ?: ""
-        val wrapped = if (password.isNotEmpty()) {
-            val escaped = password.replace("'", "'\\''")
-            "echo '${escaped}' | sudo -S -u $username $command"
-        } else {
-            "sudo -u $username $command"
-        }
-        return executeCommand(wrapped, timeoutSeconds)
+        return executeSudoCommand("-u $username $command", timeoutSeconds)
     }
 
     suspend fun readFileAsUser(path: String, username: String): Result<String> {
@@ -196,15 +288,7 @@ class SshSessionManager @Inject constructor() {
     }
 
     suspend fun writeFileAsUser(path: String, content: String, username: String): Result<Unit> {
-        val password = currentConfig?.sudoPassword ?: ""
-        val sudoPrefix = if (password.isNotEmpty()) {
-            val escaped = password.replace("'", "'\\''")
-            "echo '${escaped}' | sudo -S -u $username"
-        } else {
-            "sudo -u $username"
-        }
-        val command = "$sudoPrefix tee '$path' > /dev/null << 'SERVERDASH_EOF'\n$content\nSERVERDASH_EOF"
-        return executeCommand(command).map { }
+        return executeSudoCommand("-u $username tee '$path' > /dev/null << 'SERVERDASH_EOF'\n$content\nSERVERDASH_EOF").map { }
     }
 
     private fun startKeepAlive() {
