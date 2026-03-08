@@ -13,11 +13,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.serverdash.app.domain.repository.ServerRepository
+import com.serverdash.app.presentation.screens.about.AboutScreen
 import com.serverdash.app.presentation.screens.claudecode.ClaudeCodeScreen
 import com.serverdash.app.presentation.screens.dashboard.DashboardScreen
 import com.serverdash.app.presentation.screens.detail.ServiceDetailScreen
 import com.serverdash.app.data.encryption.EncryptionManager
 import com.serverdash.app.presentation.screens.fleet.FleetScreen
+import com.serverdash.app.presentation.screens.git.GitScreen
 import com.serverdash.app.presentation.screens.guardian.GuardianScreen
 import com.serverdash.app.presentation.screens.security.SecurityScreen
 import com.serverdash.app.presentation.screens.settings.SettingsScreen
@@ -43,6 +45,8 @@ sealed class Screen(val route: String) {
     data object Fleet : Screen("fleet")
     data object Guardian : Screen("guardian")
     data object Security : Screen("security")
+    data object Git : Screen("git")
+    data object About : Screen("about")
 }
 
 @HiltViewModel
@@ -99,7 +103,9 @@ fun ServerDashNavHost() {
                 onNavigateToClaudeCode = { navController.navigate(Screen.ClaudeCode.route) },
                 onNavigateToFleet = { navController.navigate(Screen.Fleet.route) },
                 onNavigateToGuardian = { navController.navigate(Screen.Guardian.route) },
+                onNavigateToGit = { navController.navigate(Screen.Git.route) },
                 onNavigateToSecurity = { navController.navigate(Screen.Security.route) },
+                onNavigateToAbout = { navController.navigate(Screen.About.route) },
                 encryptionManager = startupViewModel.encryptionManager
             )
         }
@@ -154,6 +160,18 @@ fun ServerDashNavHost() {
 
         composable(Screen.Security.route) {
             SecurityScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Git.route) {
+            GitScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.About.route) {
+            AboutScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

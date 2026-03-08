@@ -37,7 +37,9 @@ fun DashboardScreen(
     onNavigateToClaudeCode: () -> Unit = {},
     onNavigateToFleet: () -> Unit = {},
     onNavigateToGuardian: () -> Unit = {},
+    onNavigateToGit: () -> Unit = {},
     onNavigateToSecurity: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
     encryptionManager: EncryptionManager? = null,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
@@ -123,6 +125,9 @@ fun DashboardScreen(
                             Icon(Icons.Default.SmartToy, "Claude Code")
                         }
                     }
+                    IconButton(onClick = onNavigateToGit) {
+                        Icon(Icons.Default.Code, "Git")
+                    }
                     IconButton(onClick = onNavigateToTerminal) {
                         Icon(Icons.Default.Terminal, "Terminal")
                     }
@@ -149,6 +154,11 @@ fun DashboardScreen(
                                 }
                             )
                         }
+                        DropdownMenuItem(
+                            text = { Text("About") },
+                            onClick = { showMenu = false; onNavigateToAbout() },
+                            leadingIcon = { Icon(Icons.Default.Info, null) }
+                        )
                     }
                 }
             )
