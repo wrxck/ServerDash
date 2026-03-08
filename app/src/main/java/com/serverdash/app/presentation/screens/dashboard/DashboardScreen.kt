@@ -93,6 +93,27 @@ fun DashboardScreen(
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, "Settings")
                     }
+                    var showMenu by remember { mutableStateOf(false) }
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, "More options")
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        if (state.fleetAvailable) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(if (state.showNonFleetServices) "Hide system services"
+                                         else "Show system services")
+                                },
+                                onClick = {
+                                    viewModel.onEvent(DashboardEvent.ToggleShowNonFleetServices)
+                                    showMenu = false
+                                }
+                            )
+                        }
+                    }
                 }
             )
         }
@@ -111,6 +132,28 @@ fun DashboardScreen(
                         AssistChip(
                             onClick = { },
                             label = { Text(id.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+            }
+
+            // fleet info banner
+            if (!state.fleetAvailable && state.services.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Info, null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Install Fleet CLI for enhanced service management",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
