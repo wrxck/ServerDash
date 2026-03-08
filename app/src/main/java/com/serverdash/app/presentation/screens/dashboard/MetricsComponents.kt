@@ -75,14 +75,20 @@ fun MetricsCardsRow(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        val errorColor = MaterialTheme.colorScheme.error
+        val warningColor = MaterialTheme.colorScheme.secondary
+        val cpuOk = MaterialTheme.colorScheme.primary
+        val memOk = MaterialTheme.colorScheme.tertiary
+        val diskOk = MaterialTheme.colorScheme.secondary
+
         MetricCardWithChart(
             label = "CPU",
             value = "%.0f%%".format(metrics.cpuUsage),
             chartValues = history.takeLast(30).map { it.cpuUsage },
             chartColor = when {
-                metrics.cpuUsage > 80 -> Color(0xFFEF5350)
-                metrics.cpuUsage > 50 -> Color(0xFFFFA726)
-                else -> Color(0xFF66BB6A)
+                metrics.cpuUsage > 80 -> errorColor
+                metrics.cpuUsage > 50 -> warningColor
+                else -> cpuOk
             },
             onClick = { viewModel.onEvent(DashboardEvent.OpenMetricDetail(MetricDetailType.CPU)) },
             modifier = Modifier.weight(1f)
@@ -92,9 +98,9 @@ fun MetricsCardsRow(
             value = "%.0f%%".format(metrics.memoryUsagePercent),
             chartValues = history.takeLast(30).map { it.memoryUsagePercent },
             chartColor = when {
-                metrics.memoryUsagePercent > 80 -> Color(0xFFEF5350)
-                metrics.memoryUsagePercent > 50 -> Color(0xFFFFA726)
-                else -> Color(0xFF5CCFE6)
+                metrics.memoryUsagePercent > 80 -> errorColor
+                metrics.memoryUsagePercent > 50 -> warningColor
+                else -> memOk
             },
             onClick = { viewModel.onEvent(DashboardEvent.OpenMetricDetail(MetricDetailType.MEMORY)) },
             modifier = Modifier.weight(1f)
@@ -104,9 +110,9 @@ fun MetricsCardsRow(
             value = "%.0f%%".format(metrics.diskUsagePercent),
             chartValues = history.takeLast(30).map { it.diskUsagePercent },
             chartColor = when {
-                metrics.diskUsagePercent > 80 -> Color(0xFFEF5350)
-                metrics.diskUsagePercent > 50 -> Color(0xFFFFA726)
-                else -> Color(0xFFCBB2F0)
+                metrics.diskUsagePercent > 80 -> errorColor
+                metrics.diskUsagePercent > 50 -> warningColor
+                else -> diskOk
             },
             onClick = { viewModel.onEvent(DashboardEvent.OpenMetricDetail(MetricDetailType.DISK)) },
             modifier = Modifier.weight(1f)
@@ -233,7 +239,7 @@ private fun CpuDetailView(state: DashboardUiState, viewModel: DashboardViewModel
                     SparklineChart(
                         values = history.map { it.cpuUsage },
                         modifier = Modifier.fillMaxWidth().height(120.dp),
-                        lineColor = Color(0xFF66BB6A)
+                        lineColor = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -323,7 +329,7 @@ private fun MemoryDetailView(state: DashboardUiState, viewModel: DashboardViewMo
                     SparklineChart(
                         values = history.map { it.memoryUsagePercent },
                         modifier = Modifier.fillMaxWidth().height(120.dp),
-                        lineColor = Color(0xFF5CCFE6)
+                        lineColor = MaterialTheme.colorScheme.tertiary
                     )
                 }
             }
@@ -380,7 +386,7 @@ private fun DiskDetailView(state: DashboardUiState, viewModel: DashboardViewMode
                     SparklineChart(
                         values = history.map { it.diskUsagePercent },
                         modifier = Modifier.fillMaxWidth().height(120.dp),
-                        lineColor = Color(0xFFCBB2F0)
+                        lineColor = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
@@ -475,14 +481,16 @@ private fun ProcessRow(process: ProcessInfo, viewModel: DashboardViewModel) {
         )
     }
 
+    val errorColor = MaterialTheme.colorScheme.error
+    val warningColor = MaterialTheme.colorScheme.secondary
     val cpuColor = when {
-        process.cpuPercent > 50 -> Color(0xFFEF5350)
-        process.cpuPercent > 10 -> Color(0xFFFFA726)
+        process.cpuPercent > 50 -> errorColor
+        process.cpuPercent > 10 -> warningColor
         else -> MaterialTheme.colorScheme.onSurface
     }
     val memColor = when {
-        process.memPercent > 20 -> Color(0xFFEF5350)
-        process.memPercent > 5 -> Color(0xFFFFA726)
+        process.memPercent > 20 -> errorColor
+        process.memPercent > 5 -> warningColor
         else -> MaterialTheme.colorScheme.onSurface
     }
 
