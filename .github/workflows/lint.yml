@@ -59,6 +59,7 @@ jobs:
         run: |
           java -jar detekt-cli/detekt-cli-1.23.7/lib/detekt-cli-1.23.7-all.jar \
             --input app/src \
+            --config detekt.yml \
             --build-upon-default-config \
             --report sarif:build/reports/detekt.sarif
         continue-on-error: true

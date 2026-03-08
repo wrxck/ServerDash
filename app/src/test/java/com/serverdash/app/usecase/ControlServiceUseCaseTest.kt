@@ -30,7 +30,7 @@ class ControlServiceUseCaseTest {
 
         useCase(service, ServiceAction.START)
 
-        coVerify { sshRepository.executeSudoCommand("systemctl start nginx") }
+        coVerify { sshRepository.executeSudoCommand("systemctl start 'nginx'") }
     }
 
     @Test
@@ -42,7 +42,7 @@ class ControlServiceUseCaseTest {
 
         useCase(service, ServiceAction.STOP)
 
-        coVerify { sshRepository.executeCommand("docker stop redis") }
+        coVerify { sshRepository.executeCommand("docker stop 'redis'") }
     }
 
     @Test
@@ -54,7 +54,7 @@ class ControlServiceUseCaseTest {
 
         useCase(service, ServiceAction.RESTART)
 
-        coVerify { sshRepository.executeSudoCommand("systemctl restart nginx") }
+        coVerify { sshRepository.executeSudoCommand("systemctl restart 'nginx'") }
     }
 
     @Test
