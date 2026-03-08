@@ -5,21 +5,25 @@ import androidx.biometric.BiometricManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.serverdash.app.data.encryption.EncryptionManager
-import com.serverdash.app.data.local.db.AlertDao
-import com.serverdash.app.data.local.db.MetricsDao
-import com.serverdash.app.data.local.db.ServiceDao
-import com.serverdash.app.data.local.db.TerminalHistoryDao
+import com.serverdash.app.data.local.db.*
+import com.serverdash.app.data.preferences.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
-enum class DataCategory(val label: String, val description: String) {
+enum class DataCategory(val label: String, val description: String, val sensitive: Boolean = false) {
+    SSH_CREDENTIALS("SSH Credentials", "Server host, port, username, and authentication method", sensitive = true),
+    SUDO_PASSWORD("Sudo Password", "Stored for service management commands", sensitive = true),
     TERMINAL_HISTORY("Terminal History", "Previously executed commands and their output"),
     METRICS_HISTORY("Metrics History", "CPU, memory, and disk usage snapshots"),
     ALERT_RULES("Alert Rules", "Custom monitoring rules and webhook URLs"),
     SERVICE_CACHE("Service Cache", "Cached service discovery data"),
+    APP_PREFERENCES("App Preferences", "Theme, layout, refresh intervals, and plugin toggles"),
     ALL_DATA("All App Data", "Remove everything and start fresh")
 }
 
@@ -34,6 +38,12 @@ data class SecurityIssue(
     val description: String,
     val fixLabel: String,
     val fixAction: SecurityEvent
+)
+
+data class DataViewItem(
+    val label: String,
+    val value: String,
+    val isSensitive: Boolean = false
 )
 
 data class SecurityUiState(
@@ -58,7 +68,13 @@ data class SecurityUiState(
     val issues: List<SecurityIssue> = emptyList(),
     // confirmation dialogs
     val showClearConfirmation: DataCategory? = null,
-    val clearSuccess: String? = null
+    val clearSuccess: String? = null,
+    // data viewing
+    val viewingCategory: DataCategory? = null,
+    val viewingData: List<DataViewItem> = emptyList(),
+    val viewingDataLoading: Boolean = false,
+    val pendingAuthCategory: DataCategory? = null,
+    val appLockEnabled: Boolean = false
 )
 
 sealed interface SecurityEvent {
@@ -71,6 +87,10 @@ sealed interface SecurityEvent {
     data object FixAll : SecurityEvent
     data object DismissSuccess : SecurityEvent
     data object RefreshData : SecurityEvent
+    data class ViewData(val category: DataCategory) : SecurityEvent
+    data object DismissDataView : SecurityEvent
+    data object AuthenticationSucceeded : SecurityEvent
+    data object AuthenticationCancelled : SecurityEvent
 }
 
 @HiltViewModel
@@ -80,7 +100,9 @@ class SecurityViewModel @Inject constructor(
     private val terminalHistoryDao: TerminalHistoryDao,
     private val metricsDao: MetricsDao,
     private val alertDao: AlertDao,
-    private val serviceDao: ServiceDao
+    private val serviceDao: ServiceDao,
+    private val serverConfigDao: ServerConfigDao,
+    private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
     private val biometricManager = BiometricManager.from(context)
@@ -88,8 +110,15 @@ class SecurityViewModel @Inject constructor(
     private val _state = MutableStateFlow(SecurityUiState())
     val state: StateFlow<SecurityUiState> = _state.asStateFlow()
 
+    private val dateFormat = SimpleDateFormat("dd MMM yyyy HH:mm:ss", Locale.getDefault())
+
     init {
         refreshAll()
+        viewModelScope.launch {
+            preferencesManager.preferences.collect { prefs ->
+                _state.update { it.copy(appLockEnabled = prefs.appLockEnabled) }
+            }
+        }
     }
 
     private fun refreshAll() {
@@ -315,6 +344,152 @@ class SecurityViewModel @Inject constructor(
             is SecurityEvent.RefreshData -> {
                 refreshAll()
             }
+            is SecurityEvent.ViewData -> {
+                val category = event.category
+                if (category.sensitive && _state.value.appLockEnabled) {
+                    _state.update { it.copy(pendingAuthCategory = category) }
+                } else {
+                    loadDataForCategory(category)
+                }
+            }
+            is SecurityEvent.DismissDataView -> {
+                _state.update { it.copy(viewingCategory = null, viewingData = emptyList()) }
+            }
+            is SecurityEvent.AuthenticationSucceeded -> {
+                val category = _state.value.pendingAuthCategory
+                _state.update { it.copy(pendingAuthCategory = null) }
+                if (category != null) {
+                    loadDataForCategory(category)
+                }
+            }
+            is SecurityEvent.AuthenticationCancelled -> {
+                _state.update { it.copy(pendingAuthCategory = null) }
+            }
+        }
+    }
+
+    private fun loadDataForCategory(category: DataCategory) {
+        _state.update { it.copy(viewingCategory = category, viewingData = emptyList(), viewingDataLoading = true) }
+        viewModelScope.launch {
+            val items = try {
+                when (category) {
+                    DataCategory.SSH_CREDENTIALS -> {
+                        val config = serverConfigDao.getConfig()
+                        if (config != null) {
+                            buildList {
+                                add(DataViewItem("Label", config.label.ifEmpty { config.host }))
+                                add(DataViewItem("Host", config.host))
+                                add(DataViewItem("Port", config.port.toString()))
+                                add(DataViewItem("Username", config.username))
+                                add(DataViewItem("Auth Type", config.authType))
+                                if (config.authType == "password" && config.password.isNotEmpty()) {
+                                    add(DataViewItem("Password", config.password, isSensitive = true))
+                                }
+                                if (config.authType == "key" && config.privateKey.isNotEmpty()) {
+                                    val keyPreview = if (config.privateKey.length > 80)
+                                        config.privateKey.take(40) + "..." + config.privateKey.takeLast(20)
+                                    else config.privateKey
+                                    add(DataViewItem("Private Key", keyPreview, isSensitive = true))
+                                }
+                                if (config.passphrase.isNotEmpty()) {
+                                    add(DataViewItem("Key Passphrase", config.passphrase, isSensitive = true))
+                                }
+                            }
+                        } else {
+                            listOf(DataViewItem("Status", "No server configured"))
+                        }
+                    }
+                    DataCategory.SUDO_PASSWORD -> {
+                        val config = serverConfigDao.getConfig()
+                        if (config != null && config.sudoPassword.isNotEmpty()) {
+                            listOf(DataViewItem("Sudo Password", config.sudoPassword, isSensitive = true))
+                        } else {
+                            listOf(DataViewItem("Status", "No sudo password stored"))
+                        }
+                    }
+                    DataCategory.TERMINAL_HISTORY -> {
+                        val entries = terminalHistoryDao.getRecent(100)
+                        if (entries.isEmpty()) {
+                            listOf(DataViewItem("Status", "No terminal history"))
+                        } else {
+                            entries.map { entry ->
+                                DataViewItem(
+                                    label = dateFormat.format(Date(entry.timestamp)),
+                                    value = "$ ${entry.command}\n${entry.output.take(200)}${if (entry.output.length > 200) "..." else ""}\nExit: ${entry.exitCode}"
+                                )
+                            }
+                        }
+                    }
+                    DataCategory.METRICS_HISTORY -> {
+                        val metrics = metricsDao.getRecent(50)
+                        if (metrics.isEmpty()) {
+                            listOf(DataViewItem("Status", "No metrics recorded"))
+                        } else {
+                            metrics.map { m ->
+                                val memPct = if (m.memoryTotal > 0) "%.1f%%".format(m.memoryUsed.toFloat() / m.memoryTotal * 100) else "N/A"
+                                val diskPct = if (m.diskTotal > 0) "%.1f%%".format(m.diskUsed.toFloat() / m.diskTotal * 100) else "N/A"
+                                DataViewItem(
+                                    label = dateFormat.format(Date(m.timestamp)),
+                                    value = "CPU: %.1f%% | RAM: %s | Disk: %s | Load: %.2f".format(
+                                        m.cpuUsage, memPct, diskPct, m.loadAvg1
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    DataCategory.ALERT_RULES -> {
+                        val rules = alertDao.getRules(1)
+                        if (rules.isEmpty()) {
+                            listOf(DataViewItem("Status", "No alert rules configured"))
+                        } else {
+                            rules.map { rule ->
+                                DataViewItem(
+                                    label = rule.name,
+                                    value = "${rule.conditionType}: ${rule.conditionValue}${if (rule.webhookUrl.isNotEmpty()) "\nWebhook: ${rule.webhookUrl}" else ""}${if (!rule.isEnabled) "\n(Disabled)" else ""}"
+                                )
+                            }
+                        }
+                    }
+                    DataCategory.SERVICE_CACHE -> {
+                        val services = serviceDao.getServices(1)
+                        if (services.isEmpty()) {
+                            listOf(DataViewItem("Status", "No cached services"))
+                        } else {
+                            services.map { svc ->
+                                DataViewItem(
+                                    label = svc.displayName,
+                                    value = "${svc.type.name} | ${svc.status.name}${if (svc.subState.isNotEmpty()) " (${svc.subState})" else ""}${if (svc.isPinned) " | Pinned" else ""}"
+                                )
+                            }
+                        }
+                    }
+                    DataCategory.APP_PREFERENCES -> {
+                        val prefs = preferencesManager.preferences.first()
+                        buildList {
+                            add(DataViewItem("Theme Mode", prefs.themeMode.displayLabel))
+                            add(DataViewItem("Selected Theme", prefs.selectedThemeId))
+                            add(DataViewItem("Polling Interval", "${prefs.pollingIntervalSeconds}s"))
+                            add(DataViewItem("Keep Screen On", prefs.keepScreenOn.toString()))
+                            add(DataViewItem("Dashboard Layout", prefs.dashboardLayout.name))
+                            add(DataViewItem("Notifications", prefs.notificationsEnabled.toString()))
+                            add(DataViewItem("App Lock", prefs.appLockEnabled.toString()))
+                            add(DataViewItem("Lock Timeout", prefs.appLockTimeout.name))
+                            add(DataViewItem("Terminal Font Size", "${prefs.terminalFontSize}sp"))
+                            add(DataViewItem("Metrics Retention", "${prefs.metricsRetentionHours}h"))
+                            add(DataViewItem("Streaming Mode", prefs.streamingModeEnabled.toString()))
+                            add(DataViewItem("Header Font", prefs.headerFont))
+                            add(DataViewItem("Body Font", prefs.bodyFont))
+                            if (prefs.disabledPlugins.isNotEmpty()) {
+                                add(DataViewItem("Disabled Plugins", prefs.disabledPlugins.joinToString(", ")))
+                            }
+                        }
+                    }
+                    DataCategory.ALL_DATA -> emptyList()
+                }
+            } catch (e: Exception) {
+                listOf(DataViewItem("Error", "Could not load data: ${e.message}"))
+            }
+            _state.update { it.copy(viewingData = items, viewingDataLoading = false) }
         }
     }
 
@@ -374,6 +549,11 @@ class SecurityViewModel @Inject constructor(
                                 serviceCacheCount = 0
                             )
                         }
+                    }
+                    DataCategory.SSH_CREDENTIALS,
+                    DataCategory.SUDO_PASSWORD,
+                    DataCategory.APP_PREFERENCES -> {
+                        // These are not clearable from here
                     }
                 }
                 refreshDatabaseInfo()

@@ -50,6 +50,14 @@ fun GitScreen(
             confirmButton = { TextButton(onClick = { viewModel.onEvent(GitEvent.DismissOperationOutput) }) { Text("OK") } }
         )
     }
+    if (state.showConflictViewer) {
+        ConflictViewerDialog(
+            filePath = state.conflictFilePath,
+            content = state.conflictFileContent,
+            onDismiss = { viewModel.onEvent(GitEvent.DismissConflict) },
+            onResolve = { resolution -> viewModel.onEvent(GitEvent.ResolveConflict(state.conflictFilePath, resolution)) }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -128,7 +136,7 @@ private fun RepoListView(state: GitUiState, viewModel: GitViewModel) {
                             Text(repo.name, style = MaterialTheme.typography.titleSmall)
                             if (repo.isDirty) {
                                 Spacer(Modifier.width(6.dp))
-                                Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFFF0B866)))
+                                Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.tertiary))
                             }
                         }
                         Text(repo.path, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -138,8 +146,8 @@ private fun RepoListView(state: GitUiState, viewModel: GitViewModel) {
                             Text(repo.currentBranch, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                             if (repo.aheadBehind.first > 0 || repo.aheadBehind.second > 0) {
                                 Spacer(Modifier.width(8.dp))
-                                if (repo.aheadBehind.first > 0) Text("+${repo.aheadBehind.first}", style = MaterialTheme.typography.labelSmall, color = Color(0xFF66BB6A))
-                                if (repo.aheadBehind.second > 0) Text("-${repo.aheadBehind.second}", style = MaterialTheme.typography.labelSmall, color = Color(0xFFEF5350))
+                                if (repo.aheadBehind.first > 0) Text("+${repo.aheadBehind.first}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                if (repo.aheadBehind.second > 0) Text("-${repo.aheadBehind.second}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
@@ -162,6 +170,7 @@ private fun RepoDetailView(state: GitUiState, viewModel: GitViewModel) {
             add("PRs")
             add("Issues")
         }
+        add("Activity")
     }
 
     // Action bar
@@ -180,9 +189,17 @@ private fun RepoDetailView(state: GitUiState, viewModel: GitViewModel) {
         }
     }
 
+    // Compute the actual tab index for Activity (always last)
+    val activityTabIndex = if (state.isGhAvailable) 5 else 3
+
     ScrollableTabRow(selectedTabIndex = state.activeTab, edgePadding = 0.dp) {
         tabs.forEachIndexed { index, title ->
-            Tab(selected = state.activeTab == index, onClick = { viewModel.onEvent(GitEvent.SelectTab(index)) }, text = { Text(title) })
+            // Map visual index to logical tab index
+            val tabIndex = when {
+                !state.isGhAvailable && index >= 3 -> activityTabIndex // Activity tab
+                else -> index
+            }
+            Tab(selected = state.activeTab == tabIndex, onClick = { viewModel.onEvent(GitEvent.SelectTab(tabIndex)) }, text = { Text(title) })
         }
     }
 
@@ -193,8 +210,9 @@ private fun RepoDetailView(state: GitUiState, viewModel: GitViewModel) {
             0 -> StatusTab(state, viewModel)
             1 -> BranchesTab(state, viewModel)
             2 -> LogTab(state, viewModel)
-            3 -> PrsTab(state, viewModel)
-            4 -> IssuesTab(state, viewModel)
+            3 -> if (state.isGhAvailable) PrsTab(state, viewModel) else ActivityTab(state)
+            4 -> if (state.isGhAvailable) IssuesTab(state, viewModel) else ActivityTab(state)
+            5 -> ActivityTab(state)
         }
     }
 }
@@ -209,7 +227,7 @@ private fun StatusTab(state: GitUiState, viewModel: GitViewModel) {
             item {
                 Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.CheckCircle, null, Modifier.size(48.dp), tint = Color(0xFF66BB6A))
+                        Icon(Icons.Default.CheckCircle, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(8.dp))
                         Text("Working tree clean", style = MaterialTheme.typography.titleMedium)
                     }
@@ -218,43 +236,60 @@ private fun StatusTab(state: GitUiState, viewModel: GitViewModel) {
         }
         if (status.staged.isNotEmpty()) {
             item {
-                FileChangeSection("Staged (${status.staged.size})", Color(0xFF66BB6A), status.staged,
+                FileChangeSection(
+                    title = "Staged (${status.staged.size})",
+                    accentColor = MaterialTheme.colorScheme.primary,
+                    files = status.staged,
+                    selectedFiles = state.selectedStagedFiles,
+                    onToggleFile = { path -> viewModel.onEvent(GitEvent.ToggleStagedFile(path)) },
                     onViewDiff = { viewModel.onEvent(GitEvent.ViewDiff(staged = true)) },
-                    onUnstage = { files -> viewModel.onEvent(GitEvent.UnstageFiles(files.map { it.path })) })
+                    onViewFileDiff = { path -> viewModel.onEvent(GitEvent.ViewFileDiff(path, staged = true)) },
+                    onUnstage = { files -> viewModel.onEvent(GitEvent.UnstageFiles(files.map { it.path })) },
+                    onUnstageSelected = {
+                        val selected = state.selectedStagedFiles.toList()
+                        if (selected.isNotEmpty()) viewModel.onEvent(GitEvent.UnstageFiles(selected))
+                    }
+                )
             }
         }
         if (status.unstaged.isNotEmpty()) {
             item {
-                FileChangeSection("Unstaged (${status.unstaged.size})", Color(0xFFF0B866), status.unstaged,
+                FileChangeSection(
+                    title = "Unstaged (${status.unstaged.size})",
+                    accentColor = MaterialTheme.colorScheme.tertiary,
+                    files = status.unstaged,
+                    selectedFiles = state.selectedUnstagedFiles,
+                    onToggleFile = { path -> viewModel.onEvent(GitEvent.ToggleUnstagedFile(path)) },
                     onViewDiff = { viewModel.onEvent(GitEvent.ViewDiff(staged = false)) },
-                    onStage = { files -> viewModel.onEvent(GitEvent.StageFiles(files.map { it.path })) })
+                    onViewFileDiff = { path -> viewModel.onEvent(GitEvent.ViewFileDiff(path, staged = false)) },
+                    onStage = { files -> viewModel.onEvent(GitEvent.StageFiles(files.map { it.path })) },
+                    onStageSelected = {
+                        val selected = state.selectedUnstagedFiles.toList()
+                        if (selected.isNotEmpty()) viewModel.onEvent(GitEvent.StageFiles(selected))
+                    }
+                )
             }
         }
         if (status.untracked.isNotEmpty()) {
             item {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Untracked (${status.untracked.size})", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            TextButton(onClick = { viewModel.onEvent(GitEvent.StageFiles(status.untracked)) }) { Text("Stage All") }
-                        }
-                        status.untracked.forEach { file ->
-                            Text("? $file", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                UntrackedFilesSection(
+                    files = status.untracked,
+                    selectedFiles = state.selectedUntrackedFiles,
+                    onToggleFile = { path -> viewModel.onEvent(GitEvent.ToggleUntrackedFile(path)) },
+                    onStageAll = { viewModel.onEvent(GitEvent.StageFiles(status.untracked)) },
+                    onStageSelected = {
+                        val selected = state.selectedUntrackedFiles.toList()
+                        if (selected.isNotEmpty()) viewModel.onEvent(GitEvent.StageFiles(selected))
                     }
-                }
+                )
             }
         }
         if (status.conflicted.isNotEmpty()) {
             item {
-                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFEF5350).copy(alpha = 0.1f))) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text("Conflicts (${status.conflicted.size})", style = MaterialTheme.typography.titleSmall, color = Color(0xFFEF5350))
-                        status.conflicted.forEach { file ->
-                            Text("! $file", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = Color(0xFFEF5350))
-                        }
-                    }
-                }
+                ConflictedFilesSection(
+                    files = status.conflicted,
+                    onViewConflict = { path -> viewModel.onEvent(GitEvent.ViewConflict(path)) }
+                )
             }
         }
     }
@@ -262,8 +297,17 @@ private fun StatusTab(state: GitUiState, viewModel: GitViewModel) {
 
 @Composable
 private fun FileChangeSection(
-    title: String, accentColor: Color, files: List<GitFileChange>,
-    onViewDiff: () -> Unit, onStage: ((List<GitFileChange>) -> Unit)? = null, onUnstage: ((List<GitFileChange>) -> Unit)? = null
+    title: String,
+    accentColor: Color,
+    files: List<GitFileChange>,
+    selectedFiles: Set<String>,
+    onToggleFile: (String) -> Unit,
+    onViewDiff: () -> Unit,
+    onViewFileDiff: (String) -> Unit,
+    onStage: ((List<GitFileChange>) -> Unit)? = null,
+    onUnstage: ((List<GitFileChange>) -> Unit)? = null,
+    onStageSelected: (() -> Unit)? = null,
+    onUnstageSelected: (() -> Unit)? = null
 ) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
@@ -275,18 +319,117 @@ private fun FileChangeSection(
                     onUnstage?.let { TextButton(onClick = { it(files) }) { Text("Unstage All") } }
                 }
             }
+            if (selectedFiles.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    onStageSelected?.let { TextButton(onClick = it) { Text("Stage Selected (${selectedFiles.size})") } }
+                    onUnstageSelected?.let { TextButton(onClick = it) { Text("Unstage Selected (${selectedFiles.size})") } }
+                }
+            }
             files.forEach { change ->
-                Text(
-                    "${change.status.symbol} ${change.path}",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                    color = when (change.status) {
-                        FileChangeStatus.ADDED -> Color(0xFF66BB6A)
-                        FileChangeStatus.DELETED -> Color(0xFFEF5350)
-                        FileChangeStatus.MODIFIED -> Color(0xFFF0B866)
-                        else -> MaterialTheme.colorScheme.onSurface
-                    }
-                )
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onViewFileDiff(change.path) }
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = change.path in selectedFiles,
+                        onCheckedChange = { onToggleFile(change.path) },
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "${change.status.symbol} ${change.path}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = when (change.status) {
+                            FileChangeStatus.ADDED -> MaterialTheme.colorScheme.primary
+                            FileChangeStatus.DELETED -> MaterialTheme.colorScheme.error
+                            FileChangeStatus.MODIFIED -> MaterialTheme.colorScheme.tertiary
+                            else -> MaterialTheme.colorScheme.onSurface
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UntrackedFilesSection(
+    files: List<String>,
+    selectedFiles: Set<String>,
+    onToggleFile: (String) -> Unit,
+    onStageAll: () -> Unit,
+    onStageSelected: () -> Unit
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Untracked (${files.size})", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row {
+                    TextButton(onClick = onStageAll) { Text("Stage All") }
+                }
+            }
+            if (selectedFiles.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onStageSelected) { Text("Stage Selected (${selectedFiles.size})") }
+                }
+            }
+            files.forEach { file ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = file in selectedFiles,
+                        onCheckedChange = { onToggleFile(file) },
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("? $file", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConflictedFilesSection(
+    files: List<String>,
+    onViewConflict: (String) -> Unit
+) {
+    val errorColor = MaterialTheme.colorScheme.error
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = errorColor.copy(alpha = 0.1f))
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text("Conflicts (${files.size})", style = MaterialTheme.typography.titleSmall, color = errorColor)
+            files.forEach { file ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onViewConflict(file) }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Warning, null, Modifier.size(16.dp), tint = errorColor)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "! $file",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = errorColor,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp), tint = errorColor)
+                }
             }
         }
     }
@@ -362,6 +505,125 @@ private fun LogTab(state: GitUiState, viewModel: GitViewModel) {
     }
 }
 
+// ── Activity Tab (GitHub-style contribution heatmap) ──────────────
+
+@Composable
+private fun ActivityTab(state: GitUiState) {
+    val activityData = state.activityData
+    val totalCommits = activityData.values.sum()
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val surfaceVariantColor = MaterialTheme.colorScheme.surfaceVariant
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Text(
+            "$totalCommits commits in the past year",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(Modifier.height(16.dp))
+
+        // Build the grid data: 52 weeks x 7 days
+        // We go backwards from today
+        val today = java.time.LocalDate.now()
+        val dayOfWeek = today.dayOfWeek.value % 7 // 0=Sunday .. 6=Saturday
+        // Start from the Sunday of the week 52 weeks ago
+        val startDate = today.minusWeeks(52).minusDays(((today.minusWeeks(52).dayOfWeek.value % 7).toLong()))
+
+        // Month labels
+        val months = remember(startDate) {
+            val monthLabels = mutableListOf<Pair<Int, String>>()
+            var lastMonth = -1
+            for (week in 0 until 53) {
+                val weekDate = startDate.plusWeeks(week.toLong())
+                val month = weekDate.monthValue
+                if (month != lastMonth) {
+                    monthLabels.add(week to weekDate.month.name.take(3).lowercase().replaceFirstChar { it.uppercase() })
+                    lastMonth = month
+                }
+            }
+            monthLabels
+        }
+
+        // Month labels row
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+            Spacer(Modifier.width(28.dp)) // space for day labels
+            Box(Modifier.width((53 * 13).dp)) {
+                months.forEach { (weekIndex, label) ->
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.offset(x = (weekIndex * 13).dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        // Heatmap grid
+        val dayLabels = listOf("", "Mon", "", "Wed", "", "Fri", "")
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+            // Day labels column
+            Column(Modifier.width(28.dp)) {
+                dayLabels.forEachIndexed { _, label ->
+                    Box(Modifier.size(width = 28.dp, height = 13.dp), contentAlignment = Alignment.CenterStart) {
+                        Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // Grid of cells
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                for (week in 0 until 53) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        for (day in 0 until 7) {
+                            val cellDate = startDate.plusWeeks(week.toLong()).plusDays(day.toLong())
+                            val dateStr = cellDate.toString() // yyyy-MM-dd
+                            val count = activityData[dateStr] ?: 0
+                            val isAfterToday = cellDate.isAfter(today)
+
+                            val cellColor = when {
+                                isAfterToday -> Color.Transparent
+                                count == 0 -> surfaceVariantColor
+                                count == 1 -> primaryColor.copy(alpha = 0.3f)
+                                count in 2..3 -> primaryColor.copy(alpha = 0.5f)
+                                count in 4..5 -> primaryColor.copy(alpha = 0.75f)
+                                else -> primaryColor
+                            }
+
+                            Box(
+                                Modifier
+                                    .size(11.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(cellColor)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // Legend
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Less", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(Modifier.size(11.dp).clip(RoundedCornerShape(2.dp)).background(surfaceVariantColor))
+            Box(Modifier.size(11.dp).clip(RoundedCornerShape(2.dp)).background(primaryColor.copy(alpha = 0.3f)))
+            Box(Modifier.size(11.dp).clip(RoundedCornerShape(2.dp)).background(primaryColor.copy(alpha = 0.5f)))
+            Box(Modifier.size(11.dp).clip(RoundedCornerShape(2.dp)).background(primaryColor.copy(alpha = 0.75f)))
+            Box(Modifier.size(11.dp).clip(RoundedCornerShape(2.dp)).background(primaryColor))
+            Text("More", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
 // ── PRs Tab ───────────────────────────────────────────────────────
 
 @Composable
@@ -402,8 +664,8 @@ private fun PrCard(pr: GitHubPr, viewModel: GitViewModel) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("${pr.branch} -> ${pr.baseBranch}", style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.weight(1f))
-                Text("+${pr.additions}", style = MaterialTheme.typography.labelSmall, color = Color(0xFF66BB6A))
-                Text(" -${pr.deletions}", style = MaterialTheme.typography.labelSmall, color = Color(0xFFEF5350))
+                Text("+${pr.additions}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text(" -${pr.deletions}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(pr.author, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -434,9 +696,9 @@ private fun PrCard(pr: GitHubPr, viewModel: GitViewModel) {
 @Composable
 private fun PrStateBadge(state: String) {
     val (color, text) = when (state.uppercase()) {
-        "OPEN" -> Color(0xFF66BB6A) to "Open"
-        "CLOSED" -> Color(0xFFEF5350) to "Closed"
-        "MERGED" -> Color(0xFFCBB2F0) to "Merged"
+        "OPEN" -> MaterialTheme.colorScheme.primary to "Open"
+        "CLOSED" -> MaterialTheme.colorScheme.error to "Closed"
+        "MERGED" -> MaterialTheme.colorScheme.secondary to "Merged"
         else -> MaterialTheme.colorScheme.onSurfaceVariant to state
     }
     Box(Modifier.clip(RoundedCornerShape(4.dp)).background(color.copy(alpha = 0.2f)).padding(horizontal = 6.dp, vertical = 2.dp)) {
@@ -447,9 +709,9 @@ private fun PrStateBadge(state: String) {
 @Composable
 private fun ReviewBadge(decision: String) {
     val (color, text) = when (decision) {
-        "APPROVED" -> Color(0xFF66BB6A) to "Approved"
-        "CHANGES_REQUESTED" -> Color(0xFFEF5350) to "Changes"
-        else -> Color(0xFFF0B866) to "Review"
+        "APPROVED" -> MaterialTheme.colorScheme.primary to "Approved"
+        "CHANGES_REQUESTED" -> MaterialTheme.colorScheme.error to "Changes"
+        else -> MaterialTheme.colorScheme.tertiary to "Review"
     }
     Text(text, style = MaterialTheme.typography.labelSmall, color = color)
 }
@@ -457,9 +719,9 @@ private fun ReviewBadge(decision: String) {
 @Composable
 private fun ChecksBadge(status: String) {
     val (icon, color) = when (status) {
-        "SUCCESS" -> Icons.Default.CheckCircle to Color(0xFF66BB6A)
-        "FAILURE" -> Icons.Default.Error to Color(0xFFEF5350)
-        else -> Icons.Default.Pending to Color(0xFFF0B866)
+        "SUCCESS" -> Icons.Default.CheckCircle to MaterialTheme.colorScheme.primary
+        "FAILURE" -> Icons.Default.Error to MaterialTheme.colorScheme.error
+        else -> Icons.Default.Pending to MaterialTheme.colorScheme.tertiary
     }
     Icon(icon, status, Modifier.size(14.dp), tint = color)
 }
@@ -487,7 +749,7 @@ private fun IssuesTab(state: GitUiState, viewModel: GitViewModel) {
                             Icon(
                                 if (issue.state == "OPEN") Icons.Default.ErrorOutline else Icons.Default.CheckCircleOutline,
                                 null, Modifier.size(20.dp),
-                                tint = if (issue.state == "OPEN") Color(0xFF66BB6A) else Color(0xFFCBB2F0)
+                                tint = if (issue.state == "OPEN") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
                             )
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f)) {
@@ -535,10 +797,12 @@ private fun GhNotAvailable() {
     }
 }
 
-// ── Diff Viewer ───────────────────────────────────────────────────
+// ── Diff Viewer (collapsible per file) ────────────────────────────
 
 @Composable
 private fun DiffViewer(state: GitUiState, viewModel: GitViewModel) {
+    var expandedFiles by remember { mutableStateOf(setOf<String>()) }
+
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { viewModel.onEvent(GitEvent.DismissDiff) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
@@ -550,31 +814,61 @@ private fun DiffViewer(state: GitUiState, viewModel: GitViewModel) {
             // Stats summary
             Text(state.diff.stats, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
 
+            val additionColor = MaterialTheme.colorScheme.primary
+            val deletionColor = MaterialTheme.colorScheme.error
+
             LazyColumn(contentPadding = PaddingValues(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(state.diff.files) { file ->
+                    val isExpanded = file.path in expandedFiles
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(8.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(file.path, style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace), modifier = Modifier.weight(1f))
-                                Text("+${file.additions}", style = MaterialTheme.typography.labelSmall, color = Color(0xFF66BB6A))
-                                Text(" -${file.deletions}", style = MaterialTheme.typography.labelSmall, color = Color(0xFFEF5350))
+                            // File header — always visible, clickable to toggle
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        expandedFiles = if (isExpanded) expandedFiles - file.path else expandedFiles + file.path
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    file.path,
+                                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace),
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text("+${file.additions}", style = MaterialTheme.typography.labelSmall, color = additionColor)
+                                Text(" -${file.deletions}", style = MaterialTheme.typography.labelSmall, color = deletionColor)
                             }
-                            Spacer(Modifier.height(4.dp))
-                            file.hunks.forEach { hunk ->
-                                Column(Modifier.horizontalScroll(rememberScrollState())) {
-                                    hunk.lines.forEach { line ->
-                                        val (bg, fg) = when (line.type) {
-                                            DiffLineType.ADDITION -> Color(0xFF66BB6A).copy(alpha = 0.15f) to Color(0xFF66BB6A)
-                                            DiffLineType.DELETION -> Color(0xFFEF5350).copy(alpha = 0.15f) to Color(0xFFEF5350)
-                                            DiffLineType.HEADER -> Color.Transparent to MaterialTheme.colorScheme.primary
-                                            DiffLineType.CONTEXT -> Color.Transparent to MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+
+                            // Hunks — only shown when expanded
+                            if (isExpanded) {
+                                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                                file.hunks.forEach { hunk ->
+                                    Column(Modifier.horizontalScroll(rememberScrollState())) {
+                                        hunk.lines.forEach { line ->
+                                            val (bg, fg) = when (line.type) {
+                                                DiffLineType.ADDITION -> additionColor.copy(alpha = 0.15f) to additionColor
+                                                DiffLineType.DELETION -> deletionColor.copy(alpha = 0.15f) to deletionColor
+                                                DiffLineType.HEADER -> Color.Transparent to MaterialTheme.colorScheme.primary
+                                                DiffLineType.CONTEXT -> Color.Transparent to MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                            }
+                                            Text(
+                                                line.content,
+                                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp, lineHeight = 16.sp),
+                                                color = fg,
+                                                modifier = Modifier.fillMaxWidth().background(bg).padding(horizontal = 4.dp)
+                                            )
                                         }
-                                        Text(
-                                            line.content,
-                                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp, lineHeight = 16.sp),
-                                            color = fg,
-                                            modifier = Modifier.fillMaxWidth().background(bg).padding(horizontal = 4.dp)
-                                        )
                                     }
                                 }
                             }
@@ -583,24 +877,190 @@ private fun DiffViewer(state: GitUiState, viewModel: GitViewModel) {
                 }
             }
         } else if (state.diffContent.isNotBlank()) {
-            // Raw diff (e.g. from gh pr diff)
-            LazyColumn(contentPadding = PaddingValues(8.dp)) {
-                val lines = state.diffContent.lines()
-                items(lines.size) { i ->
-                    val line = lines[i]
-                    val (bg, fg) = when {
-                        line.startsWith("+") && !line.startsWith("+++") -> Color(0xFF66BB6A).copy(alpha = 0.15f) to Color(0xFF66BB6A)
-                        line.startsWith("-") && !line.startsWith("---") -> Color(0xFFEF5350).copy(alpha = 0.15f) to Color(0xFFEF5350)
-                        line.startsWith("@@") -> Color.Transparent to MaterialTheme.colorScheme.primary
-                        else -> Color.Transparent to MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            // Raw diff (e.g. from gh pr diff) — also collapsible
+            var expandedRawFiles by remember { mutableStateOf(setOf<String>()) }
+
+            // Parse raw diff into file sections
+            val rawFiles = remember(state.diffContent) {
+                val sections = mutableListOf<Pair<String, List<String>>>()
+                var currentFile = ""
+                var currentLines = mutableListOf<String>()
+                state.diffContent.lines().forEach { line ->
+                    if (line.startsWith("diff --git")) {
+                        if (currentFile.isNotBlank()) {
+                            sections.add(currentFile to currentLines.toList())
+                        }
+                        currentFile = line.substringAfter("b/").trim()
+                        currentLines = mutableListOf()
                     }
-                    Text(line, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp), color = fg, modifier = Modifier.fillMaxWidth().background(bg).padding(horizontal = 4.dp))
+                    currentLines.add(line)
+                }
+                if (currentFile.isNotBlank()) {
+                    sections.add(currentFile to currentLines.toList())
+                }
+                sections
+            }
+
+            if (rawFiles.isNotEmpty()) {
+                val additionColor = MaterialTheme.colorScheme.primary
+                val deletionColor = MaterialTheme.colorScheme.error
+                LazyColumn(contentPadding = PaddingValues(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(rawFiles.size) { index ->
+                        val (fileName, lines) = rawFiles[index]
+                        val isExpanded = fileName in expandedRawFiles
+                        val additions = lines.count { it.startsWith("+") && !it.startsWith("+++") }
+                        val deletions = lines.count { it.startsWith("-") && !it.startsWith("---") }
+
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(8.dp)) {
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            expandedRawFiles = if (isExpanded) expandedRawFiles - fileName else expandedRawFiles + fileName
+                                        }
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                        contentDescription = if (isExpanded) "Collapse" else "Expand",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(fileName, style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace), modifier = Modifier.weight(1f))
+                                    Text("+$additions", style = MaterialTheme.typography.labelSmall, color = additionColor)
+                                    Text(" -$deletions", style = MaterialTheme.typography.labelSmall, color = deletionColor)
+                                }
+
+                                if (isExpanded) {
+                                    HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                                    Column(Modifier.horizontalScroll(rememberScrollState())) {
+                                        lines.forEach { line ->
+                                            val (bg, fg) = when {
+                                                line.startsWith("+") && !line.startsWith("+++") -> additionColor.copy(alpha = 0.15f) to additionColor
+                                                line.startsWith("-") && !line.startsWith("---") -> deletionColor.copy(alpha = 0.15f) to deletionColor
+                                                line.startsWith("@@") -> Color.Transparent to MaterialTheme.colorScheme.primary
+                                                else -> Color.Transparent to MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                            }
+                                            Text(line, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp), color = fg, modifier = Modifier.fillMaxWidth().background(bg).padding(horizontal = 4.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Fallback: show raw lines
+                val fallbackAdditionColor = MaterialTheme.colorScheme.primary
+                val fallbackDeletionColor = MaterialTheme.colorScheme.error
+                val fallbackPrimaryColor = MaterialTheme.colorScheme.primary
+                val fallbackOnSurface = MaterialTheme.colorScheme.onSurface
+                LazyColumn(contentPadding = PaddingValues(8.dp)) {
+                    val lines = state.diffContent.lines()
+                    items(lines.size) { i ->
+                        val line = lines[i]
+                        val (bg, fg) = when {
+                            line.startsWith("+") && !line.startsWith("+++") -> fallbackAdditionColor.copy(alpha = 0.15f) to fallbackAdditionColor
+                            line.startsWith("-") && !line.startsWith("---") -> fallbackDeletionColor.copy(alpha = 0.15f) to fallbackDeletionColor
+                            line.startsWith("@@") -> Color.Transparent to fallbackPrimaryColor
+                            else -> Color.Transparent to fallbackOnSurface.copy(alpha = 0.7f)
+                        }
+                        Text(line, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp), color = fg, modifier = Modifier.fillMaxWidth().background(bg).padding(horizontal = 4.dp))
+                    }
                 }
             }
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No changes", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
+}
+
+// ── Conflict Viewer Dialog ────────────────────────────────────────
+
+@Composable
+private fun ConflictViewerDialog(
+    filePath: String,
+    content: String,
+    onDismiss: () -> Unit,
+    onResolve: (String) -> Unit
+) {
+    val errorColor = MaterialTheme.colorScheme.error
+    val primaryColor = MaterialTheme.colorScheme.primary
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text("Conflict", style = MaterialTheme.typography.titleMedium)
+                Text(filePath, style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        text = {
+            Column {
+                // Content with conflict markers highlighted
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 400.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    val scrollState = rememberScrollState()
+                    Column(
+                        Modifier
+                            .verticalScroll(scrollState)
+                            .horizontalScroll(rememberScrollState())
+                            .padding(8.dp)
+                    ) {
+                        content.lines().forEach { line ->
+                            val (bg, fg) = when {
+                                line.startsWith("<<<<<<<") -> errorColor.copy(alpha = 0.2f) to errorColor
+                                line.startsWith("=======") -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f) to MaterialTheme.colorScheme.tertiary
+                                line.startsWith(">>>>>>>") -> primaryColor.copy(alpha = 0.2f) to primaryColor
+                                else -> Color.Transparent to MaterialTheme.colorScheme.onSurface
+                            }
+                            Text(
+                                line,
+                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp),
+                                color = fg,
+                                modifier = Modifier.fillMaxWidth().background(bg).padding(horizontal = 2.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Resolution buttons
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { onResolve("ours") },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = primaryColor)
+                    ) {
+                        Text("Accept Ours", style = MaterialTheme.typography.labelSmall)
+                    }
+                    OutlinedButton(
+                        onClick = { onResolve("theirs") },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
+                    ) {
+                        Text("Accept Theirs", style = MaterialTheme.typography.labelSmall)
+                    }
+                    OutlinedButton(
+                        onClick = { onResolve("resolved") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Mark Resolved", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+    )
 }
 
 // ── Dialogs ───────────────────────────────────────────────────────

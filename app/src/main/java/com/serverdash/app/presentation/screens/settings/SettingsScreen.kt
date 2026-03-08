@@ -10,6 +10,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.serverdash.app.core.privacy.redact
@@ -595,6 +599,202 @@ fun SettingsScreen(
             item {
                 SwitchSetting("Auto-start on Boot", state.preferences.autoStartOnBoot) {
                     viewModel.onEvent(SettingsEvent.UpdateAutoStart(it))
+                }
+            }
+
+            // ── About & Updates ──
+            item { SectionDivider(); SectionHeader("About & Updates") }
+            item {
+                val uriHandler = LocalUriHandler.current
+                val updateState = state.updateState
+
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("ServerDash", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "v${state.currentVersion}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                Icons.Default.Info,
+                                null,
+                                Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        // Check for Updates button
+                        if (updateState.isChecking) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Checking for updates...", style = MaterialTheme.typography.bodyMedium)
+                            }
+                        } else if (updateState.latestVersion == null) {
+                            OutlinedButton(
+                                onClick = { viewModel.onEvent(SettingsEvent.CheckForUpdates) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Update, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Check for Updates")
+                            }
+                        }
+
+                        // Error state
+                        if (updateState.error != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Card(
+                                Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                )
+                            ) {
+                                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Warning,
+                                        null,
+                                        Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        updateState.error,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+                        }
+
+                        // Update result
+                        if (updateState.latestVersion != null) {
+                            Spacer(Modifier.height(12.dp))
+                            HorizontalDivider()
+                            Spacer(Modifier.height(12.dp))
+
+                            if (updateState.isUpdateAvailable) {
+                                Card(
+                                    Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                                    )
+                                ) {
+                                    Column(Modifier.padding(12.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.NewReleases,
+                                                null,
+                                                Modifier.size(20.dp),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                "Update Available: ${updateState.latestVersion}",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.CheckCircle,
+                                        null,
+                                        Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "You are on the latest version (${updateState.latestVersion})",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+
+                            // Release notes preview
+                            if (!updateState.releaseNotes.isNullOrBlank()) {
+                                Spacer(Modifier.height(8.dp))
+                                Text("Release Notes", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    updateState.releaseNotes.take(500) + if (updateState.releaseNotes.length > 500) "..." else "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 10,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            // APK assets
+                            if (updateState.apkAssets.isNotEmpty()) {
+                                Spacer(Modifier.height(8.dp))
+                                updateState.apkAssets.filter { it.name.endsWith(".apk") }.forEach { asset ->
+                                    val sizeStr = when {
+                                        asset.size >= 1_048_576 -> "%.1f MB".format(asset.size / 1_048_576.0)
+                                        asset.size >= 1024 -> "%.0f KB".format(asset.size / 1024.0)
+                                        asset.size > 0 -> "${asset.size} B"
+                                        else -> ""
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            try { uriHandler.openUri(asset.downloadUrl) } catch (_: Exception) { }
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Default.Download, null, Modifier.size(18.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Download ${asset.name}")
+                                        if (sizeStr.isNotBlank()) {
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("($sizeStr)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
+
+                            // SHA-256 hashes
+                            if (!updateState.apkHashes.isNullOrBlank()) {
+                                Spacer(Modifier.height(8.dp))
+                                Text("SHA-256", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    updateState.apkHashes,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            // Re-check button
+                            Spacer(Modifier.height(8.dp))
+                            TextButton(
+                                onClick = { viewModel.onEvent(SettingsEvent.CheckForUpdates) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Refresh, null, Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Check Again")
+                            }
+                        }
+                    }
                 }
             }
 

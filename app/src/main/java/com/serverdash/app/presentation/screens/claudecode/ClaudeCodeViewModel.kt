@@ -48,7 +48,7 @@ data class ClaudeProject(
     val hasMemory: Boolean = false
 )
 
-enum class DetailView { STORAGE, PROJECTS, SESSIONS, PLANS, PLUGINS, HOOKS, SKILLS }
+enum class DetailView { STORAGE, PROJECTS, SESSIONS, PLANS, PLUGINS, HOOKS, SKILLS, USAGE }
 
 data class StorageItem(val category: String, val size: String, val path: String)
 
@@ -66,6 +66,24 @@ data class PlanInfo(val name: String, val path: String, val size: String)
 data class HookScript(val filename: String, val content: String = "", val isNew: Boolean = false)
 
 data class SkillScript(val filename: String, val content: String = "", val isNew: Boolean = false)
+
+data class ClaudeCodeUsage(
+    val totalTokens: Long = 0,
+    val totalCost: Double = 0.0,
+    val sessions: Int = 0,
+    val inputTokens: Long = 0,
+    val outputTokens: Long = 0,
+    val cacheReadTokens: Long = 0,
+    val cacheWriteTokens: Long = 0,
+    val rawEntries: Map<String, String> = emptyMap() // any other fields
+)
+
+data class SessionActivity(
+    val projectName: String,
+    val sessionCount: Int,
+    val totalSize: String,
+    val lastModifiedEpoch: Long = 0
+)
 
 data class ClaudeCodeUiState(
     val isDetected: Boolean = false,
@@ -105,6 +123,8 @@ data class ClaudeCodeUiState(
     val hookFiles: List<String> = emptyList(),
     val isLoadingOverview: Boolean = true,
     val usageStats: String = "", // raw JSON from cc-counter/stats.json
+    val parsedUsage: ClaudeCodeUsage? = null,
+    val sessionActivity: List<SessionActivity> = emptyList(),
     // projects
     val projects: List<ClaudeProject> = emptyList(),
     val isLoadingProjects: Boolean = false,
@@ -472,14 +492,16 @@ class ClaudeCodeViewModel @Inject constructor(
             try {
                 val allServers = mutableMapOf<String, McpServer>()
 
-                // Scan all Claude Code users (including root) for MCP configs
-                val usersToScan = _state.value.claudeCodeUsers.ifEmpty {
-                    // Fallback: scan connected user + root
-                    listOfNotNull(
-                        _state.value.selectedUser,
-                        SystemUser(username = "root", homeDirectory = "/root", uid = 0, hasClaudeCode = true)
-                    ).distinctBy { it.username }
-                }
+                // Scan all Claude Code users — always include root even if not in detected list
+                val rootUser = SystemUser(username = "root", homeDirectory = "/root", uid = 0, hasClaudeCode = true)
+                val usersToScan = buildList {
+                    addAll(_state.value.claudeCodeUsers)
+                    if (isEmpty()) {
+                        _state.value.selectedUser?.let { add(it) }
+                    }
+                    // Always ensure root is scanned for MCP configs
+                    if (none { it.username == "root" }) add(rootUser)
+                }.distinctBy { it.username }
 
                 for (user in usersToScan) {
                     val homeDir = user.homeDirectory
@@ -706,6 +728,37 @@ class ClaudeCodeViewModel @Inject constructor(
         }
     }
 
+    private fun parseUsageStats(statsJson: String): ClaudeCodeUsage? {
+        if (statsJson.isBlank()) return null
+        return try {
+            val obj = Json.parseToJsonElement(statsJson).jsonObject
+            val rawEntries = mutableMapOf<String, String>()
+            obj.entries.forEach { (k, v) ->
+                if (v is JsonPrimitive) rawEntries[k] = v.content
+                else rawEntries[k] = v.toString()
+            }
+            ClaudeCodeUsage(
+                totalTokens = obj["total_tokens"]?.jsonPrimitive?.longOrNull
+                    ?: obj["totalTokens"]?.jsonPrimitive?.longOrNull ?: 0,
+                totalCost = obj["total_cost"]?.jsonPrimitive?.doubleOrNull
+                    ?: obj["totalCost"]?.jsonPrimitive?.doubleOrNull
+                    ?: obj["cost"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                sessions = obj["sessions"]?.jsonPrimitive?.intOrNull
+                    ?: obj["session_count"]?.jsonPrimitive?.intOrNull
+                    ?: obj["sessionCount"]?.jsonPrimitive?.intOrNull ?: 0,
+                inputTokens = obj["input_tokens"]?.jsonPrimitive?.longOrNull
+                    ?: obj["inputTokens"]?.jsonPrimitive?.longOrNull ?: 0,
+                outputTokens = obj["output_tokens"]?.jsonPrimitive?.longOrNull
+                    ?: obj["outputTokens"]?.jsonPrimitive?.longOrNull ?: 0,
+                cacheReadTokens = obj["cache_read_tokens"]?.jsonPrimitive?.longOrNull
+                    ?: obj["cacheReadTokens"]?.jsonPrimitive?.longOrNull ?: 0,
+                cacheWriteTokens = obj["cache_write_tokens"]?.jsonPrimitive?.longOrNull
+                    ?: obj["cacheWriteTokens"]?.jsonPrimitive?.longOrNull ?: 0,
+                rawEntries = rawEntries
+            )
+        } catch (e: Exception) { null }
+    }
+
     private fun loadOverview() {
         viewModelScope.launch {
             _state.update { it.copy(isLoadingOverview = true) }
@@ -718,12 +771,13 @@ class ClaudeCodeViewModel @Inject constructor(
                     append("echo '===SESSIONS==='; find ~/.claude/projects/ -name '*.jsonl' 2>/dev/null | wc -l; ")
                     append("echo '===PLUGINS==='; cat ~/.claude/plugins/installed_plugins.json 2>/dev/null; ")
                     append("echo '===SKILLS==='; ls -1 ~/.claude/skills/ 2>/dev/null; ")
-                    append("echo '===HOOKS==='; ls -1 ~/.claude/hooks/ 2>/dev/null")
+                    append("echo '===HOOKS==='; ls -1 ~/.claude/hooks/ 2>/dev/null; ")
+                    append("echo '===ACTIVITY==='; for d in ~/.claude/projects/*/; do name=\$(basename \"\$d\"); count=\$(ls \"\$d\"/*.jsonl 2>/dev/null | wc -l); size=\$(du -sh \"\$d\" 2>/dev/null | awk '{print \$1}'); latest=\$(find \"\$d\" -name '*.jsonl' -printf '%T@\\n' 2>/dev/null | sort -rn | head -1); echo \"\$name|\$count|\$size|\${latest:-0}\"; done 2>/dev/null")
                 }
                 val result = executeForUser(cmd)
                 result.fold(
                     onSuccess = { cmdResult ->
-                        val sections = cmdResult.output.split("===DU===", "===STATS===", "===PROJECTS===", "===PLANS===", "===SESSIONS===", "===PLUGINS===", "===SKILLS===", "===HOOKS===")
+                        val sections = cmdResult.output.split("===DU===", "===STATS===", "===PROJECTS===", "===PLANS===", "===SESSIONS===", "===PLUGINS===", "===SKILLS===", "===HOOKS===", "===ACTIVITY===")
                         val diskUsage = sections.getOrNull(1)?.trim() ?: ""
                         val stats = sections.getOrNull(2)?.trim() ?: ""
                         val projectCount = sections.getOrNull(3)?.trim()?.toIntOrNull() ?: 0
@@ -732,6 +786,7 @@ class ClaudeCodeViewModel @Inject constructor(
                         val pluginsJson = sections.getOrNull(6)?.trim() ?: ""
                         val skills = sections.getOrNull(7)?.trim()?.lines()?.filter { it.isNotBlank() } ?: emptyList()
                         val hooks = sections.getOrNull(8)?.trim()?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+                        val activityRaw = sections.getOrNull(9)?.trim() ?: ""
 
                         val plugins = try {
                             Json.parseToJsonElement(pluginsJson).jsonArray.map { element ->
@@ -740,9 +795,30 @@ class ClaudeCodeViewModel @Inject constructor(
                             }
                         } catch (e: Exception) { emptyList() }
 
+                        val parsedUsage = parseUsageStats(stats)
+
+                        val sessionActivities = activityRaw.lines()
+                            .filter { it.contains("|") }
+                            .mapNotNull { line ->
+                                val parts = line.split("|", limit = 4)
+                                if (parts.size < 3) return@mapNotNull null
+                                val name = parts[0].trim()
+                                if (name.isBlank()) return@mapNotNull null
+                                SessionActivity(
+                                    projectName = name,
+                                    sessionCount = parts.getOrNull(1)?.trim()?.toIntOrNull() ?: 0,
+                                    totalSize = parts.getOrNull(2)?.trim() ?: "0",
+                                    lastModifiedEpoch = parts.getOrNull(3)?.trim()?.toDoubleOrNull()?.toLong() ?: 0
+                                )
+                            }
+                            .filter { it.sessionCount > 0 }
+                            .sortedByDescending { it.lastModifiedEpoch }
+
                         _state.update { it.copy(
                             diskUsage = diskUsage,
                             usageStats = stats,
+                            parsedUsage = parsedUsage,
+                            sessionActivity = sessionActivities,
                             projectCount = projectCount,
                             planCount = planCount,
                             sessionCount = sessionCount,
@@ -847,6 +923,7 @@ class ClaudeCodeViewModel @Inject constructor(
             DetailView.PLUGINS -> { _state.update { it.copy(isLoadingDetail = false) } } // already loaded
             DetailView.HOOKS -> loadHookScripts()
             DetailView.SKILLS -> loadSkillScripts()
+            DetailView.USAGE -> { _state.update { it.copy(isLoadingDetail = false) } } // already loaded in overview
         }
     }
 
@@ -1121,7 +1198,7 @@ class ClaudeCodeViewModel @Inject constructor(
     private fun loadSkillScripts() {
         viewModelScope.launch {
             try {
-                val cmd = "find ~/.claude/skills/ -maxdepth 1 -type f -printf '%f\\n' 2>/dev/null || ls -1 ~/.claude/skills/ 2>/dev/null"
+                val cmd = "ls -1 ~/.claude/skills/ 2>/dev/null"
                 val result = executeForUser(cmd)
                 result.fold(
                     onSuccess = { cmdResult ->
@@ -1130,10 +1207,15 @@ class ClaudeCodeViewModel @Inject constructor(
                             .map { SkillScript(filename = it.trim()) }
                         _state.update { it.copy(skillScripts = skills, isLoadingDetail = false) }
                     },
-                    onFailure = { _state.update { it.copy(isLoadingDetail = false) } }
+                    onFailure = {
+                        // Fall back to already-loaded overview skills if available
+                        val fallback = _state.value.customSkills.map { SkillScript(filename = it) }
+                        _state.update { it.copy(skillScripts = fallback, isLoadingDetail = false) }
+                    }
                 )
             } catch (e: Exception) {
-                _state.update { it.copy(isLoadingDetail = false) }
+                val fallback = _state.value.customSkills.map { SkillScript(filename = it) }
+                _state.update { it.copy(skillScripts = fallback, isLoadingDetail = false) }
             }
         }
     }

@@ -139,18 +139,24 @@ class GetGitLogUseCase @Inject constructor(
 class GetGitDiffUseCase @Inject constructor(
     private val sshRepository: SshRepository
 ) {
-    suspend operator fun invoke(repoPath: String, staged: Boolean = false, commitHash: String? = null): Result<GitDiff> {
+    suspend operator fun invoke(
+        repoPath: String,
+        staged: Boolean = false,
+        commitHash: String? = null,
+        filePath: String? = null
+    ): Result<GitDiff> {
         // Validate commit hash format to prevent injection
         val safeHash = commitHash?.takeIf { it.matches(Regex("^[0-9a-fA-F]{4,40}$")) }
+        val safeFilePath = filePath?.let { "-- '${it.replace("'", "'\\''")}'" } ?: ""
         val diffCmd = when {
-            safeHash != null -> "git diff $safeHash~1..$safeHash"
-            staged -> "git diff --cached"
-            else -> "git diff"
+            safeHash != null -> "git diff $safeHash~1..$safeHash $safeFilePath"
+            staged -> "git diff --cached $safeFilePath"
+            else -> "git diff $safeFilePath"
         }
         val statsCmd = when {
-            safeHash != null -> "git diff --stat $safeHash~1..$safeHash"
-            staged -> "git diff --cached --stat"
-            else -> "git diff --stat"
+            safeHash != null -> "git diff --stat $safeHash~1..$safeHash $safeFilePath"
+            staged -> "git diff --cached --stat $safeFilePath"
+            else -> "git diff --stat $safeFilePath"
         }
         val cmd = "cd '$repoPath' && echo '===DIFF===' && $diffCmd 2>/dev/null && echo '===STATS===' && $statsCmd 2>/dev/null"
         return sshRepository.executeCommand(cmd).map { result ->
@@ -206,6 +212,52 @@ class GetGitDiffUseCase @Inject constructor(
             files.add(DiffFile(currentFile, additions, deletions, hunks.toList()))
         }
         return files
+    }
+}
+
+class GetGitActivityUseCase @Inject constructor(
+    private val sshRepository: SshRepository
+) {
+    suspend operator fun invoke(repoPath: String): Result<Map<String, Int>> {
+        val cmd = "cd '$repoPath' && git log --format='%ci' --since='1 year ago' 2>/dev/null"
+        return sshRepository.executeCommand(cmd).map { result ->
+            val counts = mutableMapOf<String, Int>()
+            result.output.lines()
+                .filter { it.isNotBlank() }
+                .forEach { line ->
+                    // Format: 2025-03-08 14:30:00 +0000 — take the date part
+                    val date = line.trim().take(10)
+                    if (date.length == 10 && date[4] == '-') {
+                        counts[date] = (counts[date] ?: 0) + 1
+                    }
+                }
+            counts
+        }
+    }
+}
+
+class GetConflictFileContentUseCase @Inject constructor(
+    private val sshRepository: SshRepository
+) {
+    suspend operator fun invoke(repoPath: String, filePath: String): Result<String> {
+        val safePath = filePath.replace("'", "'\\''")
+        val cmd = "cd '$repoPath' && cat '$safePath' 2>/dev/null"
+        return sshRepository.executeCommand(cmd).map { it.output }
+    }
+}
+
+class ResolveConflictUseCase @Inject constructor(
+    private val sshRepository: SshRepository
+) {
+    suspend operator fun invoke(repoPath: String, filePath: String, resolution: String): Result<String> {
+        val safePath = filePath.replace("'", "'\\''")
+        val cmd = when (resolution) {
+            "ours" -> "cd '$repoPath' && git checkout --ours '$safePath' && git add '$safePath' 2>&1"
+            "theirs" -> "cd '$repoPath' && git checkout --theirs '$safePath' && git add '$safePath' 2>&1"
+            "resolved" -> "cd '$repoPath' && git add '$safePath' 2>&1"
+            else -> return Result.failure(IllegalArgumentException("Unknown resolution: $resolution"))
+        }
+        return sshRepository.executeCommand(cmd).map { it.output }
     }
 }
 

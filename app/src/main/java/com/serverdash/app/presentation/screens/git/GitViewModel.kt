@@ -15,12 +15,16 @@ data class GitUiState(
     val isLoadingRepos: Boolean = true,
     val selectedRepo: GitRepo? = null,
     // repo detail
-    val activeTab: Int = 0, // 0=status, 1=branches, 2=log, 3=PRs, 4=issues
+    val activeTab: Int = 0, // 0=status, 1=branches, 2=log, 3=PRs, 4=issues, 5=activity
     val gitStatus: GitStatus = GitStatus(),
     val branches: List<GitBranch> = emptyList(),
     val commits: List<GitCommit> = emptyList(),
     val diff: GitDiff = GitDiff(),
     val isLoadingDetail: Boolean = false,
+    // per-file staging selections
+    val selectedStagedFiles: Set<String> = emptySet(),
+    val selectedUnstagedFiles: Set<String> = emptySet(),
+    val selectedUntrackedFiles: Set<String> = emptySet(),
     // github
     val isGhAvailable: Boolean = false,
     val pullRequests: List<GitHubPr> = emptyList(),
@@ -28,9 +32,15 @@ data class GitUiState(
     val checks: List<GitHubCheck> = emptyList(),
     val releases: List<GitHubRelease> = emptyList(),
     val isLoadingGh: Boolean = false,
+    // activity heatmap
+    val activityData: Map<String, Int> = emptyMap(),
     // operations
     val isOperating: Boolean = false,
     val operationOutput: String? = null,
+    // conflict resolution
+    val showConflictViewer: Boolean = false,
+    val conflictFilePath: String = "",
+    val conflictFileContent: String = "",
     // dialogs
     val showCommitDialog: Boolean = false,
     val showCreatePrDialog: Boolean = false,
@@ -61,11 +71,20 @@ sealed interface GitEvent {
     data class UnstageFiles(val files: List<String>) : GitEvent
     data object Stash : GitEvent
     data object StashPop : GitEvent
+    // per-file staging selection
+    data class ToggleStagedFile(val path: String) : GitEvent
+    data class ToggleUnstagedFile(val path: String) : GitEvent
+    data class ToggleUntrackedFile(val path: String) : GitEvent
     // diff
     data class ViewDiff(val staged: Boolean) : GitEvent
+    data class ViewFileDiff(val path: String, val staged: Boolean) : GitEvent
     data class ViewCommitDiff(val commit: GitCommit) : GitEvent
     data class ViewPrDiff(val pr: GitHubPr) : GitEvent
     data object DismissDiff : GitEvent
+    // conflict resolution
+    data class ViewConflict(val path: String) : GitEvent
+    data class ResolveConflict(val path: String, val resolution: String) : GitEvent
+    data object DismissConflict : GitEvent
     // github
     data class SetPrFilter(val filter: String) : GitEvent
     data class SetIssueFilter(val filter: String) : GitEvent
@@ -90,7 +109,10 @@ class GitViewModel @Inject constructor(
     private val getGitLog: GetGitLogUseCase,
     private val getGitDiff: GetGitDiffUseCase,
     private val gitOps: GitOperationUseCase,
-    private val github: GitHubUseCase
+    private val github: GitHubUseCase,
+    private val getGitActivity: GetGitActivityUseCase,
+    private val getConflictFileContent: GetConflictFileContentUseCase,
+    private val resolveConflict: ResolveConflictUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(GitUiState())
@@ -126,11 +148,29 @@ class GitViewModel @Inject constructor(
             is GitEvent.UnstageFiles -> runOp("Unstaging...") { gitOps.unstageFiles(repoPath(), event.files) }
             is GitEvent.Stash -> runOp("Stashing...") { gitOps.stash(repoPath()) }
             is GitEvent.StashPop -> runOp("Popping stash...") { gitOps.stash(repoPath(), pop = true) }
+            // per-file staging selection
+            is GitEvent.ToggleStagedFile -> _state.update { st ->
+                val updated = if (event.path in st.selectedStagedFiles) st.selectedStagedFiles - event.path else st.selectedStagedFiles + event.path
+                st.copy(selectedStagedFiles = updated)
+            }
+            is GitEvent.ToggleUnstagedFile -> _state.update { st ->
+                val updated = if (event.path in st.selectedUnstagedFiles) st.selectedUnstagedFiles - event.path else st.selectedUnstagedFiles + event.path
+                st.copy(selectedUnstagedFiles = updated)
+            }
+            is GitEvent.ToggleUntrackedFile -> _state.update { st ->
+                val updated = if (event.path in st.selectedUntrackedFiles) st.selectedUntrackedFiles - event.path else st.selectedUntrackedFiles + event.path
+                st.copy(selectedUntrackedFiles = updated)
+            }
             // diff
             is GitEvent.ViewDiff -> viewDiff(staged = event.staged)
+            is GitEvent.ViewFileDiff -> viewFileDiff(event.path, event.staged)
             is GitEvent.ViewCommitDiff -> viewCommitDiff(event.commit)
             is GitEvent.ViewPrDiff -> viewPrDiff(event.pr)
             is GitEvent.DismissDiff -> _state.update { it.copy(showDiffViewer = false) }
+            // conflict resolution
+            is GitEvent.ViewConflict -> viewConflict(event.path)
+            is GitEvent.ResolveConflict -> resolveConflictAction(event.path, event.resolution)
+            is GitEvent.DismissConflict -> _state.update { it.copy(showConflictViewer = false) }
             // github
             is GitEvent.SetPrFilter -> { _state.update { it.copy(prFilter = event.filter) }; loadPrs() }
             is GitEvent.SetIssueFilter -> { _state.update { it.copy(issueFilter = event.filter) }; loadIssues() }
@@ -185,7 +225,17 @@ class GitViewModel @Inject constructor(
             when (tab) {
                 0 -> { // Status
                     getGitStatus(path).fold(
-                        onSuccess = { status -> _state.update { it.copy(gitStatus = status, isLoadingDetail = false) } },
+                        onSuccess = { status ->
+                            _state.update {
+                                it.copy(
+                                    gitStatus = status,
+                                    isLoadingDetail = false,
+                                    selectedStagedFiles = emptySet(),
+                                    selectedUnstagedFiles = emptySet(),
+                                    selectedUntrackedFiles = emptySet()
+                                )
+                            }
+                        },
                         onFailure = { _state.update { it.copy(isLoadingDetail = false) } }
                     )
                 }
@@ -209,7 +259,24 @@ class GitViewModel @Inject constructor(
                     if (_state.value.isGhAvailable) loadIssues()
                     else _state.update { it.copy(isLoadingDetail = false) }
                 }
+                5 -> { // Activity
+                    loadActivityData()
+                }
             }
+        }
+    }
+
+    private fun loadActivityData() {
+        val path = repoPath()
+        if (path.isBlank()) return
+        viewModelScope.launch {
+            _state.update { it.copy(isLoadingDetail = true) }
+            getGitActivity(path).fold(
+                onSuccess = { data ->
+                    _state.update { it.copy(activityData = data, isLoadingDetail = false) }
+                },
+                onFailure = { _state.update { it.copy(isLoadingDetail = false) } }
+            )
         }
     }
 
@@ -287,6 +354,19 @@ class GitViewModel @Inject constructor(
         }
     }
 
+    private fun viewFileDiff(filePath: String, staged: Boolean) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoadingDetail = true) }
+            getGitDiff(repoPath(), staged = staged, filePath = filePath).fold(
+                onSuccess = { diff ->
+                    val title = filePath.split("/").lastOrNull() ?: filePath
+                    _state.update { it.copy(diff = diff, showDiffViewer = true, diffTitle = title, isLoadingDetail = false) }
+                },
+                onFailure = { _state.update { it.copy(isLoadingDetail = false, error = "Failed to load diff") } }
+            )
+        }
+    }
+
     private fun viewCommitDiff(commit: GitCommit) {
         viewModelScope.launch {
             _state.update { it.copy(isLoadingDetail = true) }
@@ -307,6 +387,39 @@ class GitViewModel @Inject constructor(
                     _state.update { it.copy(diffContent = diffText, showDiffViewer = true, diffTitle = "PR #${pr.number}: ${pr.title}", isLoadingDetail = false) }
                 },
                 onFailure = { _state.update { it.copy(isLoadingDetail = false, error = "Failed to load PR diff") } }
+            )
+        }
+    }
+
+    private fun viewConflict(filePath: String) {
+        viewModelScope.launch {
+            getConflictFileContent(repoPath(), filePath).fold(
+                onSuccess = { content ->
+                    _state.update { it.copy(showConflictViewer = true, conflictFilePath = filePath, conflictFileContent = content) }
+                },
+                onFailure = { e ->
+                    _state.update { it.copy(error = "Failed to load conflict: ${e.message}") }
+                }
+            )
+        }
+    }
+
+    private fun resolveConflictAction(filePath: String, resolution: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isOperating = true, showConflictViewer = false) }
+            resolveConflict(repoPath(), filePath, resolution).fold(
+                onSuccess = {
+                    val label = when (resolution) {
+                        "ours" -> "Accepted ours"
+                        "theirs" -> "Accepted theirs"
+                        else -> "Marked resolved"
+                    }
+                    _state.update { it.copy(isOperating = false, successMessage = "$label: $filePath") }
+                    loadTabData(0)
+                },
+                onFailure = { e ->
+                    _state.update { it.copy(isOperating = false, error = "Failed to resolve: ${e.message}") }
+                }
             )
         }
     }

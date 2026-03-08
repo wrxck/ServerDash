@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -966,6 +967,269 @@ internal fun ProjectsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeV
                 }
             }
         }
+    }
+}
+
+// ── Usage Detail ──────────────────────────────────────────────────
+
+private fun formatTokenCount(tokens: Long): String = when {
+    tokens >= 1_000_000_000 -> "%.1fB".format(tokens / 1_000_000_000.0)
+    tokens >= 1_000_000 -> "%.1fM".format(tokens / 1_000_000.0)
+    tokens >= 1_000 -> "%.1fK".format(tokens / 1_000.0)
+    else -> "$tokens"
+}
+
+@Composable
+internal fun UsageDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
+    Column(Modifier.fillMaxSize()) {
+        DetailHeader("Usage Details", onBack = { viewModel.onEvent(ClaudeCodeEvent.CloseDetail) })
+
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Parsed usage stats
+            val usage = state.parsedUsage
+            if (usage != null) {
+                // Token breakdown card
+                item {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text("Token Usage", style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.height(12.dp))
+
+                            if (usage.totalTokens > 0) {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Total Tokens", style = MaterialTheme.typography.bodyMedium)
+                                    Text(formatTokenCount(usage.totalTokens), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
+
+                            if (usage.inputTokens > 0) {
+                                UsageStatRow("Input Tokens", formatTokenCount(usage.inputTokens))
+                            }
+                            if (usage.outputTokens > 0) {
+                                UsageStatRow("Output Tokens", formatTokenCount(usage.outputTokens))
+                            }
+                            if (usage.cacheReadTokens > 0) {
+                                UsageStatRow("Cache Read Tokens", formatTokenCount(usage.cacheReadTokens))
+                            }
+                            if (usage.cacheWriteTokens > 0) {
+                                UsageStatRow("Cache Write Tokens", formatTokenCount(usage.cacheWriteTokens))
+                            }
+
+                            // Visual breakdown bar if we have input/output
+                            if (usage.inputTokens > 0 && usage.outputTokens > 0) {
+                                Spacer(Modifier.height(12.dp))
+                                val total = (usage.inputTokens + usage.outputTokens + usage.cacheReadTokens + usage.cacheWriteTokens).toFloat()
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                ) {
+                                    Box(
+                                        Modifier
+                                            .weight((usage.inputTokens / total).coerceAtLeast(0.01f))
+                                            .fillMaxHeight()
+                                            .background(MaterialTheme.colorScheme.primary)
+                                    )
+                                    Box(
+                                        Modifier
+                                            .weight((usage.outputTokens / total).coerceAtLeast(0.01f))
+                                            .fillMaxHeight()
+                                            .background(MaterialTheme.colorScheme.tertiary)
+                                    )
+                                    if (usage.cacheReadTokens > 0) {
+                                        Box(
+                                            Modifier
+                                                .weight((usage.cacheReadTokens / total).coerceAtLeast(0.01f))
+                                                .fillMaxHeight()
+                                                .background(MaterialTheme.colorScheme.secondary)
+                                        )
+                                    }
+                                    if (usage.cacheWriteTokens > 0) {
+                                        Box(
+                                            Modifier
+                                                .weight((usage.cacheWriteTokens / total).coerceAtLeast(0.01f))
+                                                .fillMaxHeight()
+                                                .background(MaterialTheme.colorScheme.outline)
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                @OptIn(ExperimentalLayoutApi::class)
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    UsageLegendDot("Input", MaterialTheme.colorScheme.primary)
+                                    UsageLegendDot("Output", MaterialTheme.colorScheme.tertiary)
+                                    if (usage.cacheReadTokens > 0) UsageLegendDot("Cache Read", MaterialTheme.colorScheme.secondary)
+                                    if (usage.cacheWriteTokens > 0) UsageLegendDot("Cache Write", MaterialTheme.colorScheme.outline)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Cost & sessions card
+                if (usage.totalCost > 0.0 || usage.sessions > 0) {
+                    item {
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text("Cost & Sessions", style = MaterialTheme.typography.titleMedium)
+                                Spacer(Modifier.height(12.dp))
+                                if (usage.totalCost > 0.0) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Total Cost", style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            "$${String.format("%.4f", usage.totalCost)}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.tertiary,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                }
+                                if (usage.sessions > 0) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Sessions Tracked", style = MaterialTheme.typography.bodyMedium)
+                                        Text("${usage.sessions}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                    }
+                                    if (usage.totalCost > 0.0 && usage.sessions > 0) {
+                                        Spacer(Modifier.height(4.dp))
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Avg Cost/Session", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(
+                                                "$${String.format("%.4f", usage.totalCost / usage.sessions)}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Raw data card for any extra fields
+                val extraEntries = usage.rawEntries.filter { (k, _) ->
+                    k !in setOf("total_tokens", "totalTokens", "total_cost", "totalCost", "cost",
+                        "sessions", "session_count", "sessionCount", "input_tokens", "inputTokens",
+                        "output_tokens", "outputTokens", "cache_read_tokens", "cacheReadTokens",
+                        "cache_write_tokens", "cacheWriteTokens")
+                }
+                if (extraEntries.isNotEmpty()) {
+                    item {
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text("Additional Stats", style = MaterialTheme.typography.titleMedium)
+                                Spacer(Modifier.height(8.dp))
+                                extraEntries.forEach { (k, v) ->
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(k, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(v, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (state.usageStats.isNotBlank()) {
+                // Raw stats fallback
+                item {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text("Raw Usage Data", style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.height(8.dp))
+                            Text(state.usageStats, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                }
+            }
+
+            // Session activity section
+            if (state.sessionActivity.isNotEmpty()) {
+                item {
+                    Text("Session Activity by Project", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+                }
+                items(state.sessionActivity) { activity ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Folder, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(activity.projectName, style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    "${activity.sessionCount} session${if (activity.sessionCount != 1) "s" else ""} - ${activity.totalSize}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (activity.lastModifiedEpoch > 0) {
+                                    val date = remember(activity.lastModifiedEpoch) {
+                                        try {
+                                            val instant = java.time.Instant.ofEpochSecond(activity.lastModifiedEpoch)
+                                            java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm")
+                                                .withZone(java.time.ZoneId.systemDefault())
+                                                .format(instant)
+                                        } catch (e: Exception) { "" }
+                                    }
+                                    if (date.isNotBlank()) {
+                                        Text("Last active: $date", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Empty state
+            if (state.parsedUsage == null && state.usageStats.isBlank() && state.sessionActivity.isEmpty()) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.BarChart, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.height(8.dp))
+                            Text("No usage data available", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Install cc-counter to track Claude Code usage",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(16.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun UsageStatRow(label: String, value: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+    }
+}
+
+@Composable
+private fun UsageLegendDot(label: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .size(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(color)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

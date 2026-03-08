@@ -1,14 +1,18 @@
 package com.serverdash.app.presentation.screens.claudecode
 
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 
@@ -16,7 +20,7 @@ import androidx.compose.ui.unit.dp
 internal fun McpServersTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
     Box(Modifier.fillMaxSize()) {
         if (state.isLoadingMcp) {
-            CircularProgressIndicator(Modifier.align(Alignment.Center))
+            McpServersSkeleton()
         } else {
             LazyColumn(
                 contentPadding = PaddingValues(16.dp),
@@ -133,4 +137,49 @@ internal fun McpServerDialog(server: McpServer, isNew: Boolean, onDismiss: () ->
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+}
+
+@Composable
+private fun McpShimmerBox(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val alpha by transition.animateFloat(
+        initialValue = 0.15f,
+        targetValue = 0.35f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "shimmerAlpha"
+    )
+    Box(modifier.clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)))
+}
+
+@Composable
+private fun McpServersSkeleton() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        repeat(4) {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        McpShimmerBox(Modifier.size(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            McpShimmerBox(Modifier.fillMaxWidth(0.5f).height(16.dp))
+                            Spacer(Modifier.height(6.dp))
+                            McpShimmerBox(Modifier.fillMaxWidth(0.8f).height(12.dp))
+                            Spacer(Modifier.height(4.dp))
+                            McpShimmerBox(Modifier.fillMaxWidth(0.4f).height(10.dp))
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        McpShimmerBox(Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        McpShimmerBox(Modifier.size(20.dp))
+                    }
+                }
+            }
+        }
+    }
 }

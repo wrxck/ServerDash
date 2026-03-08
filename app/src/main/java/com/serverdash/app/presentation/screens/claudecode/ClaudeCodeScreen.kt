@@ -138,6 +138,7 @@ fun ClaudeCodeScreen(
                         DetailView.PLUGINS -> PluginsDetailView(state, viewModel)
                         DetailView.HOOKS -> HooksDetailView(state, viewModel)
                         DetailView.SKILLS -> SkillsDetailView(state, viewModel)
+                        DetailView.USAGE -> UsageDetailView(state, viewModel)
                     }
                 } else {
                     when (state.selectedTab) {
@@ -216,9 +217,7 @@ private fun SettingsTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel
 
     Column(Modifier.fillMaxSize()) {
         if (state.isLoadingSettings) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            SettingsSkeleton()
         } else {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -427,9 +426,7 @@ private fun SettingsUiView(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewMo
 private fun ClaudeMdTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
     Column(Modifier.fillMaxSize()) {
         if (state.isLoadingClaudeMd) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            ClaudeMdSkeleton()
         } else {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.End) {
                 if (state.editingClaudeMd) {
@@ -553,6 +550,43 @@ private fun OverviewSkeleton() {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSkeleton() {
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // View mode toggle skeleton
+        ShimmerBox(Modifier.fillMaxWidth(0.4f).height(36.dp))
+        Spacer(Modifier.height(4.dp))
+        // Settings rows skeleton
+        repeat(6) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    ShimmerBox(Modifier.fillMaxWidth(0.5f).height(14.dp))
+                    Spacer(Modifier.height(6.dp))
+                    ShimmerBox(Modifier.fillMaxWidth(0.8f).height(12.dp))
+                }
+                Spacer(Modifier.width(16.dp))
+                ShimmerBox(Modifier.size(48.dp, 28.dp))
+            }
+            if (it < 5) HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        }
+    }
+}
+
+@Composable
+private fun ClaudeMdSkeleton() {
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Toolbar skeleton
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            ShimmerBox(Modifier.size(60.dp, 32.dp))
+        }
+        Spacer(Modifier.height(4.dp))
+        // Markdown content skeleton
+        repeat(12) {
+            ShimmerBox(Modifier.fillMaxWidth((0.5f + (it % 3) * 0.2f).coerceAtMost(1f)).height(14.dp))
         }
     }
 }
@@ -728,22 +762,99 @@ private fun OverviewTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel
             }
         }
 
-        // Usage stats
-        if (state.usageStats.isNotBlank()) {
+        // Usage stats card - clickable to detail
+        if (state.parsedUsage != null || state.usageStats.isNotBlank()) {
             item {
-                Card(Modifier.fillMaxWidth()) {
+                Card(
+                    Modifier.fillMaxWidth().clickable {
+                        viewModel.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.USAGE))
+                    }
+                ) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("Usage Stats", style = MaterialTheme.typography.titleMedium)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Usage Stats", style = MaterialTheme.typography.titleMedium)
+                            Icon(Icons.Default.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         Spacer(Modifier.height(8.dp))
-                        val statsText = try {
-                            val statsObj = Json.parseToJsonElement(state.usageStats).jsonObject
-                            buildString {
-                                statsObj.entries.forEach { (k, v) ->
-                                    appendLine("$k: ${v.jsonPrimitive.content}")
+                        val usage = state.parsedUsage
+                        if (usage != null) {
+                            if (usage.totalTokens > 0 || usage.totalCost > 0.0) {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    if (usage.totalTokens > 0) {
+                                        Column {
+                                            Text(formatTokenCount(usage.totalTokens), style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                                            Text("total tokens", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                    if (usage.totalCost > 0.0) {
+                                        Column {
+                                            Text("$${String.format("%.2f", usage.totalCost)}", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.tertiary)
+                                            Text("total cost", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                    if (usage.sessions > 0) {
+                                        Column {
+                                            Text("${usage.sessions}", style = MaterialTheme.typography.headlineSmall)
+                                            Text("sessions", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
                                 }
-                            }.trimEnd()
-                        } catch (e: Exception) { state.usageStats }
-                        Text(statsText, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                            } else {
+                                // Show raw entries if no structured data
+                                usage.rawEntries.entries.take(3).forEach { (k, v) ->
+                                    Text("$k: $v", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                                }
+                                if (usage.rawEntries.size > 3) {
+                                    Text("+${usage.rawEntries.size - 3} more", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        } else {
+                            // Fallback: show raw
+                            Text(state.usageStats.take(200), style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Recent session activity
+        if (state.sessionActivity.isNotEmpty()) {
+            item {
+                Card(
+                    Modifier.fillMaxWidth().clickable {
+                        viewModel.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.USAGE))
+                    }
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Recent Activity", style = MaterialTheme.typography.titleMedium)
+                            Icon(Icons.Default.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        state.sessionActivity.take(3).forEach { activity ->
+                            Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Folder, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    activity.projectName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    "${activity.sessionCount}s / ${activity.totalSize}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (state.sessionActivity.size > 3) {
+                            Text(
+                                "+${state.sessionActivity.size - 3} more projects",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -751,6 +862,13 @@ private fun OverviewTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel
 
         item { Spacer(Modifier.height(16.dp)) }
     }
+}
+
+private fun formatTokenCount(tokens: Long): String = when {
+    tokens >= 1_000_000_000 -> "%.1fB".format(tokens / 1_000_000_000.0)
+    tokens >= 1_000_000 -> "%.1fM".format(tokens / 1_000_000.0)
+    tokens >= 1_000 -> "%.1fK".format(tokens / 1_000.0)
+    else -> "$tokens"
 }
 
 @Composable

@@ -1,5 +1,7 @@
 package com.serverdash.app.presentation.screens.security
 
+import android.app.Activity
+import androidx.biometric.BiometricPrompt
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,8 +16,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 
 private val GreenGood = Color(0xFF66BB6A)     // 5.1:1 on dark, 4.5:1 on light
@@ -69,6 +76,51 @@ fun SecurityScreen(
             icon = { Icon(Icons.Default.DeleteOutline, null, tint = MaterialTheme.colorScheme.primary) },
             title = { Text("Clear ${category.label}?") },
             text = { Text("This will permanently remove ${category.description.lowercase()}. This action cannot be undone.") }
+        )
+    }
+
+    // Biometric auth trigger for sensitive data
+    val context = LocalContext.current
+    val pendingAuth = state.pendingAuthCategory
+    LaunchedEffect(pendingAuth) {
+        if (pendingAuth != null) {
+            val activity = context as? FragmentActivity
+            if (activity != null) {
+                val executor = ContextCompat.getMainExecutor(activity)
+                val callback = object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        viewModel.onEvent(SecurityEvent.AuthenticationSucceeded)
+                    }
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                        viewModel.onEvent(SecurityEvent.AuthenticationCancelled)
+                    }
+                    override fun onAuthenticationFailed() { }
+                }
+                val prompt = BiometricPrompt(activity, executor, callback)
+                val info = BiometricPrompt.PromptInfo.Builder()
+                    .setTitle("View ${pendingAuth.label}")
+                    .setSubtitle("Authenticate to view sensitive data")
+                    .setAllowedAuthenticators(
+                        androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                        androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                        androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                    )
+                    .build()
+                prompt.authenticate(info)
+            } else {
+                // Not a FragmentActivity, skip auth
+                viewModel.onEvent(SecurityEvent.AuthenticationSucceeded)
+            }
+        }
+    }
+
+    // Data viewer bottom sheet
+    if (state.viewingCategory != null) {
+        DataViewerDialog(
+            category = state.viewingCategory!!,
+            items = state.viewingData,
+            isLoading = state.viewingDataLoading,
+            onDismiss = { viewModel.onEvent(SecurityEvent.DismissDataView) }
         )
     }
 
@@ -436,20 +488,23 @@ private fun YourDataCard(state: SecurityUiState, viewModel: SecurityViewModel) {
             if (expanded) {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "View and manage all locally stored data",
+                    "Tap any category to view its contents",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(12.dp))
 
-                // SSH Credentials (read-only info, managed in settings)
+                val lockIcon = if (state.appLockEnabled) Icons.Default.Lock else null
+
                 DataCategoryRow(
                     icon = Icons.Default.Key,
                     title = "SSH Credentials",
                     description = "Server host, port, username, and authentication method",
-                    detail = "Managed in server settings",
+                    detail = if (state.appLockEnabled) "Protected" else "Managed in server settings",
                     clearable = false,
-                    onClear = {}
+                    onClear = {},
+                    onClick = { viewModel.onEvent(SecurityEvent.ViewData(DataCategory.SSH_CREDENTIALS)) },
+                    trailingIcon = lockIcon
                 )
 
                 HorizontalDivider(
@@ -457,14 +512,15 @@ private fun YourDataCard(state: SecurityUiState, viewModel: SecurityViewModel) {
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                 )
 
-                // Sudo Password
                 DataCategoryRow(
                     icon = Icons.Default.AdminPanelSettings,
                     title = "Sudo Password",
                     description = "Stored for service management commands",
-                    detail = "Managed in server settings",
+                    detail = if (state.appLockEnabled) "Protected" else "Managed in server settings",
                     clearable = false,
-                    onClear = {}
+                    onClear = {},
+                    onClick = { viewModel.onEvent(SecurityEvent.ViewData(DataCategory.SUDO_PASSWORD)) },
+                    trailingIcon = lockIcon
                 )
 
                 HorizontalDivider(
@@ -472,14 +528,14 @@ private fun YourDataCard(state: SecurityUiState, viewModel: SecurityViewModel) {
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                 )
 
-                // Terminal History
                 DataCategoryRow(
                     icon = Icons.Default.Terminal,
                     title = "Terminal History",
                     description = "Previously executed commands and their output",
                     detail = "${state.terminalHistoryCount} entries",
                     clearable = state.terminalHistoryCount > 0,
-                    onClear = { viewModel.onEvent(SecurityEvent.RequestClear(DataCategory.TERMINAL_HISTORY)) }
+                    onClear = { viewModel.onEvent(SecurityEvent.RequestClear(DataCategory.TERMINAL_HISTORY)) },
+                    onClick = { viewModel.onEvent(SecurityEvent.ViewData(DataCategory.TERMINAL_HISTORY)) }
                 )
 
                 HorizontalDivider(
@@ -487,14 +543,14 @@ private fun YourDataCard(state: SecurityUiState, viewModel: SecurityViewModel) {
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                 )
 
-                // Service Cache
                 DataCategoryRow(
                     icon = Icons.Default.Dns,
                     title = "Service Cache",
                     description = "Cached service discovery and status data",
                     detail = "${state.serviceCacheCount} services",
                     clearable = state.serviceCacheCount > 0,
-                    onClear = { viewModel.onEvent(SecurityEvent.RequestClear(DataCategory.SERVICE_CACHE)) }
+                    onClear = { viewModel.onEvent(SecurityEvent.RequestClear(DataCategory.SERVICE_CACHE)) },
+                    onClick = { viewModel.onEvent(SecurityEvent.ViewData(DataCategory.SERVICE_CACHE)) }
                 )
 
                 HorizontalDivider(
@@ -502,14 +558,14 @@ private fun YourDataCard(state: SecurityUiState, viewModel: SecurityViewModel) {
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                 )
 
-                // Metrics History
                 DataCategoryRow(
                     icon = Icons.Default.Timeline,
                     title = "Metrics History",
                     description = "CPU, memory, and disk usage snapshots",
                     detail = "${state.metricsCount} snapshots",
                     clearable = state.metricsCount > 0,
-                    onClear = { viewModel.onEvent(SecurityEvent.RequestClear(DataCategory.METRICS_HISTORY)) }
+                    onClear = { viewModel.onEvent(SecurityEvent.RequestClear(DataCategory.METRICS_HISTORY)) },
+                    onClick = { viewModel.onEvent(SecurityEvent.ViewData(DataCategory.METRICS_HISTORY)) }
                 )
 
                 HorizontalDivider(
@@ -517,14 +573,14 @@ private fun YourDataCard(state: SecurityUiState, viewModel: SecurityViewModel) {
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                 )
 
-                // Alert Rules
                 DataCategoryRow(
                     icon = Icons.Default.Notifications,
                     title = "Alert Rules",
                     description = "Custom monitoring rules and webhook URLs",
                     detail = "${state.alertRulesCount} rules",
                     clearable = state.alertRulesCount > 0,
-                    onClear = { viewModel.onEvent(SecurityEvent.RequestClear(DataCategory.ALERT_RULES)) }
+                    onClear = { viewModel.onEvent(SecurityEvent.RequestClear(DataCategory.ALERT_RULES)) },
+                    onClick = { viewModel.onEvent(SecurityEvent.ViewData(DataCategory.ALERT_RULES)) }
                 )
 
                 HorizontalDivider(
@@ -532,17 +588,16 @@ private fun YourDataCard(state: SecurityUiState, viewModel: SecurityViewModel) {
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                 )
 
-                // App Preferences (read-only info)
                 DataCategoryRow(
                     icon = Icons.Default.Settings,
                     title = "App Preferences",
                     description = "Theme, layout, refresh intervals, and plugin toggles",
                     detail = "Managed in settings",
                     clearable = false,
-                    onClear = {}
+                    onClear = {},
+                    onClick = { viewModel.onEvent(SecurityEvent.ViewData(DataCategory.APP_PREFERENCES)) }
                 )
 
-                // Clear All
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = { viewModel.onEvent(SecurityEvent.RequestClear(DataCategory.ALL_DATA)) },
@@ -567,11 +622,14 @@ private fun DataCategoryRow(
     description: String,
     detail: String,
     clearable: Boolean,
-    onClear: () -> Unit
+    onClear: () -> Unit,
+    onClick: (() -> Unit)? = null,
+    trailingIcon: ImageVector? = null
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -602,6 +660,24 @@ private fun DataCategoryRow(
             ) {
                 Text("Clear", style = MaterialTheme.typography.labelSmall)
             }
+            Spacer(Modifier.width(4.dp))
+        }
+        if (trailingIcon != null) {
+            Icon(
+                trailingIcon,
+                null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+            Spacer(Modifier.width(4.dp))
+        }
+        if (onClick != null) {
+            Icon(
+                Icons.Default.ChevronRight,
+                "View",
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
         }
     }
 }
@@ -718,5 +794,114 @@ private fun InfoItem(text: String) {
         )
         Spacer(Modifier.width(8.dp))
         Text(text, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun DataViewerDialog(
+    category: DataCategory,
+    items: List<DataViewItem>,
+    isLoading: Boolean,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        },
+        icon = {
+            Icon(
+                when (category) {
+                    DataCategory.SSH_CREDENTIALS -> Icons.Default.Key
+                    DataCategory.SUDO_PASSWORD -> Icons.Default.AdminPanelSettings
+                    DataCategory.TERMINAL_HISTORY -> Icons.Default.Terminal
+                    DataCategory.METRICS_HISTORY -> Icons.Default.Timeline
+                    DataCategory.ALERT_RULES -> Icons.Default.Notifications
+                    DataCategory.SERVICE_CACHE -> Icons.Default.Dns
+                    DataCategory.APP_PREFERENCES -> Icons.Default.Settings
+                    DataCategory.ALL_DATA -> Icons.Default.Storage
+                },
+                null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = { Text(category.label) },
+        text = {
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items.forEach { item ->
+                        DataViewItemRow(item)
+                    }
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun DataViewItemRow(item: DataViewItem) {
+    var revealed by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            item.label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(Modifier.height(2.dp))
+        if (item.isSensitive && !revealed) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "\u2022".repeat(12),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(8.dp))
+                TextButton(
+                    onClick = { revealed = true },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Icon(Icons.Default.Visibility, null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Reveal", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        } else {
+            Text(
+                item.value,
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (item.isSensitive && revealed) {
+                TextButton(
+                    onClick = { revealed = false },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Icon(Icons.Default.VisibilityOff, null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Hide", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 4.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+        )
     }
 }

@@ -17,8 +17,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -319,12 +325,13 @@ private fun FontSettingRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Column(horizontalAlignment = Alignment.End) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 currentFont,
                 style = MaterialTheme.typography.bodyMedium.copy(fontFamily = previewFontFamily),
                 color = MaterialTheme.colorScheme.primary
             )
+            Spacer(Modifier.width(4.dp))
             Icon(
                 Icons.Default.KeyboardArrowRight,
                 contentDescription = null,
@@ -626,7 +633,9 @@ private fun ThemeEditorContent(state: ThemeUiState, viewModel: ThemeViewModel) {
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -765,7 +774,7 @@ private fun ColorSlotRow(
                         } catch (_: Exception) {}
                     }
                 },
-                modifier = Modifier.width(100.dp).height(40.dp),
+                modifier = Modifier.width(100.dp),
                 textStyle = MaterialTheme.typography.labelSmall,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii)
@@ -807,40 +816,169 @@ private fun ColorPickerSimple(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Hue
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("H", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(16.dp))
-            Slider(
-                value = hue,
-                onValueChange = { hue = it; emitColor() },
-                valueRange = 0f..360f,
-                modifier = Modifier.weight(1f)
+        // Color preview swatch
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Current color swatch
+            Box(
+                Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(color)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
             )
-            Text("${hue.toInt()}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(32.dp), textAlign = TextAlign.End)
+            Column {
+                Text(
+                    "Preview",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "#${String.format("%06X", color.toArgb() and 0xFFFFFF)}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
-        // Saturation
+
+        // Hue bar - rainbow gradient canvas
+        Text("Hue", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .pointerInput(Unit) {
+                    detectTapGestures { offset ->
+                        hue = (offset.x / size.width.toFloat()).coerceIn(0f, 1f) * 360f
+                        emitColor()
+                    }
+                }
+                .pointerInput(Unit) {
+                    detectDragGestures { change, _ ->
+                        change.consume()
+                        hue = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f) * 360f
+                        emitColor()
+                    }
+                }
+        ) {
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val hueColors = (0..360 step 1).map { h ->
+                    Color(android.graphics.Color.HSVToColor(floatArrayOf(h.toFloat(), 1f, 1f)))
+                }
+                val widthPx = size.width
+                val stepWidth = widthPx / 360f
+                hueColors.forEachIndexed { index, c ->
+                    drawRect(
+                        color = c,
+                        topLeft = Offset(index * stepWidth, 0f),
+                        size = androidx.compose.ui.geometry.Size(stepWidth + 1f, size.height)
+                    )
+                }
+                // Draw indicator
+                val indicatorX = (hue / 360f) * widthPx
+                drawCircle(
+                    color = Color.White,
+                    radius = 10f,
+                    center = Offset(indicatorX, size.height / 2f),
+                    style = Stroke(width = 3f)
+                )
+                drawCircle(
+                    color = Color.Black,
+                    radius = 10f,
+                    center = Offset(indicatorX, size.height / 2f),
+                    style = Stroke(width = 1f)
+                )
+            }
+        }
+
+        // Saturation slider
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("S", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(16.dp))
-            Slider(
-                value = saturation,
-                onValueChange = { saturation = it; emitColor() },
-                valueRange = 0f..1f,
-                modifier = Modifier.weight(1f)
-            )
-            Text("${(saturation * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(32.dp), textAlign = TextAlign.End)
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(24.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .pointerInput(hue, brightness) {
+                        detectTapGestures { offset ->
+                            saturation = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                            emitColor()
+                        }
+                    }
+                    .pointerInput(hue, brightness) {
+                        detectDragGestures { change, _ ->
+                            change.consume()
+                            saturation = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
+                            emitColor()
+                        }
+                    }
+            ) {
+                androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                    val leftColor = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0f, brightness)))
+                    val rightColor = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 1f, brightness)))
+                    drawRect(
+                        brush = Brush.horizontalGradient(listOf(leftColor, rightColor)),
+                        size = size
+                    )
+                    val indicatorX = saturation * size.width
+                    drawCircle(
+                        color = Color.White,
+                        radius = 8f,
+                        center = Offset(indicatorX, size.height / 2f),
+                        style = Stroke(width = 2f)
+                    )
+                }
+            }
+            Spacer(Modifier.width(4.dp))
+            Text("${(saturation * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp), textAlign = TextAlign.End)
         }
-        // Brightness
+
+        // Value/Brightness slider
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("V", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(16.dp))
-            Slider(
-                value = brightness,
-                onValueChange = { brightness = it; emitColor() },
-                valueRange = 0f..1f,
-                modifier = Modifier.weight(1f)
-            )
-            Text("${(brightness * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(32.dp), textAlign = TextAlign.End)
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(24.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .pointerInput(hue, saturation) {
+                        detectTapGestures { offset ->
+                            brightness = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                            emitColor()
+                        }
+                    }
+                    .pointerInput(hue, saturation) {
+                        detectDragGestures { change, _ ->
+                            change.consume()
+                            brightness = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
+                            emitColor()
+                        }
+                    }
+            ) {
+                androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                    val leftColor = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, 0f)))
+                    val rightColor = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, 1f)))
+                    drawRect(
+                        brush = Brush.horizontalGradient(listOf(leftColor, rightColor)),
+                        size = size
+                    )
+                    val indicatorX = brightness * size.width
+                    drawCircle(
+                        color = Color.White,
+                        radius = 8f,
+                        center = Offset(indicatorX, size.height / 2f),
+                        style = Stroke(width = 2f)
+                    )
+                }
+            }
+            Spacer(Modifier.width(4.dp))
+            Text("${(brightness * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp), textAlign = TextAlign.End)
         }
 
         // Quick presets row
@@ -867,6 +1005,7 @@ private fun ColorPickerSimple(
 
 @Composable
 private fun ThemePreviewLive(colorScheme: ColorScheme) {
+    MaterialTheme(colorScheme = colorScheme) {
     Card(
         Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = colorScheme.background)
@@ -950,5 +1089,6 @@ private fun ThemePreviewLive(colorScheme: ColorScheme) {
                 Text("Error", color = colorScheme.error, fontSize = 11.sp)
             }
         }
+    }
     }
 }
