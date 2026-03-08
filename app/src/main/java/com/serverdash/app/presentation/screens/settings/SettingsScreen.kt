@@ -186,13 +186,29 @@ fun SettingsScreen(
             }
             item {
                 Text("Quick Theme Mode", style = MaterialTheme.typography.bodyMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     ThemeMode.entries.forEach { mode ->
                         FilterChip(
                             selected = state.preferences.themeMode == mode,
                             onClick = { viewModel.onEvent(SettingsEvent.UpdateThemeMode(mode)) },
-                            label = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                            label = { Text(mode.displayLabel) }
                         )
+                    }
+                }
+            }
+            if (state.availableThemes.isNotEmpty()) {
+                item {
+                    Text("Theme", style = MaterialTheme.typography.bodyMedium)
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        state.availableThemes.forEach { theme ->
+                            FilterChip(
+                                selected = state.preferences.selectedThemeId == theme.id,
+                                onClick = { viewModel.onEvent(SettingsEvent.SelectTheme(theme.id)) },
+                                label = { Text(theme.name) }
+                            )
+                        }
                     }
                 }
             }

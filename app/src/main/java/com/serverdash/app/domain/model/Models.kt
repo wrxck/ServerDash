@@ -123,7 +123,9 @@ data class WebhookPayload(
     val severity: String
 )
 
-enum class ThemeMode { AUTO, LIGHT, DARK, TRUE_BLACK }
+enum class ThemeMode(val displayLabel: String) {
+    AUTO("Auto"), LIGHT("Light"), DARK("Dark"), TRUE_BLACK("True Black")
+}
 
 enum class DashboardLayout { GRID, LIST, COMPACT }
 enum class ServiceSortOrder { NAME, STATUS, TYPE, PINNED_FIRST }

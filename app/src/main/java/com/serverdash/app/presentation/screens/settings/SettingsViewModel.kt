@@ -2,11 +2,15 @@ package com.serverdash.app.presentation.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.serverdash.app.core.theme.AppTheme
+import com.serverdash.app.core.theme.BuiltInThemes
+import com.serverdash.app.data.preferences.PreferencesManager
 import com.serverdash.app.domain.model.*
 import com.serverdash.app.domain.plugin.PluginRegistry
 import com.serverdash.app.domain.repository.PreferencesRepository
 import com.serverdash.app.domain.repository.ServerRepository
 import com.serverdash.app.domain.repository.SshRepository
+import kotlinx.serialization.json.Json
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -16,7 +20,8 @@ data class SettingsUiState(
     val serverConfig: ServerConfig? = null,
     val preferences: AppPreferences = AppPreferences(),
     val showDisconnectConfirm: Boolean = false,
-    val showResetConfirm: Boolean = false
+    val showResetConfirm: Boolean = false,
+    val availableThemes: List<com.serverdash.app.core.theme.AppTheme> = emptyList()
 )
 
 sealed interface SettingsEvent {
@@ -82,6 +87,7 @@ sealed interface SettingsEvent {
     data object DismissDisconnect : SettingsEvent
     data object ResetApp : SettingsEvent
     data object ConfirmReset : SettingsEvent
+    data class SelectTheme(val themeId: String) : SettingsEvent
     data object DismissReset : SettingsEvent
 }
 
@@ -90,8 +96,11 @@ class SettingsViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val serverRepository: ServerRepository,
     private val sshRepository: SshRepository,
+    private val preferencesManager: PreferencesManager,
     val pluginRegistry: PluginRegistry
 ) : ViewModel() {
+
+    private val json = Json { ignoreUnknownKeys = true }
 
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
@@ -110,12 +119,19 @@ class SettingsViewModel @Inject constructor(
                 _state.update { it.copy(preferences = prefs) }
             }
         }
+        viewModelScope.launch {
+            preferencesManager.customThemesJson.collect { jsonStr ->
+                val customs = try { json.decodeFromString<List<AppTheme>>(jsonStr) } catch (_: Exception) { emptyList() }
+                _state.update { it.copy(availableThemes = BuiltInThemes.all + customs) }
+            }
+        }
     }
 
     fun onEvent(event: SettingsEvent) {
         when (event) {
             // Display
             is SettingsEvent.UpdateThemeMode -> updatePref { it.copy(themeMode = event.mode) }
+            is SettingsEvent.SelectTheme -> updatePref { it.copy(selectedThemeId = event.themeId) }
             is SettingsEvent.UpdateBrightness -> updatePref { it.copy(brightnessOverride = event.brightness) }
             is SettingsEvent.UpdateKeepScreenOn -> updatePref { it.copy(keepScreenOn = event.enabled) }
             is SettingsEvent.UpdatePixelShift -> updatePref { it.copy(pixelShiftEnabled = event.enabled) }

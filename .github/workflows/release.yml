@@ -31,6 +31,9 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Remove local Java home override
+        run: sed -i '/org.gradle.java.home/d' gradle.properties
+
       - name: Build ABI-split debug APKs
         run: ./gradlew assembleDebug -Psplit_abis=true
 
