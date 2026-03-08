@@ -167,7 +167,9 @@ data class AppPreferences(
     // Data
     val metricsRetentionHours: Int = 24,
     val maxServicesDisplayed: Int = 0, // 0 = unlimited
-    val hideUnknownServices: Boolean = false
+    val hideUnknownServices: Boolean = false,
+    // plugins
+    val disabledPlugins: Set<String> = emptySet()
 )
 
 data class ConnectionState(
