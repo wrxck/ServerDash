@@ -14,6 +14,9 @@
     <application
         android:name=".ServerDashApp"
         android:allowBackup="true"
+        android:hasFragileUserData="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -55,6 +58,16 @@
                 android:resource="@xml/device_admin" />
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".receiver.AdbBridgeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.serverdash.app.EXEC_CMD" />
+                <action android:name="com.serverdash.app.GET_STATUS" />
+                <action android:name="com.serverdash.app.GET_LOGS" />
             </intent-filter>
         </receiver>
 

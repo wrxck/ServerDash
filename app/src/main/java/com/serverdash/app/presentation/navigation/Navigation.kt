@@ -1,6 +1,11 @@
 package com.serverdash.app.presentation.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -8,11 +13,19 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.serverdash.app.domain.repository.ServerRepository
+import com.serverdash.app.presentation.screens.claudecode.ClaudeCodeScreen
 import com.serverdash.app.presentation.screens.dashboard.DashboardScreen
 import com.serverdash.app.presentation.screens.detail.ServiceDetailScreen
 import com.serverdash.app.presentation.screens.settings.SettingsScreen
 import com.serverdash.app.presentation.screens.setup.SetupScreen
 import com.serverdash.app.presentation.screens.terminal.TerminalScreen
+import dagger.hilt.android.lifecycle.HiltViewModel
+import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed class Screen(val route: String) {
     data object Setup : Screen("setup")
@@ -22,15 +35,39 @@ sealed class Screen(val route: String) {
     }
     data object Terminal : Screen("terminal")
     data object Settings : Screen("settings")
+    data object ClaudeCode : Screen("claude_code")
+}
+
+@HiltViewModel
+class StartupViewModel @Inject constructor(
+    private val serverRepository: ServerRepository
+) : ViewModel() {
+    private val _hasConfig = MutableStateFlow<Boolean?>(null) // null = loading
+    val hasConfig = _hasConfig.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            val config = serverRepository.getServerConfig()
+            _hasConfig.value = config != null
+        }
+    }
 }
 
 @Composable
 fun ServerDashNavHost() {
-    val navController = rememberNavController()
+    val startupViewModel: StartupViewModel = hiltViewModel()
+    val hasConfig by startupViewModel.hasConfig.collectAsState()
 
-    // Determine start destination based on whether server is configured
-    // For simplicity, always start at setup if no config exists
-    val startDestination = Screen.Setup.route
+    if (hasConfig == null) {
+        // Still checking — show nothing or a brief loader
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    val navController = rememberNavController()
+    val startDestination = if (hasConfig == true) Screen.Dashboard.route else Screen.Setup.route
 
     NavHost(navController = navController, startDestination = startDestination) {
         composable(Screen.Setup.route) {
@@ -49,7 +86,8 @@ fun ServerDashNavHost() {
                     navController.navigate(Screen.ServiceDetail.createRoute(name, type))
                 },
                 onNavigateToTerminal = { navController.navigate(Screen.Terminal.route) },
-                onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+                onNavigateToClaudeCode = { navController.navigate(Screen.ClaudeCode.route) }
             )
         }
 
@@ -79,6 +117,12 @@ fun ServerDashNavHost() {
                         popUpTo(0) { inclusive = true }
                     }
                 }
+            )
+        }
+
+        composable(Screen.ClaudeCode.route) {
+            ClaudeCodeScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

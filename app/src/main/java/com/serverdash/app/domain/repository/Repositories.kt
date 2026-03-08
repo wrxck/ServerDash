@@ -16,8 +16,10 @@ interface ServiceRepository {
     suspend fun updateServiceStatus(serviceId: Long, status: ServiceStatus, subState: String = "")
     suspend fun pinService(serviceId: Long, pinned: Boolean)
     suspend fun saveServices(services: List<Service>)
+    suspend fun updateServiceGroup(serviceId: Long, group: String)
     fun observeServices(serverId: Long): Flow<List<Service>>
     fun observePinnedServices(serverId: Long): Flow<List<Service>>
+    fun observeGroups(serverId: Long): Flow<List<String>>
 }
 
 interface SshRepository {
@@ -29,6 +31,11 @@ interface SshRepository {
     suspend fun writeFile(path: String, content: String): Result<Unit>
     fun observeConnectionState(): Flow<ConnectionState>
     suspend fun isConnected(): Boolean
+    fun wrapWithSudo(command: String): String
+    suspend fun executeAsUser(command: String, username: String): Result<CommandResult>
+    suspend fun readFileAsUser(path: String, username: String): Result<String>
+    suspend fun writeFileAsUser(path: String, content: String, username: String): Result<Unit>
+    fun getConnectedUsername(): String?
 }
 
 interface MetricsRepository {

@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.serverdash.app.domain.model.*
+import com.serverdash.app.domain.repository.ServerRepository
 import com.serverdash.app.domain.repository.ServiceRepository
 import com.serverdash.app.domain.repository.MetricsRepository
 import com.serverdash.app.domain.usecase.*
@@ -44,6 +45,7 @@ sealed interface ServiceDetailEvent {
 @HiltViewModel
 class ServiceDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
+    private val serverRepository: ServerRepository,
     private val serviceRepository: ServiceRepository,
     private val metricsRepository: MetricsRepository,
     private val controlService: ControlServiceUseCase,
@@ -67,7 +69,8 @@ class ServiceDetailViewModel @Inject constructor(
 
     private fun loadService() {
         viewModelScope.launch {
-            serviceRepository.observeServices(1L).collect { services ->
+            val serverId = serverRepository.getServerConfig()?.id ?: 1L
+            serviceRepository.observeServices(serverId).collect { services ->
                 val service = services.find { it.name == serviceName }
                 _state.update { it.copy(service = service) }
             }
@@ -134,7 +137,7 @@ class ServiceDetailViewModel @Inject constructor(
             _state.update { it.copy(isLoadingLogs = true) }
             getServiceLogs(service).fold(
                 onSuccess = { logs -> _state.update { it.copy(logs = logs, isLoadingLogs = false) } },
-                onFailure = { _state.update { it.copy(isLoadingLogs = false) } }
+                onFailure = { e -> _state.update { it.copy(isLoadingLogs = false, error = "Failed to load logs: ${e.message}") } }
             )
         }
     }

@@ -1,9 +1,14 @@
 package com.serverdash.app.domain.usecase
 
+import android.util.Log
 import com.serverdash.app.domain.model.*
 import com.serverdash.app.domain.repository.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
+
+private const val TAG = "ServerDash"
 
 class ConnectToServerUseCase @Inject constructor(
     private val serverRepository: ServerRepository,
@@ -28,26 +33,37 @@ class DiscoverServicesUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(serverId: Long): Result<List<Service>> {
         return try {
+            Log.d(TAG, "DiscoverServices: starting for serverId=$serverId")
             val systemdResult = sshRepository.executeCommand(
                 "systemctl list-units --type=service --all --no-pager --no-legend"
             )
+            Log.d(TAG, "DiscoverServices: systemctl done, success=${systemdResult.isSuccess}")
+
             val dockerResult = sshRepository.executeCommand(
                 "docker ps -a --format '{{.Names}}\\t{{.Status}}' 2>/dev/null"
             )
+            Log.d(TAG, "DiscoverServices: docker done, success=${dockerResult.isSuccess}")
 
             val services = mutableListOf<Service>()
 
             systemdResult.getOrNull()?.let { result ->
-                services.addAll(parseSystemctlOutput(result.output, serverId))
+                val parsed = parseSystemctlOutput(result.output, serverId)
+                Log.d(TAG, "DiscoverServices: parsed ${parsed.size} systemd services")
+                services.addAll(parsed)
             }
 
             dockerResult.getOrNull()?.let { result ->
-                services.addAll(parseDockerOutput(result.output, serverId))
+                val parsed = parseDockerOutput(result.output, serverId)
+                Log.d(TAG, "DiscoverServices: parsed ${parsed.size} docker services")
+                services.addAll(parsed)
             }
 
+            Log.d(TAG, "DiscoverServices: saving ${services.size} services")
             serviceRepository.saveServices(services)
+            Log.d(TAG, "DiscoverServices: save complete")
             Result.success(services)
         } catch (e: Exception) {
+            Log.e(TAG, "DiscoverServices: failed", e)
             Result.failure(e)
         }
     }
@@ -187,7 +203,7 @@ class ControlServiceUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(service: Service, action: ServiceAction): Result<CommandResult> {
         val command = when (service.type) {
-            ServiceType.SYSTEMD -> "sudo systemctl ${action.command} ${service.name}"
+            ServiceType.SYSTEMD -> sshRepository.wrapWithSudo("systemctl ${action.command} ${service.name}")
             ServiceType.DOCKER -> "docker ${action.command} ${service.name}"
         }
         return sshRepository.executeCommand(command)
@@ -204,25 +220,87 @@ class GetServiceLogsUseCase @Inject constructor(
     private val sshRepository: SshRepository
 ) {
     suspend operator fun invoke(service: Service, lines: Int = 100): Result<List<ServiceLog>> {
-        val command = when (service.type) {
-            ServiceType.SYSTEMD -> "journalctl -u ${service.name} -n $lines --no-pager"
-            ServiceType.DOCKER -> "docker logs --tail $lines ${service.name} 2>&1"
+        return when (service.type) {
+            ServiceType.SYSTEMD -> fetchSystemdLogs(service, lines)
+            ServiceType.DOCKER -> fetchDockerLogs(service, lines)
         }
-        return sshRepository.executeCommand(command).map { result ->
-            result.output.lines().filter { it.isNotBlank() }.map { line ->
-                ServiceLog(timestamp = "", message = line)
+    }
+
+    private suspend fun fetchSystemdLogs(service: Service, lines: Int): Result<List<ServiceLog>> {
+        // Try with sudo first to get full logs (all users + system)
+        val sudoCommand = sshRepository.wrapWithSudo("journalctl -u ${service.name} -n $lines --no-pager -o short-iso") + " 2>&1"
+        val sudoResult = sshRepository.executeCommand(sudoCommand)
+        val sudoOutput = sudoResult.getOrNull()?.output ?: ""
+        val sudoLogs = parseJournalctlOutput(sudoOutput)
+
+        // If sudo worked, use those logs
+        if (sudoLogs.isNotEmpty()) return Result.success(sudoLogs)
+
+        // If sudo failed (no password, wrong password, etc.), fall back to non-sudo
+        val command = "journalctl -u ${service.name} -n $lines --no-pager -o short-iso 2>&1"
+        val result = sshRepository.executeCommand(command)
+        return result.map { cmdResult ->
+            val logs = parseJournalctlOutput(cmdResult.output)
+            if (logs.isEmpty() && cmdResult.output.isNotBlank()) {
+                listOf(ServiceLog(timestamp = "", message = cmdResult.output.trim()))
+            } else {
+                logs
             }
+        }.recoverCatching {
+            listOf(ServiceLog(timestamp = "", message = "Failed to fetch logs: ${it.message}"))
+        }
+    }
+
+    private fun parseJournalctlOutput(output: String): List<ServiceLog> {
+        return output.lines()
+            .filter { it.isNotBlank() && !it.startsWith("--") }
+            .mapNotNull { line ->
+                // short-iso format: 2024-01-15T10:30:45+0000 hostname service[pid]: message
+                val isoMatch = Regex("""^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+\-]\d{4})\s+\S+\s+(.+)$""").find(line)
+                if (isoMatch != null) {
+                    ServiceLog(
+                        timestamp = isoMatch.groupValues[1],
+                        message = isoMatch.groupValues[2]
+                    )
+                } else if (line.isNotBlank() && !line.contains("No journal files")) {
+                    ServiceLog(timestamp = "", message = line)
+                } else null
+            }
+    }
+
+    private suspend fun fetchDockerLogs(service: Service, lines: Int): Result<List<ServiceLog>> {
+        val command = "docker logs --tail $lines ${service.name} 2>&1"
+        var result = sshRepository.executeCommand(command)
+        // Retry once after a brief delay if not connected (reconnection may be in progress)
+        if (result.isFailure && result.exceptionOrNull()?.message?.contains("Not connected") == true) {
+            delay(2000)
+            result = sshRepository.executeCommand(command)
+        }
+        return result.map { cmdResult ->
+            if (cmdResult.output.isBlank()) {
+                listOf(ServiceLog(timestamp = "", message = "(no log output)"))
+            } else {
+                cmdResult.output.lines().filter { it.isNotBlank() }.map { line ->
+                    // Docker logs often have timestamps at the start
+                    val tsMatch = Regex("""^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z?)\s+(.+)$""").find(line)
+                    if (tsMatch != null) {
+                        ServiceLog(timestamp = tsMatch.groupValues[1], message = tsMatch.groupValues[2])
+                    } else {
+                        ServiceLog(timestamp = "", message = line)
+                    }
+                }
+            }
+        }.recoverCatching {
+            listOf(ServiceLog(timestamp = "", message = "Failed to fetch docker logs: ${it.message}"))
         }
     }
 
     fun stream(service: Service): Flow<String> {
-        // This will be implemented in SshRepository
-        return kotlinx.coroutines.flow.flow {
-            val command = when (service.type) {
-                ServiceType.SYSTEMD -> "journalctl -u ${service.name} -f --no-pager"
-                ServiceType.DOCKER -> "docker logs -f ${service.name} 2>&1"
+        return flow {
+            val logFlow = sshRepository.startLogStream(service.name, service.type)
+            logFlow.collect { line ->
+                emit(line)
             }
-            // Delegate to SSH repository streaming
         }
     }
 }
@@ -232,7 +310,7 @@ class FetchSystemMetricsUseCase @Inject constructor(
     private val metricsRepository: MetricsRepository
 ) {
     suspend operator fun invoke(): Result<SystemMetrics> {
-        val command = "cat /proc/loadavg && echo '---' && free -b && echo '---' && df -B1 / && echo '---' && cat /proc/uptime"
+        val command = "cat /proc/loadavg && echo '---' && free -b && echo '---' && df -B1 / && echo '---' && cat /proc/uptime && echo '---' && nproc"
         return sshRepository.executeCommand(command).map { result ->
             parseMetrics(result.output).also { metrics ->
                 metricsRepository.saveMetrics(metrics)
@@ -247,6 +325,7 @@ class FetchSystemMetricsUseCase @Inject constructor(
         var memUsed = 0L; var memTotal = 0L
         var diskUsed = 0L; var diskTotal = 0L
         var uptime = 0L
+        var numCpus = 1
 
         // Parse /proc/loadavg
         if (sections.isNotEmpty()) {
@@ -289,8 +368,14 @@ class FetchSystemMetricsUseCase @Inject constructor(
             uptime = uptimeParts[0].toDoubleOrNull()?.toLong() ?: 0
         }
 
-        // Approximate CPU from load average
-        val cpuUsage = (loadAvg1 * 100f).coerceIn(0f, 100f)
+        // Parse nproc (CPU count)
+        if (sections.size > 4) {
+            numCpus = sections[4].trim().toIntOrNull() ?: 1
+            if (numCpus < 1) numCpus = 1
+        }
+
+        // CPU usage: load average normalized by CPU count
+        val cpuUsage = ((loadAvg1 / numCpus) * 100f).coerceIn(0f, 100f)
 
         return SystemMetrics(
             cpuUsage = cpuUsage,
@@ -373,5 +458,46 @@ class PinServiceUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(serviceId: Long, pinned: Boolean) {
         serviceRepository.pinService(serviceId, pinned)
+    }
+}
+
+class DetectSystemUsersUseCase @Inject constructor(
+    private val sshRepository: SshRepository
+) {
+    suspend operator fun invoke(): Result<List<SystemUser>> {
+        val command = "getent passwd | awk -F: '(\$3 == 0 || \$3 >= 1000) && \$7 !~ /(nologin|false)/ {print \$1 \":\" \$6 \":\" \$3}'"
+        return sshRepository.executeCommand(command).map { result ->
+            result.output.lines()
+                .filter { it.isNotBlank() }
+                .mapNotNull { line ->
+                    val parts = line.split(":", limit = 3)
+                    if (parts.size == 3) {
+                        SystemUser(
+                            username = parts[0],
+                            homeDirectory = parts[1],
+                            uid = parts[2].toIntOrNull() ?: -1
+                        )
+                    } else null
+                }
+        }
+    }
+}
+
+class DetectClaudeCodeUsersUseCase @Inject constructor(
+    private val sshRepository: SshRepository
+) {
+    suspend operator fun invoke(users: List<SystemUser>): Result<List<SystemUser>> {
+        if (users.isEmpty()) return Result.success(emptyList())
+        // Check each user individually with sudo to handle restricted home dirs like /root
+        val results = mutableMapOf<String, Boolean>()
+        for (user in users) {
+            val checkCmd = sshRepository.wrapWithSudo("test -d '${user.homeDirectory}/.claude'")
+            val result = sshRepository.executeCommand("$checkCmd && echo YES || echo NO")
+            val output = result.getOrNull()?.output?.trim() ?: "NO"
+            results[user.username] = output.lines().last().trim() == "YES"
+        }
+        return Result.success(users.map { user ->
+            user.copy(hasClaudeCode = results[user.username] == true)
+        })
     }
 }

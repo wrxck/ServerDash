@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Database(
     entities = [ServerConfigEntity::class, ServiceEntity::class, MetricsEntity::class, AlertRuleEntity::class, AlertEntity::class, TerminalHistoryEntity::class],
-    version = 1,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -41,10 +41,14 @@ data class ServerConfigEntity(
     val password: String = "",
     val privateKey: String = "",
     val passphrase: String = "",
-    val label: String = ""
+    val label: String = "",
+    val sudoPassword: String = ""
 )
 
-@Entity(tableName = "services")
+@Entity(
+    tableName = "services",
+    indices = [Index(value = ["serverId", "name"], unique = true)]
+)
 data class ServiceEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val serverId: Long,
@@ -54,7 +58,8 @@ data class ServiceEntity(
     val status: ServiceStatusDb = ServiceStatusDb.UNKNOWN,
     val isPinned: Boolean = false,
     val subState: String = "",
-    val description: String = ""
+    val description: String = "",
+    @ColumnInfo(defaultValue = "") val group: String = ""
 )
 
 @Entity(tableName = "metrics")
@@ -118,27 +123,73 @@ interface ServerConfigDao {
 }
 
 @Dao
-interface ServiceDao {
+abstract class ServiceDao {
     @Query("SELECT * FROM services WHERE serverId = :serverId ORDER BY isPinned DESC, name ASC")
-    fun observeServices(serverId: Long): Flow<List<ServiceEntity>>
+    abstract fun observeServices(serverId: Long): Flow<List<ServiceEntity>>
 
     @Query("SELECT * FROM services WHERE serverId = :serverId AND isPinned = 1 ORDER BY name ASC")
-    fun observePinnedServices(serverId: Long): Flow<List<ServiceEntity>>
+    abstract fun observePinnedServices(serverId: Long): Flow<List<ServiceEntity>>
 
     @Query("SELECT * FROM services WHERE serverId = :serverId")
-    suspend fun getServices(serverId: Long): List<ServiceEntity>
+    abstract suspend fun getServices(serverId: Long): List<ServiceEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(services: List<ServiceEntity>)
+    @Query("""
+        INSERT INTO services (serverId, name, displayName, type, status, subState, description, isPinned, `group`)
+        VALUES (:serverId, :name, :displayName, :type, :status, :subState, :description, 0, '')
+        ON CONFLICT(serverId, name) DO UPDATE SET
+            status = excluded.status,
+            subState = excluded.subState,
+            description = excluded.description,
+            displayName = excluded.displayName
+    """)
+    abstract suspend fun upsertService(
+        serverId: Long,
+        name: String,
+        displayName: String,
+        type: ServiceTypeDb,
+        status: ServiceStatusDb,
+        subState: String,
+        description: String
+    )
 
     @Query("UPDATE services SET status = :status, subState = :subState WHERE id = :id")
-    suspend fun updateStatus(id: Long, status: ServiceStatusDb, subState: String)
+    abstract suspend fun updateStatus(id: Long, status: ServiceStatusDb, subState: String)
 
     @Query("UPDATE services SET isPinned = :pinned WHERE id = :id")
-    suspend fun updatePinned(id: Long, pinned: Boolean)
+    abstract suspend fun updatePinned(id: Long, pinned: Boolean)
+
+    @Query("UPDATE services SET `group` = :group WHERE id = :id")
+    abstract suspend fun updateGroup(id: Long, group: String)
+
+    @Query("SELECT DISTINCT `group` FROM services WHERE serverId = :serverId AND `group` != '' ORDER BY `group` ASC")
+    abstract fun observeGroups(serverId: Long): Flow<List<String>>
+
+    @Query("DELETE FROM services WHERE serverId = :serverId AND name NOT IN (:activeNames)")
+    abstract suspend fun deleteStale(serverId: Long, activeNames: List<String>)
 
     @Query("DELETE FROM services WHERE serverId = :serverId")
-    suspend fun deleteByServer(serverId: Long)
+    abstract suspend fun deleteByServer(serverId: Long)
+
+    @Transaction
+    open suspend fun syncServices(serverId: Long, services: List<ServiceEntity>) {
+        // Upsert all current services (preserves isPinned and group)
+        for (s in services) {
+            upsertService(
+                serverId = serverId,
+                name = s.name,
+                displayName = s.displayName,
+                type = s.type,
+                status = s.status,
+                subState = s.subState,
+                description = s.description
+            )
+        }
+        // Remove services that no longer exist on the server
+        val activeNames = services.map { it.name }
+        if (activeNames.isNotEmpty()) {
+            deleteStale(serverId, activeNames)
+        }
+    }
 }
 
 @Dao

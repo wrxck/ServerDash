@@ -12,7 +12,8 @@ fun ServerConfigEntity.toDomain(): ServerConfig = ServerConfig(
         "KEY" -> AuthMethod.KeyBased(privateKey, passphrase)
         else -> AuthMethod.Password(password)
     },
-    label = label
+    label = label,
+    sudoPassword = sudoPassword
 )
 
 fun ServerConfig.toEntity(): ServerConfigEntity = ServerConfigEntity(
@@ -27,7 +28,8 @@ fun ServerConfig.toEntity(): ServerConfigEntity = ServerConfigEntity(
     password = (authMethod as? AuthMethod.Password)?.password ?: "",
     privateKey = (authMethod as? AuthMethod.KeyBased)?.privateKey ?: "",
     passphrase = (authMethod as? AuthMethod.KeyBased)?.passphrase ?: "",
-    label = label
+    label = label,
+    sudoPassword = sudoPassword
 )
 
 fun ServiceEntity.toDomain(): Service = Service(
@@ -47,7 +49,8 @@ fun ServiceEntity.toDomain(): Service = Service(
     },
     isPinned = isPinned,
     subState = subState,
-    description = description
+    description = description,
+    group = group
 )
 
 fun Service.toEntity(): ServiceEntity = ServiceEntity(
@@ -67,7 +70,8 @@ fun Service.toEntity(): ServiceEntity = ServiceEntity(
     },
     isPinned = isPinned,
     subState = subState,
-    description = description
+    description = description,
+    group = group
 )
 
 fun MetricsEntity.toDomain(): SystemMetrics = SystemMetrics(
