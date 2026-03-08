@@ -269,7 +269,7 @@ class ClaudeCodeViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isLoadingMcp = true) }
             try {
-                val result = readClaudeFile(".claude/settings.json")
+                val result = readClaudeFile(".mcp.json")
                 result.fold(
                     onSuccess = { content ->
                         val jsonStr = content.trim().ifBlank { "{}" }
@@ -307,18 +307,18 @@ class ClaudeCodeViewModel @Inject constructor(
     private fun saveMcpServer(original: McpServer?, updated: McpServer) {
         viewModelScope.launch {
             try {
-                // Read current settings
-                val currentJson = readClaudeFile(".claude/settings.json").getOrNull()?.trim()?.ifBlank { "{}" } ?: "{}"
+                // read current mcp config
+                val currentJson = readClaudeFile(".mcp.json").getOrNull()?.trim()?.ifBlank { "{}" } ?: "{}"
                 val root = try { Json.parseToJsonElement(currentJson).jsonObject.toMutableMap() } catch (e: Exception) { mutableMapOf() }
 
                 val mcpObj = (root["mcpServers"]?.jsonObject?.toMutableMap() ?: mutableMapOf())
 
-                // Remove old entry if renaming
+                // remove old entry if renaming
                 if (original != null && original.name != updated.name && original.name.isNotBlank()) {
                     mcpObj.remove(original.name)
                 }
 
-                // Add/update entry
+                // add/update entry
                 val serverObj = buildJsonObject {
                     put("command", updated.command)
                     putJsonArray("args") { updated.args.forEach { add(it) } }
@@ -331,9 +331,7 @@ class ClaudeCodeViewModel @Inject constructor(
                 root["mcpServers"] = JsonObject(mcpObj)
                 val newJson = json.encodeToString(JsonObject.serializer(), JsonObject(root))
 
-                // Ensure .claude dir exists and write
-                executeForUser("mkdir -p ~/.claude")
-                writeClaudeFile(".claude/settings.json", newJson)
+                writeClaudeFile(".mcp.json", newJson)
                 _state.update { it.copy(editingMcpServer = null, isAddingMcpServer = false, successMessage = "MCP server saved") }
                 loadMcpServers()
             } catch (e: Exception) {
@@ -345,7 +343,7 @@ class ClaudeCodeViewModel @Inject constructor(
     private fun deleteMcpServer(server: McpServer) {
         viewModelScope.launch {
             try {
-                val currentJson = readClaudeFile(".claude/settings.json").getOrNull()?.trim()?.ifBlank { "{}" } ?: "{}"
+                val currentJson = readClaudeFile(".mcp.json").getOrNull()?.trim()?.ifBlank { "{}" } ?: "{}"
                 val root = try { Json.parseToJsonElement(currentJson).jsonObject.toMutableMap() } catch (e: Exception) { mutableMapOf() }
 
                 val mcpObj = (root["mcpServers"]?.jsonObject?.toMutableMap() ?: mutableMapOf())
@@ -353,7 +351,7 @@ class ClaudeCodeViewModel @Inject constructor(
                 root["mcpServers"] = JsonObject(mcpObj)
 
                 val newJson = json.encodeToString(JsonObject.serializer(), JsonObject(root))
-                writeClaudeFile(".claude/settings.json", newJson)
+                writeClaudeFile(".mcp.json", newJson)
                 _state.update { it.copy(successMessage = "MCP server '${server.name}' deleted") }
                 loadMcpServers()
             } catch (e: Exception) {
