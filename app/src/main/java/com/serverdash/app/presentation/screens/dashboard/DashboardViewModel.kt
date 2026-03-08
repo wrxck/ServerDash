@@ -84,6 +84,7 @@ sealed interface DashboardEvent {
     data class ToggleStatusFilter(val status: ServiceStatus) : DashboardEvent
     data class ToggleTypeFilter(val type: ServiceType) : DashboardEvent
     data object ClearFilters : DashboardEvent
+    data object ToggleShowNonFleetServices : DashboardEvent
 }
 
 @HiltViewModel
@@ -250,6 +251,10 @@ class DashboardViewModel @Inject constructor(
             }
             is DashboardEvent.ClearFilters -> {
                 _state.update { it.copy(searchQuery = "", statusFilters = emptySet(), typeFilters = emptySet(), selectedTab = 0, isSearchVisible = false) }
+            }
+            is DashboardEvent.ToggleShowNonFleetServices -> {
+                _state.update { it.copy(showNonFleetServices = !it.showNonFleetServices) }
+                viewModelScope.launch { refreshData() }
             }
         }
     }
