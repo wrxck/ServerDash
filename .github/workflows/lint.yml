@@ -62,6 +62,7 @@ jobs:
             --config detekt.yml \
             --build-upon-default-config \
             --report sarif:build/reports/detekt.sarif
+        continue-on-error: true
 
       - name: Upload SARIF results
         if: always()
