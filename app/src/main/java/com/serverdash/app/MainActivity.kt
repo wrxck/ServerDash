@@ -119,7 +119,10 @@ class MainActivity : FragmentActivity() {
                             enter = fadeIn(),
                             exit = fadeOut()
                         ) {
-                            LockScreen(appLockManager = appLockManager)
+                            LockScreen(
+                                appLockManager = appLockManager,
+                                authMethod = preferences.appLockAuthMethod
+                            )
                         }
                     }
                 }
