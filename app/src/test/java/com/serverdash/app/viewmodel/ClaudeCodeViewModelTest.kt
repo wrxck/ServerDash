@@ -103,7 +103,8 @@ class ClaudeCodeViewModelTest {
     }
 
     private fun stubMcpRead(json: String) {
-        coEvery { sshRepository.executeCommand(match { it.contains("cat ~/.mcp.json") }) } returns
+        // loadMcpServers now uses readFileForUser which constructs: cat '/home/matt/.mcp.json' 2>/dev/null
+        coEvery { sshRepository.executeCommand(match { it.contains(".mcp.json") }) } returns
             cmdResult(json)
     }
 

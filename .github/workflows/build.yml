@@ -62,7 +62,7 @@ jobs:
           path: app/build/reports/tests/testDebugUnitTest/
 
       - name: Upload debug APK
-        if: github.ref == 'refs/heads/main'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk

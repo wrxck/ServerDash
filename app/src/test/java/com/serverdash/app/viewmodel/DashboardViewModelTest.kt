@@ -105,6 +105,10 @@ class DashboardViewModelTest {
     fun `connection state is observed`() = runTest {
         val connState = ConnectionState(isConnected = true, lastConnected = 123)
         every { sshRepository.observeConnectionState() } returns flowOf(connState)
+        // Connected state triggers polling which calls refreshData
+        coEvery { refreshServiceStatus(any()) } returns Result.success(emptyList())
+        coEvery { fetchMetrics() } returns Result.success(SystemMetrics())
+        coEvery { evaluateAlertRules(any(), any(), any()) } returns emptyList()
 
         val vm = createViewModel()
         advanceUntilIdle()
