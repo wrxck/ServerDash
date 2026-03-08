@@ -28,6 +28,15 @@ sealed class AuthMethod {
     data class KeyBased(val privateKey: String, val passphrase: String = "") : AuthMethod()
 }
 
+data class FleetAppMetadata(
+    val domains: List<String> = emptyList(),
+    val composePath: String = "",
+    val appType: String = "",
+    val healthUrl: String? = null,
+    val port: Int? = null,
+    val containers: List<String> = emptyList()
+)
+
 data class Service(
     val id: Long = 0,
     val serverId: Long,
@@ -38,7 +47,8 @@ data class Service(
     val isPinned: Boolean = false,
     val subState: String = "",
     val description: String = "",
-    val group: String = ""
+    val group: String = "",
+    val fleetMetadata: FleetAppMetadata? = null
 ) {
     val effectiveGroup: String get() = group.ifBlank { type.name.lowercase().replaceFirstChar { it.uppercase() } }
 }
