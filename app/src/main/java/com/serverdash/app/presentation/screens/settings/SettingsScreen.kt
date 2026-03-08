@@ -423,7 +423,48 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Kiosk Mode ──
+            // plugins
+            item { SectionDivider(); SectionHeader("Plugins") }
+            item {
+                Column {
+                    viewModel.pluginRegistry.getAll().forEach { plugin ->
+                        val detected = viewModel.pluginRegistry.isDetected(plugin.id)
+                        val disabled = state.preferences.disabledPlugins.contains(plugin.id)
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 0.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    plugin.icon, null, Modifier.size(24.dp),
+                                    tint = if (detected) MaterialTheme.colorScheme.primary
+                                           else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text(plugin.displayName, style = MaterialTheme.typography.bodyLarge)
+                                    Text(
+                                        if (detected) plugin.description else "Not detected on server",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Switch(
+                                checked = detected && !disabled,
+                                onCheckedChange = { viewModel.onEvent(SettingsEvent.TogglePlugin(plugin.id)) },
+                                enabled = detected
+                            )
+                        }
+                    }
+                }
+            }
+
+            // kiosk mode
             item { SectionDivider(); SectionHeader("Kiosk Mode") }
             item {
                 SwitchSetting("Enable Kiosk Mode", state.preferences.kioskMode) {
