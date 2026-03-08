@@ -21,9 +21,13 @@ class PrivacyFilter @Inject constructor(
     private val preferences: StateFlow<AppPreferences> = preferencesRepository.observePreferences()
         .stateIn(scope, SharingStarted.Eagerly, AppPreferences())
 
-    val isEnabled: StateFlow<Boolean> = preferencesRepository.observePreferences()
+    val isEnabled: StateFlow<Boolean> = preferences
         .map { it.streamingModeEnabled }
         .stateIn(scope, SharingStarted.Eagerly, false)
+
+    // Cache compiled custom regexes to avoid recompiling on every filter() call
+    private var cachedCustomPatterns: Set<String> = emptySet()
+    private var cachedCustomRegexes: List<Regex> = emptyList()
 
     companion object {
         // IPv4: e.g. 192.168.1.1, 10.0.0.1
@@ -151,16 +155,16 @@ Service nginx listening on port 443"""
             }
         }
 
-        // Custom regex patterns
-        for (pattern in prefs.privacyCustomPatterns) {
-            if (pattern.isNotBlank()) {
-                try {
-                    val customRegex = Regex(pattern)
-                    result = customRegex.replace(result, replacement)
-                } catch (_: Exception) {
-                    // Skip invalid regex patterns silently
-                }
+        // Custom regex patterns (use cached compiled regexes)
+        val customPatterns = prefs.privacyCustomPatterns
+        if (customPatterns != cachedCustomPatterns) {
+            cachedCustomPatterns = customPatterns
+            cachedCustomRegexes = customPatterns.mapNotNull { pattern ->
+                if (pattern.isNotBlank()) try { Regex(pattern) } catch (_: Exception) { null } else null
             }
+        }
+        for (regex in cachedCustomRegexes) {
+            result = regex.replace(result, replacement)
         }
 
         return result

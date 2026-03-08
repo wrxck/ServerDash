@@ -10,8 +10,10 @@ import net.schmizz.sshj.common.IOUtils
 import net.schmizz.sshj.connection.channel.direct.Session
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
 import net.schmizz.sshj.userauth.keyprovider.KeyProvider
+import net.schmizz.sshj.connection.channel.direct.Session.Shell
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.io.OutputStream
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -205,6 +207,62 @@ class SshSessionManager @Inject constructor() {
                 Result.failure(e)
             }
         }
+    }
+
+    /**
+     * Start an interactive PTY shell session for running TUI apps like `claude`.
+     * Returns an InteractiveSession that allows reading output and writing input.
+     */
+    suspend fun startInteractiveShell(
+        cols: Int = 120,
+        rows: Int = 40,
+        initialCommand: String? = null
+    ): Result<InteractiveSession> = withContext(Dispatchers.IO) {
+        val ssh = client ?: return@withContext Result.failure(IllegalStateException("Not connected"))
+        try {
+            val session = ssh.startSession()
+            session.allocatePTY("xterm-256color", cols, rows, 0, 0, emptyMap())
+            val shell = session.startShell()
+            // Send initial command if provided
+            if (initialCommand != null) {
+                shell.outputStream.write("$initialCommand\n".toByteArray())
+                shell.outputStream.flush()
+            }
+            Result.success(InteractiveSession(session, shell))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    class InteractiveSession(
+        private val session: Session,
+        private val shell: Shell
+    ) {
+        val inputStream get() = shell.inputStream
+        val outputStream: OutputStream get() = shell.outputStream
+
+        fun write(data: String) {
+            outputStream.write(data.toByteArray())
+            outputStream.flush()
+        }
+
+        fun write(data: ByteArray) {
+            outputStream.write(data)
+            outputStream.flush()
+        }
+
+        fun resize(cols: Int, rows: Int) {
+            try {
+                shell.changeWindowDimensions(cols, rows, 0, 0)
+            } catch (_: Exception) { }
+        }
+
+        fun close() {
+            try { shell.close() } catch (_: Exception) { }
+            try { session.close() } catch (_: Exception) { }
+        }
+
+        fun isOpen(): Boolean = session.isOpen
     }
 
     fun isConnected(): Boolean = client?.isConnected == true

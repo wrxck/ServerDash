@@ -7,6 +7,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -192,53 +193,32 @@ fun AboutScreen(onNavigateBack: () -> Unit) {
                 }
             }
 
-            // Tech stack
+            // Tech stack - compact chips
             item {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Built With", style = MaterialTheme.typography.titleSmall)
-                        Spacer(Modifier.height(8.dp))
-                        val techs = listOf(
-                            "Kotlin" to "Language",
-                            "Jetpack Compose" to "UI Framework",
-                            "Material 3" to "Design System",
-                            "Hilt" to "Dependency Injection",
-                            "SSHJ" to "SSH Client",
-                            "JetBrains Mono" to "Typography"
-                        )
-                        techs.forEach { (name, desc) ->
-                            Row(Modifier.padding(vertical = 2.dp)) {
-                                Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.width(140.dp))
-                                Text(desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Features
-            item {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Features", style = MaterialTheme.typography.titleSmall)
-                        Spacer(Modifier.height(8.dp))
-                        val features = listOf(
-                            "SSH-based server monitoring",
-                            "Systemd & Docker service management",
-                            "Real-time CPU/Memory/Disk metrics",
-                            "Claude Code integration",
-                            "Git & GitHub management",
-                            "Fleet application discovery",
-                            "Guardian security monitoring",
-                            "Interactive terminal",
-                            "Alert rules & notifications",
-                            "Encrypted credential storage"
-                        )
-                        features.forEach { feature ->
-                            Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Check, null, Modifier.size(14.dp), tint = Color(0xFF66BB6A))
-                                Spacer(Modifier.width(8.dp))
-                                Text(feature, style = MaterialTheme.typography.bodySmall)
+                Column(Modifier.fillMaxWidth()) {
+                    Text(
+                        "Built with",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("Kotlin", "Jetpack Compose", "Material 3", "Hilt", "SSHJ", "Room", "SQLCipher").forEach { tech ->
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                tonalElevation = 1.dp
+                            ) {
+                                Text(
+                                    tech,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    fontFamily = FontFamily.Monospace
+                                )
                             }
                         }
                     }

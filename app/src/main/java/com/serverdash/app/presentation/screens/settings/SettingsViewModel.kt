@@ -70,6 +70,9 @@ sealed interface SettingsEvent {
     data class UpdateMetricsRetention(val hours: Int) : SettingsEvent
     data class UpdateMaxServicesDisplayed(val max: Int) : SettingsEvent
     data class UpdateHideUnknownServices(val hide: Boolean) : SettingsEvent
+    // App Lock
+    data class UpdateAppLockEnabled(val enabled: Boolean) : SettingsEvent
+    data class UpdateAppLockTimeout(val timeout: com.serverdash.app.domain.model.LockTimeout) : SettingsEvent
     // Kiosk
     data class UpdateKioskMode(val enabled: Boolean) : SettingsEvent
     data class UpdateAutoStart(val enabled: Boolean) : SettingsEvent
@@ -159,6 +162,9 @@ class SettingsViewModel @Inject constructor(
             is SettingsEvent.UpdateMetricsRetention -> updatePref { it.copy(metricsRetentionHours = event.hours) }
             is SettingsEvent.UpdateMaxServicesDisplayed -> updatePref { it.copy(maxServicesDisplayed = event.max) }
             is SettingsEvent.UpdateHideUnknownServices -> updatePref { it.copy(hideUnknownServices = event.hide) }
+            // App Lock
+            is SettingsEvent.UpdateAppLockEnabled -> updatePref { it.copy(appLockEnabled = event.enabled) }
+            is SettingsEvent.UpdateAppLockTimeout -> updatePref { it.copy(appLockTimeout = event.timeout) }
             // Kiosk
             is SettingsEvent.UpdateKioskMode -> updatePref { it.copy(kioskMode = event.enabled) }
             is SettingsEvent.UpdateAutoStart -> updatePref { it.copy(autoStartOnBoot = event.enabled) }

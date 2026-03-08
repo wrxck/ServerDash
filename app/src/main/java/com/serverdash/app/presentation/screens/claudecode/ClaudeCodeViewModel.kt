@@ -20,7 +20,8 @@ data class McpServer(
     val command: String = "",
     val args: List<String> = emptyList(),
     val env: Map<String, String> = emptyMap(),
-    val enabled: Boolean = true
+    val enabled: Boolean = true,
+    val source: String = "" // e.g. "~/.mcp.json", "~/.claude.json", "project:/path"
 )
 
 @Serializable
@@ -56,7 +57,8 @@ data class SessionInfo(
     val projectDisplay: String,
     val filename: String,
     val size: String,
-    val modified: String
+    val modified: String,
+    val fullPath: String = ""
 )
 
 data class PlanInfo(val name: String, val path: String, val size: String)
@@ -108,6 +110,10 @@ data class ClaudeCodeUiState(
     val isLoadingProjects: Boolean = false,
     val selectedProjectMemory: String? = null,
     val selectedProjectName: String? = null,
+    val selectedProjectPath: String? = null,
+    val editingProjectMemory: Boolean = false,
+    val editedProjectMemory: String = "",
+    val isSavingProjectMemory: Boolean = false,
     // detail navigation
     val activeDetail: DetailView? = null,
     val isLoadingDetail: Boolean = false,
@@ -174,6 +180,10 @@ sealed interface ClaudeCodeEvent {
     data object LoadProjects : ClaudeCodeEvent
     data class ViewProjectMemory(val project: ClaudeProject) : ClaudeCodeEvent
     data object DismissProjectMemory : ClaudeCodeEvent
+    data object StartEditProjectMemory : ClaudeCodeEvent
+    data class UpdateEditedProjectMemory(val content: String) : ClaudeCodeEvent
+    data object SaveProjectMemory : ClaudeCodeEvent
+    data object CancelEditProjectMemory : ClaudeCodeEvent
     // detail navigation
     data class OpenDetail(val view: DetailView) : ClaudeCodeEvent
     data object CloseDetail : ClaudeCodeEvent
@@ -281,7 +291,11 @@ class ClaudeCodeViewModel @Inject constructor(
             is ClaudeCodeEvent.LoadOverview -> loadOverview()
             is ClaudeCodeEvent.LoadProjects -> loadProjects()
             is ClaudeCodeEvent.ViewProjectMemory -> viewProjectMemory(event.project)
-            is ClaudeCodeEvent.DismissProjectMemory -> _state.update { it.copy(selectedProjectMemory = null, selectedProjectName = null) }
+            is ClaudeCodeEvent.DismissProjectMemory -> _state.update { it.copy(selectedProjectMemory = null, selectedProjectName = null, selectedProjectPath = null, editingProjectMemory = false) }
+            is ClaudeCodeEvent.StartEditProjectMemory -> _state.update { it.copy(editingProjectMemory = true, editedProjectMemory = it.selectedProjectMemory ?: "") }
+            is ClaudeCodeEvent.UpdateEditedProjectMemory -> _state.update { it.copy(editedProjectMemory = event.content) }
+            is ClaudeCodeEvent.CancelEditProjectMemory -> _state.update { it.copy(editingProjectMemory = false) }
+            is ClaudeCodeEvent.SaveProjectMemory -> saveProjectMemory()
             // detail navigation
             is ClaudeCodeEvent.OpenDetail -> openDetail(event.view)
             is ClaudeCodeEvent.CloseDetail -> _state.update { it.copy(activeDetail = null) }
@@ -456,38 +470,96 @@ class ClaudeCodeViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isLoadingMcp = true) }
             try {
-                val result = readClaudeFile(".mcp.json")
-                result.fold(
-                    onSuccess = { content ->
+                val allServers = mutableMapOf<String, McpServer>()
+
+                // Scan all Claude Code users (including root) for MCP configs
+                val usersToScan = _state.value.claudeCodeUsers.ifEmpty {
+                    // Fallback: scan connected user + root
+                    listOfNotNull(
+                        _state.value.selectedUser,
+                        SystemUser(username = "root", homeDirectory = "/root", uid = 0, hasClaudeCode = true)
+                    ).distinctBy { it.username }
+                }
+
+                for (user in usersToScan) {
+                    val homeDir = user.homeDirectory
+                    val label = user.username
+
+                    // 1. ~/.mcp.json (global MCP config)
+                    readFileForUser(user, ".mcp.json")?.let { content ->
                         val jsonStr = content.trim().ifBlank { "{}" }
-                        val servers = parseMcpServers(jsonStr)
-                        _state.update { it.copy(mcpServers = servers, isLoadingMcp = false) }
-                    },
-                    onFailure = { e ->
-                        _state.update { it.copy(mcpServers = emptyList(), isLoadingMcp = false) }
+                        parseMcpServersFromJson(jsonStr).forEach { server ->
+                            val key = "${label}:${server.name}"
+                            allServers[key] = server.copy(source = "$label:~/.mcp.json")
+                        }
                     }
-                )
+
+                    // 2. ~/.claude.json global mcpServers
+                    val claudeJsonContent = readFileForUser(user, ".claude.json")?.trim()?.ifBlank { "{}" } ?: "{}"
+                    try {
+                        val claudeRoot = Json.parseToJsonElement(claudeJsonContent).jsonObject
+                        claudeRoot["mcpServers"]?.jsonObject?.let { mcpObj ->
+                            parseMcpObject(mcpObj).forEach { server ->
+                                val key = "${label}:${server.name}"
+                                if (key !in allServers) {
+                                    allServers[key] = server.copy(source = "$label:~/.claude.json")
+                                }
+                            }
+                        }
+
+                        // 3. Per-project mcpServers from .claude.json projects map
+                        claudeRoot["projects"]?.jsonObject?.entries?.forEach { (projectKey, projectVal) ->
+                            try {
+                                val projectObj = projectVal.jsonObject
+                                projectObj["mcpServers"]?.jsonObject?.let { mcpObj ->
+                                    parseMcpObject(mcpObj).forEach { server ->
+                                        val key = "${label}:${server.name}:$projectKey"
+                                        if (key !in allServers) {
+                                            allServers[key] = server.copy(source = "$label:project:$projectKey")
+                                        }
+                                    }
+                                }
+                            } catch (_: Exception) { }
+                        }
+                    } catch (_: Exception) { }
+                }
+
+                _state.update { it.copy(mcpServers = allServers.values.toList(), isLoadingMcp = false) }
             } catch (e: Exception) {
                 _state.update { it.copy(isLoadingMcp = false, error = e.message) }
             }
         }
     }
 
-    private fun parseMcpServers(jsonStr: String): List<McpServer> {
+    /** Read a file from a specific user's home directory */
+    private suspend fun readFileForUser(user: SystemUser, relativePath: String): String? {
+        return if (user.username != connectedUsername) {
+            val fullPath = "${user.homeDirectory}/$relativePath"
+            sshRepository.readFileAsUser(fullPath, user.username).getOrNull()
+        } else {
+            sshRepository.executeCommand("cat ~/$relativePath 2>/dev/null").getOrNull()?.output?.takeIf { it.isNotBlank() }
+        }
+    }
+
+    private fun parseMcpServersFromJson(jsonStr: String): List<McpServer> {
         return try {
             val root = Json.parseToJsonElement(jsonStr).jsonObject
             val mcpObj = root["mcpServers"]?.jsonObject ?: return emptyList()
-            mcpObj.entries.map { (name, value) ->
-                val obj = value.jsonObject
-                McpServer(
-                    name = name,
-                    command = obj["command"]?.jsonPrimitive?.content ?: "",
-                    args = obj["args"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
-                    env = obj["env"]?.jsonObject?.entries?.associate { (k, v) -> k to v.jsonPrimitive.content } ?: emptyMap()
-                )
-            }
+            parseMcpObject(mcpObj)
         } catch (e: Exception) {
             emptyList()
+        }
+    }
+
+    private fun parseMcpObject(mcpObj: JsonObject): List<McpServer> {
+        return mcpObj.entries.map { (name, value) ->
+            val obj = value.jsonObject
+            McpServer(
+                name = name,
+                command = obj["command"]?.jsonPrimitive?.content ?: "",
+                args = obj["args"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
+                env = obj["env"]?.jsonObject?.entries?.associate { (k, v) -> k to v.jsonPrimitive.content } ?: emptyMap()
+            )
         }
     }
 
@@ -692,18 +764,19 @@ class ClaudeCodeViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isLoadingProjects = true) }
             try {
-                val cmd = "for d in ~/.claude/projects/*/; do name=\$(basename \"\$d\"); sessions=\$(ls \"\$d\"/*.jsonl 2>/dev/null | wc -l); mem=\$(test -f \"\$d/memory/MEMORY.md\" && echo Y || echo N); echo \"\$name|\$sessions|\$mem\"; done 2>/dev/null"
+                // Use the .active_project_path marker files or decode via test -d to find the real path
+                val cmd = "for d in ~/.claude/projects/*/; do name=\$(basename \"\$d\"); sessions=\$(ls \"\$d\"/*.jsonl 2>/dev/null | wc -l); mem=\$(test -f \"\$d/memory/MEMORY.md\" && echo Y || echo N); realpath=\$(cat \"\$d/.active_project_path\" 2>/dev/null || echo \"\"); echo \"\$name|\$sessions|\$mem|\$realpath\"; done 2>/dev/null"
                 val result = executeForUser(cmd)
                 result.fold(
                     onSuccess = { cmdResult ->
                         val projects = cmdResult.output.lines()
                             .filter { it.contains("|") }
                             .map { line ->
-                                val parts = line.split("|", limit = 3)
+                                val parts = line.split("|", limit = 4)
                                 val rawName = parts[0].trim()
-                                val displayName = rawName.replace("-", "/").let {
-                                    if (it.startsWith("/")) it else "/$it"
-                                }
+                                val realPath = parts.getOrNull(3)?.trim()?.takeIf { it.isNotBlank() }
+                                // Use the real path if available, otherwise show the raw dir name
+                                val displayName = realPath ?: rawName
                                 ClaudeProject(
                                     path = rawName,
                                     displayName = displayName,
@@ -724,10 +797,40 @@ class ClaudeCodeViewModel @Inject constructor(
 
     private fun viewProjectMemory(project: ClaudeProject) {
         viewModelScope.launch {
-            val result = readClaudeFile(".claude/projects/${project.path}/memory/MEMORY.md")
+            val memoryPath = ".claude/projects/${project.path}/memory/MEMORY.md"
+            val result = readClaudeFile(memoryPath)
             result.fold(
-                onSuccess = { content -> _state.update { it.copy(selectedProjectMemory = content, selectedProjectName = project.displayName) } },
+                onSuccess = { content -> _state.update { it.copy(
+                    selectedProjectMemory = content,
+                    selectedProjectName = project.displayName,
+                    selectedProjectPath = project.path,
+                    editingProjectMemory = false
+                ) } },
                 onFailure = { _state.update { it.copy(error = "Could not read project memory") } }
+            )
+        }
+    }
+
+    private fun saveProjectMemory() {
+        val path = _state.value.selectedProjectPath ?: return
+        val content = _state.value.editedProjectMemory
+        val memoryPath = ".claude/projects/$path/memory/MEMORY.md"
+        viewModelScope.launch {
+            _state.update { it.copy(isSavingProjectMemory = true) }
+            val escaped = content.replace("'", "'\\''")
+            val result = executeForUser("cat > ~/$memoryPath << 'SERVERDASH_EOF'\n$escaped\nSERVERDASH_EOF")
+            result.fold(
+                onSuccess = {
+                    _state.update { it.copy(
+                        selectedProjectMemory = content,
+                        editingProjectMemory = false,
+                        isSavingProjectMemory = false,
+                        successMessage = "Memory saved"
+                    ) }
+                },
+                onFailure = {
+                    _state.update { it.copy(isSavingProjectMemory = false, error = "Failed to save memory") }
+                }
             )
         }
     }
@@ -805,7 +908,7 @@ class ClaudeCodeViewModel @Inject constructor(
                                 val pathParts = fullPath.split("/")
                                 val projectIdx = pathParts.indexOfLast { it == "projects" }
                                 val projectRaw = if (projectIdx >= 0 && projectIdx + 1 < pathParts.size) pathParts[projectIdx + 1] else "unknown"
-                                val projectDisplay = projectRaw.replace("-", "/").let { if (it.startsWith("/")) it else "/$it" }
+                                val projectDisplay = projectRaw
                                 val filename = pathParts.lastOrNull() ?: ""
                                 val sizeBytes = parts[0].trim().toLongOrNull() ?: 0
                                 val sizeStr = when {
@@ -818,7 +921,8 @@ class ClaudeCodeViewModel @Inject constructor(
                                     projectDisplay = projectDisplay,
                                     filename = filename,
                                     size = sizeStr,
-                                    modified = parts[1].trim().take(16) // truncate to readable date
+                                    modified = parts[1].trim().take(16), // truncate to readable date
+                                    fullPath = fullPath
                                 )
                             }
                             .sortedByDescending { it.modified }
@@ -842,7 +946,7 @@ class ClaudeCodeViewModel @Inject constructor(
                 sessionSearchQuery = "",
                 sessionFilterRole = null
             )}
-            val result = executeForUser("cat ~/.claude/projects/${session.project}/${session.filename} 2>/dev/null")
+            val result = executeForUser("cat '${session.fullPath}' 2>/dev/null")
             result.fold(
                 onSuccess = { cmdResult ->
                     val lines = cmdResult.output.lines().filter { it.isNotBlank() }
@@ -859,7 +963,7 @@ class ClaudeCodeViewModel @Inject constructor(
 
     private fun deleteSession(session: SessionInfo) {
         viewModelScope.launch {
-            val result = executeForUser("rm -f ~/.claude/projects/${session.project}/${session.filename}")
+            val result = executeForUser("rm -f '${session.fullPath}'")
             result.fold(
                 onSuccess = {
                     _state.update { it.copy(

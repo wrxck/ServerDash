@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build ABI-split debug APKs
+        run: ./gradlew assembleDebug -Psplit_abis=true
+
+      - name: Rename APKs for release
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          OUTPUT_DIR="app/build/outputs/apk/debug"
+          RELEASE_DIR="release-apks"
+          mkdir -p "$RELEASE_DIR"
+
+          # Check if ABI splits were produced
+          if ls "$OUTPUT_DIR"/app-*-debug.apk 1>/dev/null 2>&1; then
+            for apk in "$OUTPUT_DIR"/app-*-debug.apk; do
+              BASENAME=$(basename "$apk" .apk)
+              # Extract ABI name: app-arm64-v8a-debug -> arm64-v8a
+              ABI=$(echo "$BASENAME" | sed 's/^app-//;s/-debug$//')
+              cp "$apk" "$RELEASE_DIR/ServerDash-${TAG}-${ABI}.apk"
+            done
+          fi
+
+          # Always include the universal APK
+          if [ -f "$OUTPUT_DIR/app-universal-debug.apk" ]; then
+            cp "$OUTPUT_DIR/app-universal-debug.apk" "$RELEASE_DIR/ServerDash-${TAG}-universal.apk"
+          elif [ -f "$OUTPUT_DIR/app-debug.apk" ]; then
+            cp "$OUTPUT_DIR/app-debug.apk" "$RELEASE_DIR/ServerDash-${TAG}-universal.apk"
+          fi
+
+          ls -la "$RELEASE_DIR/"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: release-apks/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

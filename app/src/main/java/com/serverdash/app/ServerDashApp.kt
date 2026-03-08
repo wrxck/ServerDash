@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.serverdash.app.widget.WidgetUpdateWorker
 import dagger.hilt.android.HiltAndroidApp
 import java.security.Security
 import javax.inject.Inject
@@ -33,6 +34,7 @@ class ServerDashApp : Application(), Configuration.Provider {
             // BC not on classpath - SSHJ will fail on modern key exchange
         }
         createNotificationChannels()
+        WidgetUpdateWorker.enqueuePeriodicWork(this)
     }
 
     private fun createNotificationChannels() {

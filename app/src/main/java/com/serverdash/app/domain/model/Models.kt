@@ -129,6 +129,12 @@ enum class DashboardLayout { GRID, LIST, COMPACT }
 enum class ServiceSortOrder { NAME, STATUS, TYPE, PINNED_FIRST }
 enum class MetricsDisplayMode { COMPACT, EXPANDED, HIDDEN }
 enum class LogFontSize { SMALL, MEDIUM, LARGE }
+enum class LockTimeout(val seconds: Long, val label: String) {
+    IMMEDIATE(0, "Immediately"),
+    THIRTY_SECONDS(30, "After 30 seconds"),
+    ONE_MINUTE(60, "After 1 minute"),
+    FIVE_MINUTES(300, "After 5 minutes")
+}
 
 data class AppPreferences(
     val themeMode: ThemeMode = ThemeMode.AUTO,
@@ -199,7 +205,10 @@ data class AppPreferences(
     // Fonts
     val headerFont: String = "JetBrains Mono",
     val bodyFont: String = "JetBrains Mono",
-    val codeFont: String = "JetBrains Mono"
+    val codeFont: String = "JetBrains Mono",
+    // App Lock
+    val appLockEnabled: Boolean = false,
+    val appLockTimeout: LockTimeout = LockTimeout.IMMEDIATE
 )
 
 data class ConnectionState(

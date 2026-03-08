@@ -8,8 +8,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -23,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.serverdash.app.core.privacy.redact
 import com.serverdash.app.core.theme.*
 import com.serverdash.app.core.util.*
 import com.serverdash.app.data.encryption.EncryptionManager
@@ -41,6 +44,7 @@ fun DashboardScreen(
     onNavigateToGit: () -> Unit = {},
     onNavigateToSecurity: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
+    onDebugWithClaude: (String, String) -> Unit = { _, _ -> },
     encryptionManager: EncryptionManager? = null,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
@@ -159,31 +163,33 @@ fun DashboardScreen(
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, "Settings")
                     }
-                    var showMenu by remember { mutableStateOf(false) }
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, "More options")
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        if (state.fleetAvailable) {
+                    Box {
+                        var showMenu by remember { mutableStateOf(false) }
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.MoreVert, "More options")
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            if (state.fleetAvailable) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(if (state.showNonFleetServices) "Hide system services"
+                                             else "Show system services")
+                                    },
+                                    onClick = {
+                                        viewModel.onEvent(DashboardEvent.ToggleShowNonFleetServices)
+                                        showMenu = false
+                                    }
+                                )
+                            }
                             DropdownMenuItem(
-                                text = {
-                                    Text(if (state.showNonFleetServices) "Hide system services"
-                                         else "Show system services")
-                                },
-                                onClick = {
-                                    viewModel.onEvent(DashboardEvent.ToggleShowNonFleetServices)
-                                    showMenu = false
-                                }
+                                text = { Text("About") },
+                                onClick = { showMenu = false; onNavigateToAbout() },
+                                leadingIcon = { Icon(Icons.Default.Info, null) }
                             )
                         }
-                        DropdownMenuItem(
-                            text = { Text("About") },
-                            onClick = { showMenu = false; onNavigateToAbout() },
-                            leadingIcon = { Icon(Icons.Default.Info, null) }
-                        )
                     }
                 }
             )
@@ -241,8 +247,8 @@ fun DashboardScreen(
                 }
             }
 
-            // fleet info banner
-            if (!state.fleetAvailable && state.services.isNotEmpty()) {
+            // fleet info banner (only after plugin detection has completed)
+            if (!state.fleetAvailable && state.services.isNotEmpty() && state.detectedPlugins.isNotEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                     colors = CardDefaults.cardColors(
@@ -347,41 +353,44 @@ fun DashboardScreen(
                                         service = service,
                                         compact = preferences.compactCards,
                                         showDescription = preferences.showServiceDescription,
-                                        onClick = { viewModel.onEvent(DashboardEvent.NavigateToDetail(service)) }
+                                        onClick = { viewModel.onEvent(DashboardEvent.NavigateToDetail(service)) },
+                                        onDebugWithClaude = onDebugWithClaude
                                     )
                                 }
                             }
                         }
                         DashboardLayout.COMPACT -> {
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(columns),
+                            LazyVerticalStaggeredGrid(
+                                columns = StaggeredGridCells.Fixed(columns),
                                 contentPadding = PaddingValues(4.dp),
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                verticalItemSpacing = 4.dp
                             ) {
                                 items(displayServices, key = { "${it.serverId}_${it.name}" }) { service ->
                                     ServiceCard(
                                         service = service,
                                         compact = true,
                                         showDescription = false,
-                                        onClick = { viewModel.onEvent(DashboardEvent.NavigateToDetail(service)) }
+                                        onClick = { viewModel.onEvent(DashboardEvent.NavigateToDetail(service)) },
+                                        onDebugWithClaude = onDebugWithClaude
                                     )
                                 }
                             }
                         }
                         DashboardLayout.GRID -> {
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(columns),
+                            LazyVerticalStaggeredGrid(
+                                columns = StaggeredGridCells.Fixed(columns),
                                 contentPadding = PaddingValues(8.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalItemSpacing = 8.dp
                             ) {
                                 items(displayServices, key = { "${it.serverId}_${it.name}" }) { service ->
                                     ServiceCard(
                                         service = service,
                                         compact = preferences.compactCards,
                                         showDescription = preferences.showServiceDescription,
-                                        onClick = { viewModel.onEvent(DashboardEvent.NavigateToDetail(service)) }
+                                        onClick = { viewModel.onEvent(DashboardEvent.NavigateToDetail(service)) },
+                                        onDebugWithClaude = onDebugWithClaude
                                     )
                                 }
                             }
@@ -395,6 +404,9 @@ fun DashboardScreen(
     }
 }
 
+private val statusEntries = ServiceStatus.entries.toList()
+private val typeEntries = ServiceType.entries.toList()
+
 @Composable
 fun FilterChipRow(state: DashboardUiState, viewModel: DashboardViewModel) {
     LazyRow(
@@ -402,7 +414,7 @@ fun FilterChipRow(state: DashboardUiState, viewModel: DashboardViewModel) {
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         // Status filters
-        items(ServiceStatus.entries.toList()) { status ->
+        items(statusEntries) { status ->
             val selected = status in state.statusFilters
             FilterChip(
                 selected = selected,
@@ -412,7 +424,7 @@ fun FilterChipRow(state: DashboardUiState, viewModel: DashboardViewModel) {
             )
         }
         // Type filters
-        items(ServiceType.entries.toList()) { type ->
+        items(typeEntries) { type ->
             val selected = type in state.typeFilters
             FilterChip(
                 selected = selected,
@@ -514,7 +526,8 @@ fun ServiceCard(
     service: Service,
     compact: Boolean = false,
     showDescription: Boolean = false,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDebugWithClaude: (String, String) -> Unit = { _, _ -> }
 ) {
     val statusColor = when (service.status) {
         ServiceStatus.RUNNING -> StatusGreen
@@ -540,7 +553,7 @@ fun ServiceCard(
             Spacer(Modifier.width(if (compact) 6.dp else 12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    service.displayName,
+                    redact(service.displayName),
                     style = if (compact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -554,13 +567,22 @@ fun ServiceCard(
                 }
                 if (showDescription && service.description.isNotBlank()) {
                     Text(
-                        service.description,
+                        redact(service.description),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
+            if (service.status == ServiceStatus.FAILED) {
+                Spacer(Modifier.width(4.dp))
+                AssistChip(
+                    onClick = { onDebugWithClaude(service.name, service.type.name) },
+                    label = { Text("Debug", style = MaterialTheme.typography.labelSmall) },
+                    leadingIcon = { Icon(Icons.Default.SmartToy, null, Modifier.size(14.dp)) },
+                    modifier = Modifier.height(24.dp)
+                )
             }
             if (service.isPinned) {
                 Icon(Icons.Default.PushPin, null, Modifier.size(if (compact) 12.dp else 16.dp), tint = MaterialTheme.colorScheme.primary)

@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.serverdash.app.core.privacy.redact
 import com.serverdash.app.domain.model.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,8 +85,8 @@ fun SettingsScreen(
                 SectionHeader("Server")
                 state.serverConfig?.let { config ->
                     ListItem(
-                        headlineContent = { Text(config.label.ifBlank { config.host }) },
-                        supportingContent = { Text("${config.username}@${config.host}:${config.port}") },
+                        headlineContent = { Text(redact(config.label.ifBlank { config.host })) },
+                        supportingContent = { Text(redact("${config.username}@${config.host}:${config.port}")) },
                         leadingContent = { Icon(Icons.Default.Dns, null) }
                     )
                 }
@@ -109,6 +110,67 @@ fun SettingsScreen(
                     trailingContent = { Icon(Icons.Default.ChevronRight, null) },
                     modifier = Modifier.clickable { onNavigateToPrivacy() }
                 )
+            }
+
+            // ── App Lock ──
+            item {
+                SectionDivider()
+                SectionHeader("App Lock")
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("App Lock", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Require authentication to open",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = state.preferences.appLockEnabled,
+                        onCheckedChange = { viewModel.onEvent(SettingsEvent.UpdateAppLockEnabled(it)) }
+                    )
+                }
+            }
+            if (state.preferences.appLockEnabled) {
+                item {
+                    var expanded by remember { mutableStateOf(false) }
+                    Column {
+                        Text("Lock Timeout", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(4.dp))
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = state.preferences.appLockTimeout.label,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                LockTimeout.entries.forEach { timeout ->
+                                    DropdownMenuItem(
+                                        text = { Text(timeout.label) },
+                                        onClick = {
+                                            viewModel.onEvent(SettingsEvent.UpdateAppLockTimeout(timeout))
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // ── Display ──

@@ -8,20 +8,24 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CallSplit
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -34,17 +38,21 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun ClaudeTerminalScreen(
     onNavigateBack: () -> Unit,
+    isImmersive: Boolean = false,
+    initialPrompt: String? = null,
+    onShowOverlay: (() -> Unit)? = null,
     viewModel: ClaudeTerminalViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    val activeSession = state.sessions.find { it.id == state.activeSessionId }
     val listState = rememberLazyListState()
 
-    // Auto-scroll when new messages arrive
-    LaunchedEffect(activeSession?.messages?.size) {
-        val msgCount = activeSession?.messages?.size ?: 0
-        if (msgCount > 0) {
-            listState.animateScrollToItem(msgCount - 1)
+    // Auto-scroll to bottom when output changes
+    val outputLines = remember(state.terminalOutput) {
+        state.terminalOutput.lines()
+    }
+    LaunchedEffect(outputLines.size) {
+        if (outputLines.isNotEmpty()) {
+            listState.animateScrollToItem(outputLines.size - 1)
         }
     }
 
@@ -57,132 +65,314 @@ fun ClaudeTerminalScreen(
         }
     }
 
-    // New Session Dialog
-    if (state.showNewSessionDialog) {
-        NewSessionDialog(
-            availableProjects = state.availableProjects,
-            onDismiss = { viewModel.onEvent(ClaudeTerminalEvent.DismissNewSessionDialog) },
-            onCreate = { name, path ->
-                viewModel.onEvent(ClaudeTerminalEvent.CreateSession(name, path))
-            }
+    // Project picker dialog
+    if (state.showProjectPicker) {
+        ProjectPickerDialog(
+            projects = state.availableProjects,
+            onDismiss = { viewModel.onEvent(ClaudeTerminalEvent.DismissProjectPicker) },
+            onSelect = { path -> viewModel.onEvent(ClaudeTerminalEvent.NewSession(projectPath = path)) }
         )
     }
 
-    // Session Manager Overlay
-    if (state.showSessionManager) {
-        SessionManagerOverlay(
-            sessions = state.sessions,
-            activeSessionId = state.activeSessionId,
-            onSelect = { viewModel.onEvent(ClaudeTerminalEvent.SwitchSession(it)) },
-            onDelete = { viewModel.onEvent(ClaudeTerminalEvent.DeleteSession(it)) },
-            onRename = { id, name -> viewModel.onEvent(ClaudeTerminalEvent.RenameSession(id, name)) },
-            onDismiss = { viewModel.onEvent(ClaudeTerminalEvent.ToggleSessionManager) },
-            onNewSession = { viewModel.onEvent(ClaudeTerminalEvent.ShowNewSessionDialog) }
+    // Session list dialog
+    if (state.showSessionList) {
+        SessionListDialog(
+            sessions = state.tmuxSessions,
+            isLoading = state.isLoadingSessions,
+            onDismiss = { viewModel.onEvent(ClaudeTerminalEvent.DismissSessionList) },
+            onAttach = { name -> viewModel.onEvent(ClaudeTerminalEvent.AttachSession(name)) },
+            onKill = { name -> viewModel.onEvent(ClaudeTerminalEvent.KillSession(name)) },
+            onRefresh = { viewModel.onEvent(ClaudeTerminalEvent.RefreshSessions) }
         )
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Claude Terminal") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.onEvent(ClaudeTerminalEvent.ToggleSessionManager) }) {
-                        Icon(Icons.Default.GridView, "Session Manager")
-                    }
-                    IconButton(onClick = { viewModel.onEvent(ClaudeTerminalEvent.ShowNewSessionDialog) }) {
-                        Icon(Icons.Default.Add, "New Session")
-                    }
-                }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
+    @Composable
+    fun TerminalContent(modifier: Modifier = Modifier) {
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxSize()
-                .padding(padding)
+                .background(Color(0xFF1A1B26))
         ) {
-            // Session tab bar
-            if (state.sessions.isNotEmpty()) {
-                SessionTabBar(
-                    sessions = state.sessions,
-                    activeSessionId = state.activeSessionId,
-                    onSelect = { viewModel.onEvent(ClaudeTerminalEvent.SwitchSession(it)) },
-                    onNewSession = { viewModel.onEvent(ClaudeTerminalEvent.ShowNewSessionDialog) }
-                )
-                HorizontalDivider()
-            }
-
-            if (activeSession == null) {
-                // No sessions - show empty state
+            if (!state.isConnected && !state.isConnecting) {
+                // Not connected - show start screen
                 Box(
                     Modifier.weight(1f).fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         Icon(
-                            Icons.Default.Terminal,
+                            Icons.Default.SmartToy,
                             null,
                             Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = Color(0xFF7AA2F7)
                         )
-                        Spacer(Modifier.height(16.dp))
                         Text(
-                            "No active sessions",
-                            style = MaterialTheme.typography.titleMedium
+                            "Claude Code",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color(0xFFC0CAF5)
+                        )
+                        Text(
+                            "Persistent tmux sessions on your server",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF565F89)
                         )
                         Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Create a new session to start chatting with Claude",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        FilledTonalButton(onClick = {
-                            viewModel.onEvent(ClaudeTerminalEvent.ShowNewSessionDialog)
-                        }) {
+                        FilledTonalButton(
+                            onClick = { viewModel.onEvent(ClaudeTerminalEvent.ShowProjectPicker) },
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = Color(0xFF292E42),
+                                contentColor = Color(0xFF7AA2F7)
+                            )
+                        ) {
                             Icon(Icons.Default.Add, null, Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("New Session")
                         }
-                    }
-                }
-            } else {
-                // Chat message area
-                LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    state = listState,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(activeSession.messages) { message ->
-                        MessageBubble(message)
-                    }
-                    if (state.isProcessing) {
-                        item {
-                            ProcessingIndicator()
+                        if (state.tmuxSessions.isNotEmpty()) {
+                            FilledTonalButton(
+                                onClick = { viewModel.onEvent(ClaudeTerminalEvent.ShowSessionList) },
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = Color(0xFF292E42),
+                                    contentColor = Color(0xFF9ECE6A)
+                                )
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.List, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Resume Session (${state.tmuxSessions.size})")
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = { viewModel.onEvent(ClaudeTerminalEvent.NewSession(projectPath = "")) },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFF565F89)
+                            )
+                        ) {
+                            Text("Start without project")
                         }
                     }
                 }
+            } else {
+                // Terminal output area
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 4.dp),
+                        state = listState
+                    ) {
+                        items(outputLines) { line ->
+                            TerminalLine(line)
+                        }
+                    }
 
-                // Quick prompt suggestions
-                QuickPromptBar(onSelect = { prompt ->
-                    viewModel.onEvent(ClaudeTerminalEvent.SendMessage(prompt))
-                })
-
-                HorizontalDivider()
+                    if (state.isConnecting) {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+                            color = Color(0xFF7AA2F7)
+                        )
+                    }
+                }
 
                 // Input area
-                MessageInputBar(
-                    inputText = state.inputText,
-                    isProcessing = state.isProcessing,
-                    onInputChange = { viewModel.onEvent(ClaudeTerminalEvent.UpdateInput(it)) },
-                    onSend = { viewModel.onEvent(ClaudeTerminalEvent.SendMessage(state.inputText)) }
+                TerminalInputBar(
+                    onSendInput = { text ->
+                        viewModel.onEvent(ClaudeTerminalEvent.SendInput(text))
+                        viewModel.onEvent(ClaudeTerminalEvent.SendSpecialKey(SpecialKey.ENTER))
+                    },
+                    onSpecialKey = { key ->
+                        viewModel.onEvent(ClaudeTerminalEvent.SendSpecialKey(key))
+                    },
+                    isConnected = state.isConnected
+                )
+            }
+        }
+    }
+
+    if (isImmersive) {
+        Box(Modifier.fillMaxSize()) {
+            TerminalContent()
+            SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
+        }
+    } else {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text("Claude Code")
+                            if (state.isConnected && state.currentSessionName.isNotBlank()) {
+                                Text(
+                                    state.currentSessionName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            } else if (state.projectPath.isNotBlank()) {
+                                Text(
+                                    state.projectPath,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        }
+                    },
+                    actions = {
+                        if (state.isConnected) {
+                            // Ctrl+C
+                            IconButton(onClick = {
+                                viewModel.onEvent(ClaudeTerminalEvent.SendSpecialKey(SpecialKey.CTRL_C))
+                            }) {
+                                Text("^C", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                            // Detach (session stays alive)
+                            IconButton(onClick = {
+                                viewModel.onEvent(ClaudeTerminalEvent.Detach)
+                            }) {
+                                Icon(Icons.AutoMirrored.Filled.CallSplit, "Detach")
+                            }
+                        } else {
+                            // Session list
+                            IconButton(onClick = {
+                                viewModel.onEvent(ClaudeTerminalEvent.ShowSessionList)
+                            }) {
+                                Icon(Icons.AutoMirrored.Filled.List, "Sessions")
+                            }
+                        }
+                    }
+                )
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { padding ->
+            TerminalContent(modifier = Modifier.padding(padding))
+        }
+    }
+}
+
+@Composable
+private fun TerminalLine(line: String) {
+    val styledText = remember(line) { AnsiParser.parse(line) }
+    if (styledText.text.isNotBlank()) {
+        Text(
+            styledText,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun TerminalInputBar(
+    onSendInput: (String) -> Unit,
+    onSpecialKey: (SpecialKey) -> Unit,
+    isConnected: Boolean
+) {
+    var inputText by remember { mutableStateOf("") }
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF16161E))
+    ) {
+        // Quick key bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            QuickKey("Tab") { onSpecialKey(SpecialKey.TAB) }
+            QuickKey("Esc") { onSpecialKey(SpecialKey.ESCAPE) }
+            QuickKey("^C") { onSpecialKey(SpecialKey.CTRL_C) }
+            QuickKey("^D") { onSpecialKey(SpecialKey.CTRL_D) }
+            QuickKey("^Z") { onSpecialKey(SpecialKey.CTRL_Z) }
+            QuickKey("\u2191") { onSpecialKey(SpecialKey.ARROW_UP) }
+            QuickKey("\u2193") { onSpecialKey(SpecialKey.ARROW_DOWN) }
+            QuickKey("\u2190") { onSpecialKey(SpecialKey.ARROW_LEFT) }
+            QuickKey("\u2192") { onSpecialKey(SpecialKey.ARROW_RIGHT) }
+        }
+
+        // Text input
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                ">",
+                color = Color(0xFF7AA2F7),
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(end = 6.dp)
+            )
+            BasicTextField(
+                value = inputText,
+                onValueChange = { inputText = it },
+                modifier = Modifier
+                    .weight(1f)
+                    .onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.key == Key.Enter) {
+                            onSendInput(inputText)
+                            inputText = ""
+                            true
+                        } else false
+                    },
+                textStyle = TextStyle(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 14.sp,
+                    color = Color(0xFFC0CAF5)
+                ),
+                cursorBrush = SolidColor(Color(0xFF7AA2F7)),
+                singleLine = true,
+                enabled = isConnected,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(onSend = {
+                    onSendInput(inputText)
+                    inputText = ""
+                }),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (inputText.isEmpty()) {
+                            Text(
+                                if (isConnected) "Type here..." else "Not connected",
+                                color = Color(0xFF565F89),
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 14.sp
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
+            IconButton(
+                onClick = {
+                    onSendInput(inputText)
+                    inputText = ""
+                },
+                enabled = isConnected,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    "Send",
+                    tint = if (isConnected) Color(0xFF7AA2F7) else Color(0xFF565F89),
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
@@ -190,278 +380,61 @@ fun ClaudeTerminalScreen(
 }
 
 @Composable
-private fun SessionTabBar(
-    sessions: List<ClaudeSession>,
-    activeSessionId: String?,
-    onSelect: (String) -> Unit,
-    onNewSession: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
+private fun QuickKey(label: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(4.dp),
+        color = Color(0xFF292E42),
+        contentColor = Color(0xFF7AA2F7),
+        modifier = Modifier.height(28.dp)
     ) {
-        sessions.forEach { session ->
-            val isActive = session.id == activeSessionId
-            FilterChip(
-                selected = isActive,
-                onClick = { onSelect(session.id) },
-                label = {
-                    Text(
-                        session.name,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                },
-                leadingIcon = {
-                    Box(
-                        Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isActive) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                            )
-                    )
-                }
-            )
-        }
-        IconButton(
-            onClick = onNewSession,
-            modifier = Modifier.size(32.dp)
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.padding(horizontal = 10.dp)
         ) {
-            Icon(Icons.Default.Add, "New Session", Modifier.size(18.dp))
+            Text(label, fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium)
         }
     }
 }
 
 @Composable
-private fun MessageBubble(message: ClaudeMessage) {
-    val isUser = message.role == "user"
-    val isSystem = message.role == "system"
-    val isTool = message.role == "tool"
-
-    val roleColor = when (message.role) {
-        "user" -> Color(0xFF5CCFE6)
-        "assistant" -> Color(0xFF66BB6A)
-        "system" -> Color(0xFFF0B866)
-        "tool" -> Color(0xFFCBB2F0)
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
-    ) {
-        // Role badge
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.padding(
-                start = if (isUser) 48.dp else 0.dp,
-                end = if (isUser) 0.dp else 48.dp
-            )
-        ) {
-            Box(
-                Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(roleColor)
-            )
-            Text(
-                message.role.replaceFirstChar { it.uppercase() },
-                style = MaterialTheme.typography.labelSmall,
-                color = roleColor,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        Spacer(Modifier.height(2.dp))
-
-        // Message content
-        val bubbleColor = when {
-            isUser -> MaterialTheme.colorScheme.primary
-            isSystem -> MaterialTheme.colorScheme.surfaceVariant
-            isTool -> MaterialTheme.colorScheme.tertiaryContainer
-            else -> MaterialTheme.colorScheme.secondaryContainer
-        }
-        val textColor = when {
-            isUser -> MaterialTheme.colorScheme.onPrimary
-            isSystem -> MaterialTheme.colorScheme.onSurfaceVariant
-            isTool -> MaterialTheme.colorScheme.onTertiaryContainer
-            else -> MaterialTheme.colorScheme.onSecondaryContainer
-        }
-
-        Card(
-            colors = CardDefaults.cardColors(containerColor = bubbleColor),
-            shape = RoundedCornerShape(
-                topStart = if (isUser) 16.dp else 4.dp,
-                topEnd = if (isUser) 4.dp else 16.dp,
-                bottomStart = 16.dp,
-                bottomEnd = 16.dp
-            ),
-            modifier = Modifier.widthIn(max = 320.dp).let {
-                if (isUser) it.padding(start = 48.dp) else it.padding(end = 48.dp)
-            }
-        ) {
-            Text(
-                text = message.content,
-                style = if (isSystem || isTool) {
-                    MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp
-                    )
-                } else {
-                    MaterialTheme.typography.bodyMedium
-                },
-                color = textColor,
-                modifier = Modifier.padding(12.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ProcessingIndicator() {
-    Row(
-        modifier = Modifier.padding(start = 8.dp, top = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(16.dp),
-            strokeWidth = 2.dp,
-            color = Color(0xFF66BB6A)
-        )
-        Text(
-            "Claude is thinking...",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun QuickPromptBar(onSelect: (String) -> Unit) {
-    val prompts = listOf(
-        "Explain this project",
-        "List files",
-        "Find bugs",
-        "Summarize changes",
-        "Suggest improvements"
-    )
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        prompts.forEach { prompt ->
-            SuggestionChip(
-                onClick = { onSelect(prompt) },
-                label = { Text(prompt, style = MaterialTheme.typography.labelSmall) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun MessageInputBar(
-    inputText: String,
-    isProcessing: Boolean,
-    onInputChange: (String) -> Unit,
-    onSend: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 8.dp)
-            .imePadding(),
-        verticalAlignment = Alignment.Bottom
-    ) {
-        OutlinedTextField(
-            value = inputText,
-            onValueChange = onInputChange,
-            modifier = Modifier.weight(1f),
-            placeholder = { Text("Ask Claude...") },
-            maxLines = 5,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
-            shape = RoundedCornerShape(24.dp),
-            textStyle = MaterialTheme.typography.bodyMedium
-        )
-        Spacer(Modifier.width(8.dp))
-        FilledIconButton(
-            onClick = onSend,
-            enabled = !isProcessing && inputText.isNotBlank(),
-            modifier = Modifier.size(48.dp)
-        ) {
-            Icon(Icons.AutoMirrored.Filled.Send, "Send")
-        }
-    }
-}
-
-@Composable
-private fun NewSessionDialog(
-    availableProjects: List<String>,
+private fun ProjectPickerDialog(
+    projects: List<String>,
     onDismiss: () -> Unit,
-    onCreate: (name: String, projectPath: String) -> Unit
+    onSelect: (String) -> Unit
 ) {
-    var sessionName by remember { mutableStateOf("") }
-    var projectPath by remember { mutableStateOf("") }
-    var showProjectPicker by remember { mutableStateOf(false) }
+    var customPath by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("New Claude Session") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    value = sessionName,
-                    onValueChange = { sessionName = it },
-                    label = { Text("Session Name") },
-                    placeholder = { Text("Optional") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = projectPath,
-                    onValueChange = { projectPath = it },
-                    label = { Text("Project Path") },
+                    value = customPath,
+                    onValueChange = { customPath = it },
+                    label = { Text("Project path") },
                     placeholder = { Text("/home/user/project") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    trailingIcon = {
-                        if (availableProjects.isNotEmpty()) {
-                            IconButton(onClick = { showProjectPicker = !showProjectPicker }) {
-                                Icon(
-                                    if (showProjectPicker) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                    "Pick project"
-                                )
-                            }
-                        }
-                    }
+                    textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 14.sp)
                 )
-                if (showProjectPicker && availableProjects.isNotEmpty()) {
-                    Card(
-                        Modifier.fillMaxWidth().heightIn(max = 200.dp)
-                    ) {
+                if (projects.isNotEmpty()) {
+                    Text(
+                        "Or select:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Card(Modifier.fillMaxWidth().heightIn(max = 250.dp)) {
                         LazyColumn(contentPadding = PaddingValues(4.dp)) {
-                            items(availableProjects) { path ->
+                            items(projects) { path ->
                                 Text(
                                     path,
                                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable {
-                                            projectPath = path
-                                            showProjectPicker = false
-                                        }
-                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        .clickable { onSelect(path) }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -473,9 +446,9 @@ private fun NewSessionDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onCreate(sessionName, projectPath) },
-                enabled = projectPath.isNotBlank()
-            ) { Text("Create") }
+                onClick = { onSelect(customPath) },
+                enabled = customPath.isNotBlank()
+            ) { Text("Start") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
@@ -484,49 +457,43 @@ private fun NewSessionDialog(
 }
 
 @Composable
-private fun SessionManagerOverlay(
-    sessions: List<ClaudeSession>,
-    activeSessionId: String?,
-    onSelect: (String) -> Unit,
-    onDelete: (String) -> Unit,
-    onRename: (String, String) -> Unit,
+private fun SessionListDialog(
+    sessions: List<TmuxSession>,
+    isLoading: Boolean,
     onDismiss: () -> Unit,
-    onNewSession: () -> Unit
+    onAttach: (String) -> Unit,
+    onKill: (String) -> Unit,
+    onRefresh: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Sessions")
-                IconButton(onClick = onNewSession) {
-                    Icon(Icons.Default.Add, "New Session")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Sessions", modifier = Modifier.weight(1f))
+                IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Refresh, "Refresh", modifier = Modifier.size(20.dp))
                 }
             }
         },
         text = {
-            if (sessions.isEmpty()) {
-                Box(
-                    Modifier.fillMaxWidth().height(100.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("No sessions", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (isLoading) {
+                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                }
+            } else if (sessions.isEmpty()) {
+                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        "No active sessions",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.heightIn(max = 400.dp)
-                ) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(sessions) { session ->
-                        SessionManagerCard(
+                        SessionCard(
                             session = session,
-                            isActive = session.id == activeSessionId,
-                            onSelect = { onSelect(session.id) },
-                            onDelete = { onDelete(session.id) },
-                            onRename = { newName -> onRename(session.id, newName) }
+                            onAttach = { onAttach(session.name) },
+                            onKill = { onKill(session.name) }
                         )
                     }
                 }
@@ -539,96 +506,73 @@ private fun SessionManagerOverlay(
 }
 
 @Composable
-private fun SessionManagerCard(
-    session: ClaudeSession,
-    isActive: Boolean,
-    onSelect: () -> Unit,
-    onDelete: () -> Unit,
-    onRename: (String) -> Unit
+private fun SessionCard(
+    session: TmuxSession,
+    onAttach: () -> Unit,
+    onKill: () -> Unit
 ) {
-    var showRenameField by remember { mutableStateOf(false) }
-    var renameText by remember { mutableStateOf(session.name) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showKillConfirm by remember { mutableStateOf(false) }
 
-    if (showDeleteConfirm) {
+    if (showKillConfirm) {
         AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Session") },
-            text = { Text("Delete '${session.name}'? This cannot be undone.") },
+            onDismissRequest = { showKillConfirm = false },
+            title = { Text("Kill Session") },
+            text = { Text("Kill '${session.name}'? Claude will stop running.") },
             confirmButton = {
-                TextButton(onClick = {
-                    showDeleteConfirm = false
-                    onDelete()
-                }) { Text("Delete") }
+                TextButton(onClick = { showKillConfirm = false; onKill() }) {
+                    Text("Kill", color = MaterialTheme.colorScheme.error)
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showKillConfirm = false }) { Text("Cancel") }
             }
         )
     }
 
-    Card(
-        Modifier.fillMaxWidth().clickable { onSelect() },
-        colors = if (isActive) CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        ) else CardDefaults.cardColors()
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (showRenameField) {
-                    OutlinedTextField(
-                        value = renameText,
-                        onValueChange = { renameText = it },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        textStyle = MaterialTheme.typography.bodySmall,
-                        keyboardActions = KeyboardActions(onDone = {
-                            onRename(renameText)
-                            showRenameField = false
-                        })
+    Card(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    session.name.removePrefix("sd-claude-"),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontFamily = FontFamily.Monospace
+                )
+                if (session.created.isNotBlank()) {
+                    Text(
+                        session.created,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    IconButton(onClick = {
-                        onRename(renameText)
-                        showRenameField = false
-                    }) {
-                        Icon(Icons.Default.Check, "Save", Modifier.size(18.dp))
-                    }
-                } else {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            session.name,
-                            style = MaterialTheme.typography.titleSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            session.projectPath,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontFamily = FontFamily.Monospace,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            "${session.messages.size} messages",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    IconButton(onClick = {
-                        renameText = session.name
-                        showRenameField = true
-                    }) {
-                        Icon(Icons.Default.Edit, "Rename", Modifier.size(18.dp))
-                    }
-                    IconButton(onClick = { showDeleteConfirm = true }) {
-                        Icon(Icons.Default.Delete, "Delete", Modifier.size(18.dp))
-                    }
                 }
+                if (session.size.isNotBlank()) {
+                    Text(
+                        session.size,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+            FilledTonalButton(
+                onClick = onAttach,
+                modifier = Modifier.padding(start = 8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Text("Attach", fontSize = 12.sp)
+            }
+            IconButton(
+                onClick = { showKillConfirm = true },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    Icons.Default.Close,
+                    "Kill",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }

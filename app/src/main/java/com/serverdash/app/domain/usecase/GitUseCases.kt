@@ -114,7 +114,7 @@ class GetGitLogUseCase @Inject constructor(
     private val sshRepository: SshRepository
 ) {
     suspend operator fun invoke(repoPath: String, count: Int = 30, branch: String? = null): Result<List<GitCommit>> {
-        val branchArg = branch ?: ""
+        val branchArg = branch?.let { "'${it.replace("'", "'\\''")}'" } ?: ""
         val cmd = "cd '$repoPath' && git log $branchArg -n $count --format='%H|%h|%an|%ci|%s' 2>/dev/null"
         return sshRepository.executeCommand(cmd).map { result ->
             val headHash = sshRepository.executeCommand("cd '$repoPath' && git rev-parse HEAD 2>/dev/null")
@@ -140,13 +140,15 @@ class GetGitDiffUseCase @Inject constructor(
     private val sshRepository: SshRepository
 ) {
     suspend operator fun invoke(repoPath: String, staged: Boolean = false, commitHash: String? = null): Result<GitDiff> {
+        // Validate commit hash format to prevent injection
+        val safeHash = commitHash?.takeIf { it.matches(Regex("^[0-9a-fA-F]{4,40}$")) }
         val diffCmd = when {
-            commitHash != null -> "git diff $commitHash~1..$commitHash"
+            safeHash != null -> "git diff $safeHash~1..$safeHash"
             staged -> "git diff --cached"
             else -> "git diff"
         }
         val statsCmd = when {
-            commitHash != null -> "git diff --stat $commitHash~1..$commitHash"
+            safeHash != null -> "git diff --stat $safeHash~1..$safeHash"
             staged -> "git diff --cached --stat"
             else -> "git diff --stat"
         }

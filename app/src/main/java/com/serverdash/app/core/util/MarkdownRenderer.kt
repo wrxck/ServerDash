@@ -680,23 +680,21 @@ fun MarkdownEditorView(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SingleChoiceSegmentedButtonRow(Modifier.width(200.dp)) {
+            SingleChoiceSegmentedButtonRow(Modifier.width(240.dp)) {
                 SegmentedButton(
                     selected = isPreviewMode,
                     onClick = { isPreviewMode = true },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    icon = { Icon(Icons.Default.Visibility, null, Modifier.size(16.dp)) }
                 ) {
-                    Icon(Icons.Default.Visibility, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
                     Text("Preview")
                 }
                 SegmentedButton(
                     selected = !isPreviewMode,
                     onClick = { isPreviewMode = false },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    icon = { Icon(Icons.Default.Edit, null, Modifier.size(16.dp)) }
                 ) {
-                    Icon(Icons.Default.Edit, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
                     Text("Edit")
                 }
             }

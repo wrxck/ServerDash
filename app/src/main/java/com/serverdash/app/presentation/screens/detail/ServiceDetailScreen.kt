@@ -23,8 +23,10 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.serverdash.app.core.privacy.redact
 import com.serverdash.app.core.theme.*
 import com.serverdash.app.domain.model.*
+import com.serverdash.app.domain.usecase.GetServiceLogsUseCase
 import com.serverdash.app.domain.usecase.ServiceAction
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -37,6 +39,7 @@ import kotlinx.serialization.json.JsonPrimitive
 @Composable
 fun ServiceDetailScreen(
     onNavigateBack: () -> Unit,
+    onDebugWithClaude: ((String, String) -> Unit)? = null,
     viewModel: ServiceDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -79,7 +82,8 @@ fun ServiceDetailScreen(
                 ServiceControlRow(
                     service = service,
                     isControlling = state.isControlling,
-                    onAction = { viewModel.onEvent(ServiceDetailEvent.ControlService(it)) }
+                    onAction = { viewModel.onEvent(ServiceDetailEvent.ControlService(it)) },
+                    onDebugWithClaude = onDebugWithClaude
                 )
             }
 
@@ -108,7 +112,8 @@ fun ServiceDetailScreen(
 private fun ServiceControlRow(
     service: Service,
     isControlling: Boolean,
-    onAction: (ServiceAction) -> Unit
+    onAction: (ServiceAction) -> Unit,
+    onDebugWithClaude: ((String, String) -> Unit)? = null
 ) {
     val statusColor = when (service.status) {
         ServiceStatus.RUNNING -> StatusGreen
@@ -157,6 +162,19 @@ private fun ServiceControlRow(
                 }
                 if (isControlling) {
                     CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                }
+                if (service.status == ServiceStatus.FAILED && onDebugWithClaude != null) {
+                    Spacer(Modifier.width(8.dp))
+                    FilledTonalButton(
+                        onClick = { onDebugWithClaude(service.name, service.type.name) },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        )
+                    ) {
+                        Icon(Icons.Default.SmartToy, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Debug with Claude")
+                    }
                 }
             }
         }
@@ -249,6 +267,39 @@ private fun LogsTab(state: ServiceDetailUiState, onEvent: (ServiceDetailEvent) -
                 Text("Refresh")
             }
 
+            // Log scope dropdown (only for systemd)
+            if (state.service?.type == ServiceType.SYSTEMD) {
+                var scopeExpanded by remember { mutableStateOf(false) }
+                val scopeLabels = mapOf(
+                    GetServiceLogsUseCase.LogScope.SERVICE_ONLY to "Service",
+                    GetServiceLogsUseCase.LogScope.ALL_SYSTEM to "All System",
+                    GetServiceLogsUseCase.LogScope.KERNEL to "Kernel",
+                    GetServiceLogsUseCase.LogScope.USER_UNIT to "User Unit"
+                )
+                Box {
+                    FilterChip(
+                        selected = true,
+                        onClick = { scopeExpanded = true },
+                        label = { Text(scopeLabels[state.logScope] ?: "Service", fontSize = 11.sp) },
+                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, null, Modifier.size(16.dp)) }
+                    )
+                    DropdownMenu(expanded = scopeExpanded, onDismissRequest = { scopeExpanded = false }) {
+                        scopeLabels.forEach { (scope, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    onEvent(ServiceDetailEvent.ChangeLogScope(scope))
+                                    scopeExpanded = false
+                                },
+                                leadingIcon = if (scope == state.logScope) {
+                                    { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
+                                } else null
+                            )
+                        }
+                    }
+                }
+            }
+
             FilterChip(
                 selected = filterLevel == null,
                 onClick = { filterLevel = null },
@@ -321,7 +372,7 @@ private fun LogsTab(state: ServiceDetailUiState, onEvent: (ServiceDetailEvent) -
 
 @Composable
 private fun LogLine(log: ServiceLog, searchQuery: String, jsonPrettyPrint: Boolean) {
-    val message = log.message
+    val message = redact(log.message)
     val logLevel = detectLogLevel(message)
 
     // Check if message contains JSON

@@ -21,6 +21,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.serverdash.app.core.privacy.LocalPrivacyFilter
+import com.serverdash.app.core.privacy.redactWith
 import com.serverdash.app.core.util.highlightTerminalOutput
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -86,16 +88,18 @@ fun TerminalScreen(
                         fontSize = 13.sp,
                         modifier = Modifier.padding(top = 4.dp)
                     )
+                    val privacyFilter = LocalPrivacyFilter.current
+                    val filteredOutput = remember(entry.output) { redactWith(privacyFilter, entry.output) }
                     if (entry.exitCode != 0) {
                         Text(
-                            entry.output,
+                            filteredOutput,
                             color = Color(0xFFEF5350),
                             fontFamily = FontFamily.Monospace,
                             fontSize = 12.sp
                         )
                     } else {
-                        val highlighted = remember(entry.output) {
-                            highlightTerminalOutput(entry.output)
+                        val highlighted = remember(filteredOutput) {
+                            highlightTerminalOutput(filteredOutput)
                         }
                         Text(
                             highlighted,

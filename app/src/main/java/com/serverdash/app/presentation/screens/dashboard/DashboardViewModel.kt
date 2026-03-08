@@ -6,12 +6,17 @@ import com.serverdash.app.domain.model.*
 import com.serverdash.app.domain.plugin.PluginRegistry
 import com.serverdash.app.domain.repository.*
 import com.serverdash.app.domain.usecase.*
+import android.content.Context
+import com.serverdash.app.widget.WidgetUpdateHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private val WHITESPACE_REGEX = "\\s+".toRegex()
 
 data class ProcessInfo(
     val pid: Int,
@@ -113,6 +118,7 @@ sealed interface DashboardEvent {
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val serviceRepository: ServiceRepository,
     private val serverRepository: ServerRepository,
     private val sshRepository: SshRepository,
@@ -231,6 +237,17 @@ class DashboardViewModel @Inject constructor(
         }
         val history = metricsRepository.getMetricsHistory(60)
         _state.update { it.copy(metricsHistory = history) }
+
+        // Update widget data
+        val currentStateForWidget = _state.value
+        val config = serverRepository.getServerConfig()
+        WidgetUpdateHelper.updateAllWidgets(
+            context = appContext,
+            isConnected = currentStateForWidget.connectionState.isConnected,
+            hostname = config?.label ?: config?.host ?: "No server",
+            metrics = currentStateForWidget.metrics,
+            services = currentStateForWidget.services
+        )
     }
 
     fun onEvent(event: DashboardEvent) {
@@ -313,7 +330,7 @@ class DashboardViewModel @Inject constructor(
                 val processes = lines.drop(1) // skip header
                     .filter { it.isNotBlank() }
                     .mapNotNull { line ->
-                        val parts = line.trim().split("\\s+".toRegex(), limit = 11)
+                        val parts = line.trim().split(WHITESPACE_REGEX, limit = 11)
                         if (parts.size >= 11) {
                             ProcessInfo(
                                 pid = parts[1].toIntOrNull() ?: 0,

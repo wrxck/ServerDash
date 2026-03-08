@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -16,6 +17,7 @@ import com.serverdash.app.domain.repository.ServerRepository
 import com.serverdash.app.presentation.screens.about.AboutScreen
 import com.serverdash.app.presentation.screens.claudecode.ClaudeCodeScreen
 import com.serverdash.app.presentation.screens.claudeterminal.ClaudeTerminalScreen
+import com.serverdash.app.presentation.screens.claudeterminal.ImmersiveTerminalContainer
 import com.serverdash.app.presentation.screens.dashboard.DashboardScreen
 import com.serverdash.app.presentation.screens.detail.ServiceDetailScreen
 import com.serverdash.app.data.encryption.EncryptionManager
@@ -53,6 +55,16 @@ sealed class Screen(val route: String) {
     data object About : Screen("about")
     data object Privacy : Screen("privacy")
     data object ClaudeTerminal : Screen("claude_terminal")
+    data object ClaudeTerminalImmersive : Screen("claude_terminal_immersive?contextType={contextType}&param1={param1}&param2={param2}&param3={param3}") {
+        fun createRoute(
+            contextType: String = "",
+            param1: String = "",
+            param2: String = "",
+            param3: String = ""
+        ): String {
+            return "claude_terminal_immersive?contextType=$contextType&param1=$param1&param2=$param2&param3=$param3"
+        }
+    }
 }
 
 @HiltViewModel
@@ -72,7 +84,7 @@ class StartupViewModel @Inject constructor(
 }
 
 @Composable
-fun ServerDashNavHost() {
+fun ServerDashNavHost(widgetDeepLink: String? = null) {
     val startupViewModel: StartupViewModel = hiltViewModel()
     val hasConfig by startupViewModel.hasConfig.collectAsState()
 
@@ -86,6 +98,22 @@ fun ServerDashNavHost() {
 
     val navController = rememberNavController()
     val startDestination = if (hasConfig == true) Screen.Dashboard.route else Screen.Setup.route
+
+    // Handle widget deep link navigation after the nav graph is ready
+    LaunchedEffect(widgetDeepLink) {
+        if (widgetDeepLink != null && hasConfig == true) {
+            val route = when (widgetDeepLink) {
+                "terminal" -> Screen.Terminal.route
+                "claude_code" -> Screen.ClaudeCode.route
+                else -> null
+            }
+            if (route != null) {
+                navController.navigate(route) {
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
 
     NavHost(navController = navController, startDestination = startDestination) {
         composable(Screen.Setup.route) {
@@ -112,6 +140,15 @@ fun ServerDashNavHost() {
                 onNavigateToGit = { navController.navigate(Screen.Git.route) },
                 onNavigateToSecurity = { navController.navigate(Screen.Security.route) },
                 onNavigateToAbout = { navController.navigate(Screen.About.route) },
+                onDebugWithClaude = { serviceName, serviceType ->
+                    navController.navigate(
+                        Screen.ClaudeTerminalImmersive.createRoute(
+                            contextType = "service_debug",
+                            param1 = serviceName,
+                            param2 = serviceType
+                        )
+                    )
+                },
                 encryptionManager = startupViewModel.encryptionManager
             )
         }
@@ -124,7 +161,16 @@ fun ServerDashNavHost() {
             )
         ) {
             ServiceDetailScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onDebugWithClaude = { serviceName, serviceType ->
+                    navController.navigate(
+                        Screen.ClaudeTerminalImmersive.createRoute(
+                            contextType = "service_debug",
+                            param1 = serviceName,
+                            param2 = serviceType
+                        )
+                    )
+                }
             )
         }
 
@@ -199,6 +245,53 @@ fun ServerDashNavHost() {
 
         composable(Screen.Privacy.route) {
             PrivacyScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.ClaudeTerminalImmersive.route,
+            arguments = listOf(
+                navArgument("contextType") { type = NavType.StringType; defaultValue = "" },
+                navArgument("param1") { type = NavType.StringType; defaultValue = "" },
+                navArgument("param2") { type = NavType.StringType; defaultValue = "" },
+                navArgument("param3") { type = NavType.StringType; defaultValue = "" }
+            )
+        ) { backStackEntry ->
+            val contextType = backStackEntry.arguments?.getString("contextType") ?: ""
+            val param1 = backStackEntry.arguments?.getString("param1") ?: ""
+            val param2 = backStackEntry.arguments?.getString("param2") ?: ""
+            val param3 = backStackEntry.arguments?.getString("param3") ?: ""
+
+            // Build initial prompt from context args
+            val initialPrompt = when (contextType) {
+                "service_debug" -> if (param1.isNotBlank()) {
+                    "Debug the $param2 service '$param1'. Check its status and recent logs, then diagnose the issue."
+                } else null
+                "metric_alert" -> if (param1.isNotBlank()) {
+                    "Analyze $param1 usage at $param2 (threshold: $param3). Find what's causing high usage."
+                } else null
+                "custom_error" -> if (param1.isNotBlank()) {
+                    "Help debug this error from $param2: $param1"
+                } else null
+                else -> null
+            }
+
+            ImmersiveTerminalContainer(
+                initialPrompt = initialPrompt,
+                onNavigateToDashboard = {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Dashboard.route) { inclusive = true }
+                    }
+                },
+                onNavigateToTerminal = { navController.navigate(Screen.Terminal.route) },
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+                onNavigateToFleet = { navController.navigate(Screen.Fleet.route) },
+                onNavigateToGuardian = { navController.navigate(Screen.Guardian.route) },
+                onNavigateToGit = { navController.navigate(Screen.Git.route) },
+                onNavigateToSecurity = { navController.navigate(Screen.Security.route) },
+                onNavigateToClaudeCode = { navController.navigate(Screen.ClaudeCode.route) },
+                onNavigateToAbout = { navController.navigate(Screen.About.route) },
                 onNavigateBack = { navController.popBackStack() }
             )
         }

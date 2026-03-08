@@ -76,6 +76,9 @@ private fun McpServerCard(server: McpServer, onEdit: () -> Unit, onDelete: () ->
                 Column(Modifier.weight(1f)) {
                     Text(server.name, style = MaterialTheme.typography.titleSmall)
                     Text(server.command, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (server.source.isNotBlank()) {
+                        Text(server.source, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    }
                 }
                 IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, "Edit") }
                 IconButton(onClick = { showDeleteConfirm = true }) { Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error) }

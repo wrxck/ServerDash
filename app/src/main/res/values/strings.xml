@@ -5,4 +5,12 @@
     <string name="notification_channel_warning">Warning Alerts</string>
     <string name="notification_channel_info">Info</string>
     <string name="notification_channel_monitoring">Monitoring Service</string>
+
+    <!-- Widget strings -->
+    <string name="widget_server_status_label">Server Status</string>
+    <string name="widget_server_status_description">Shows server connection status, hostname, and CPU/memory usage</string>
+    <string name="widget_services_label">Services Overview</string>
+    <string name="widget_services_description">Shows running/failed/stopped service counts and lists failed services</string>
+    <string name="widget_quick_actions_label">Quick Actions</string>
+    <string name="widget_quick_actions_description">Quick launch buttons for Terminal and Claude Code</string>
 </resources>

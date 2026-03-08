@@ -1,5 +1,6 @@
 package com.serverdash.app.presentation.screens.claudecode
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -58,9 +59,7 @@ internal fun StorageDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeVi
         DetailHeader("Storage Breakdown", onBack = { viewModel.onEvent(ClaudeCodeEvent.CloseDetail) })
 
         if (state.isLoadingDetail) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            StorageListSkeleton()
         } else {
             LazyColumn(
                 contentPadding = PaddingValues(16.dp),
@@ -183,9 +182,7 @@ internal fun SessionsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeV
     // Full session JSONL viewer
     if (state.selectedSessionName != null) {
         SessionJsonlViewer(state, viewModel)
-        return
-    }
-
+    } else {
     Column(Modifier.fillMaxSize()) {
         DetailHeader(
             "Sessions (${state.sessionsList.size})",
@@ -193,9 +190,7 @@ internal fun SessionsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeV
         )
 
         if (state.isLoadingDetail) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            SessionsListSkeleton()
         } else if (state.sessionsList.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No sessions found", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -267,6 +262,7 @@ internal fun SessionsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeV
             }
         }
     }
+    } // else
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -314,71 +310,68 @@ private fun SessionJsonlViewer(state: ClaudeCodeUiState, viewModel: ClaudeCodeVi
         }
 
         if (state.isLoadingSession) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            return
-        }
-
-        // Search bar
-        OutlinedTextField(
-            value = state.sessionSearchQuery,
-            onValueChange = { viewModel.onEvent(ClaudeCodeEvent.UpdateSessionSearch(it)) },
-            placeholder = { Text("Search JSONL...") },
-            leadingIcon = { Icon(Icons.Default.Search, null, Modifier.size(18.dp)) },
-            trailingIcon = {
-                if (state.sessionSearchQuery.isNotBlank()) {
-                    IconButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.UpdateSessionSearch("")) }) {
-                        Icon(Icons.Default.Clear, "Clear", Modifier.size(18.dp))
+            SessionJsonlSkeleton()
+        } else {
+            // Search bar
+            OutlinedTextField(
+                value = state.sessionSearchQuery,
+                onValueChange = { viewModel.onEvent(ClaudeCodeEvent.UpdateSessionSearch(it)) },
+                placeholder = { Text("Search JSONL...") },
+                leadingIcon = { Icon(Icons.Default.Search, null, Modifier.size(18.dp)) },
+                trailingIcon = {
+                    if (state.sessionSearchQuery.isNotBlank()) {
+                        IconButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.UpdateSessionSearch("")) }) {
+                            Icon(Icons.Default.Clear, "Clear", Modifier.size(18.dp))
+                        }
                     }
-                }
-            },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-            textStyle = MaterialTheme.typography.bodySmall
-        )
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                textStyle = MaterialTheme.typography.bodySmall
+            )
 
-        // Role filter chips
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            roles.forEachIndexed { index, role ->
-                FilterChip(
-                    selected = state.sessionFilterRole == role,
-                    onClick = { viewModel.onEvent(ClaudeCodeEvent.FilterSessionRole(role)) },
-                    label = { Text(roleLabels[index], style = MaterialTheme.typography.labelSmall) },
-                    leadingIcon = if (state.sessionFilterRole == role) {
-                        { Icon(Icons.Default.Check, null, Modifier.size(14.dp)) }
-                    } else null
+            // Role filter chips
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                roles.forEachIndexed { index, role ->
+                    FilterChip(
+                        selected = state.sessionFilterRole == role,
+                        onClick = { viewModel.onEvent(ClaudeCodeEvent.FilterSessionRole(role)) },
+                        label = { Text(roleLabels[index], style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = if (state.sessionFilterRole == role) {
+                            { Icon(Icons.Default.Check, null, Modifier.size(14.dp)) }
+                        } else null
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "${filteredLines.size} / ${state.sessionLines.size} entries",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.CenterVertically)
                 )
             }
-            Spacer(Modifier.width(4.dp))
-            Text(
-                "${filteredLines.size} / ${state.sessionLines.size} entries",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.CenterVertically)
-            )
-        }
 
-        HorizontalDivider()
+            HorizontalDivider()
 
-        // JSONL entries
-        LazyColumn(
-            contentPadding = PaddingValues(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            itemsIndexed(filteredLines) { index, line ->
-                JsonlEntryCard(
-                    line = line,
-                    index = index,
-                    prettyPrint = state.sessionPrettyPrint,
-                    searchQuery = state.sessionSearchQuery
-                )
+            // JSONL entries
+            LazyColumn(
+                contentPadding = PaddingValues(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                itemsIndexed(filteredLines) { index, line ->
+                    JsonlEntryCard(
+                        line = line,
+                        index = index,
+                        prettyPrint = state.sessionPrettyPrint,
+                        searchQuery = state.sessionSearchQuery
+                    )
+                }
             }
         }
     }
@@ -530,9 +523,7 @@ internal fun PlansDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeView
         )
 
         if (state.isLoadingDetail) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            PlansListSkeleton()
         } else if (state.plansList.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No plans found", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -692,9 +683,7 @@ internal fun HooksDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeView
         }
 
         if (state.isLoadingDetail) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            ScriptsListSkeleton()
         } else if (state.hookScripts.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -793,9 +782,7 @@ internal fun SkillsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeVie
         }
 
         if (state.isLoadingDetail) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            ScriptsListSkeleton()
         } else if (state.skillScripts.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -939,9 +926,7 @@ internal fun ProjectsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeV
         )
 
         if (state.isLoadingProjects) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            ProjectsListSkeleton()
         } else if (state.projects.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No projects found", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -978,6 +963,172 @@ internal fun ProjectsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeV
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+// ── Shimmer / Skeleton Composables ────────────────────────────────
+
+@Composable
+private fun ShimmerBox(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val alpha by transition.animateFloat(
+        initialValue = 0.15f,
+        targetValue = 0.35f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "shimmerAlpha"
+    )
+    Box(
+        modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = alpha))
+    )
+}
+
+@Composable
+private fun SessionsListSkeleton() {
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        items(6) {
+            Card(Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ShimmerBox(Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        ShimmerBox(Modifier.fillMaxWidth(0.7f).height(14.dp))
+                        Spacer(Modifier.height(6.dp))
+                        ShimmerBox(Modifier.fillMaxWidth(0.5f).height(12.dp))
+                        Spacer(Modifier.height(4.dp))
+                        ShimmerBox(Modifier.fillMaxWidth(0.3f).height(10.dp))
+                    }
+                    ShimmerBox(Modifier.size(20.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SessionJsonlSkeleton() {
+    LazyColumn(
+        contentPadding = PaddingValues(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        items(8) {
+            Card(
+                Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Column(Modifier.padding(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ShimmerBox(Modifier.size(20.dp, 12.dp))
+                        ShimmerBox(Modifier.size(50.dp, 12.dp))
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    ShimmerBox(Modifier.fillMaxWidth().height(12.dp))
+                    Spacer(Modifier.height(3.dp))
+                    ShimmerBox(Modifier.fillMaxWidth(0.6f).height(12.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StorageListSkeleton() {
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(7) {
+            Card(Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ShimmerBox(Modifier.size(24.dp))
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        ShimmerBox(Modifier.fillMaxWidth(0.5f).height(14.dp))
+                        Spacer(Modifier.height(6.dp))
+                        ShimmerBox(Modifier.fillMaxWidth(0.7f).height(12.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    ShimmerBox(Modifier.size(50.dp, 14.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlansListSkeleton() {
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(5) {
+            Card(Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ShimmerBox(Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        ShimmerBox(Modifier.fillMaxWidth(0.6f).height(14.dp))
+                        Spacer(Modifier.height(6.dp))
+                        ShimmerBox(Modifier.fillMaxWidth(0.3f).height(12.dp))
+                    }
+                    ShimmerBox(Modifier.size(20.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScriptsListSkeleton() {
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(4) {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    ShimmerBox(Modifier.fillMaxWidth(0.4f).height(14.dp))
+                    Spacer(Modifier.height(10.dp))
+                    ShimmerBox(Modifier.fillMaxWidth().height(12.dp))
+                    Spacer(Modifier.height(4.dp))
+                    ShimmerBox(Modifier.fillMaxWidth(0.8f).height(12.dp))
+                    Spacer(Modifier.height(4.dp))
+                    ShimmerBox(Modifier.fillMaxWidth(0.5f).height(12.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProjectsListSkeleton() {
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(5) {
+            Card(Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ShimmerBox(Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        ShimmerBox(Modifier.fillMaxWidth(0.7f).height(14.dp))
+                        Spacer(Modifier.height(6.dp))
+                        ShimmerBox(Modifier.fillMaxWidth(0.4f).height(12.dp))
+                    }
+                    ShimmerBox(Modifier.size(24.dp))
                 }
             }
         }

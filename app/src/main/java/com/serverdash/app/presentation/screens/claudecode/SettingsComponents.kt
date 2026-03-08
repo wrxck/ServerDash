@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.*
 
@@ -21,38 +22,114 @@ internal fun SettingsSectionHeader(title: String) {
 }
 
 @Composable
-internal fun StringSetting(label: String, key: String, obj: JsonObject, onUpdate: (String, JsonElement?) -> Unit, placeholder: String = "") {
+internal fun StringSetting(label: String, key: String, obj: JsonObject, onUpdate: (String, JsonElement?) -> Unit, placeholder: String = "", hint: String? = null) {
     val parts = key.split(".")
     val currentValue = try {
         if (parts.size == 1) obj[parts[0]]?.jsonPrimitive?.content ?: ""
         else (obj[parts[0]] as? JsonObject)?.get(parts[1])?.jsonPrimitive?.content ?: ""
     } catch (e: Exception) { "" }
     var editValue by remember(currentValue) { mutableStateOf(currentValue) }
-    OutlinedTextField(
-        value = editValue, onValueChange = { editValue = it },
-        label = { Text(label) }, modifier = Modifier.fillMaxWidth(), singleLine = true,
-        placeholder = { Text(placeholder) },
-        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-        trailingIcon = {
-            if (editValue != currentValue) {
-                IconButton(onClick = { onUpdate(key, if (editValue.isBlank()) null else JsonPrimitive(editValue)) }) {
-                    Icon(Icons.Default.Check, "Apply", tint = MaterialTheme.colorScheme.primary)
+    Column {
+        OutlinedTextField(
+            value = editValue, onValueChange = { editValue = it },
+            label = { Text(label) }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+            placeholder = { Text(placeholder) },
+            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            trailingIcon = {
+                if (editValue != currentValue) {
+                    IconButton(onClick = { onUpdate(key, if (editValue.isBlank()) null else JsonPrimitive(editValue)) }) {
+                        Icon(Icons.Default.Check, "Apply", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+        )
+        if (hint != null) {
+            Text(hint, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun DropdownSetting(
+    label: String, key: String, obj: JsonObject, onUpdate: (String, JsonElement?) -> Unit,
+    options: List<String>, allowCustom: Boolean = false, hint: String? = null, placeholder: String = ""
+) {
+    val parts = key.split(".")
+    val currentValue = try {
+        if (parts.size == 1) obj[parts[0]]?.jsonPrimitive?.content ?: ""
+        else (obj[parts[0]] as? JsonObject)?.get(parts[1])?.jsonPrimitive?.content ?: ""
+    } catch (e: Exception) { "" }
+    var expanded by remember { mutableStateOf(false) }
+    var editValue by remember(currentValue) { mutableStateOf(currentValue) }
+    val isCustom = editValue.isNotBlank() && editValue !in options
+
+    Column {
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+            OutlinedTextField(
+                value = editValue,
+                onValueChange = { if (allowCustom) editValue = it },
+                label = { Text(label) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                singleLine = true,
+                readOnly = !allowCustom,
+                placeholder = { Text(placeholder) },
+                textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                trailingIcon = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (editValue != currentValue) {
+                            IconButton(onClick = { onUpdate(key, if (editValue.isBlank()) null else JsonPrimitive(editValue)) }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.Check, "Apply", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    }
+                }
+            )
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                if (currentValue.isNotBlank()) {
+                    DropdownMenuItem(
+                        text = { Text("Clear (use default)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) },
+                        onClick = { editValue = ""; onUpdate(key, null); expanded = false },
+                        leadingIcon = { Icon(Icons.Default.Clear, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) }
+                    )
+                    HorizontalDivider()
+                }
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        onClick = { editValue = option; onUpdate(key, JsonPrimitive(option)); expanded = false },
+                        leadingIcon = if (option == currentValue) {{ Icon(Icons.Default.Check, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) }} else null
+                    )
                 }
             }
         }
-    )
+        if (isCustom && allowCustom) {
+            Text("Custom model", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
+        }
+        if (hint != null) {
+            Text(hint, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
+        }
+    }
 }
 
 @Composable
-internal fun CcSwitchSetting(label: String, key: String, obj: JsonObject, onUpdate: (String, JsonElement?) -> Unit, default: Boolean = false) {
+internal fun CcSwitchSetting(label: String, key: String, obj: JsonObject, onUpdate: (String, JsonElement?) -> Unit, default: Boolean = false, hint: String? = null) {
     val parts = key.split(".")
     val currentValue = try {
         if (parts.size == 1) obj[parts[0]]?.jsonPrimitive?.boolean ?: default
         else (obj[parts[0]] as? JsonObject)?.get(parts[1])?.jsonPrimitive?.boolean ?: default
     } catch (e: Exception) { default }
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Switch(checked = currentValue, onCheckedChange = { onUpdate(key, JsonPrimitive(it)) })
+    Column(Modifier.padding(vertical = 4.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(label, style = MaterialTheme.typography.bodyMedium)
+                if (hint != null) {
+                    Text(hint, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Switch(checked = currentValue, onCheckedChange = { onUpdate(key, JsonPrimitive(it)) })
+        }
     }
 }
 

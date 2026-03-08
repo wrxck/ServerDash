@@ -45,6 +45,15 @@ android {
         compose = true
     }
 
+    splits {
+        abi {
+            isEnable = project.hasProperty("split_abis")
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -118,6 +127,10 @@ dependencies {
 
     // Serialization
     implementation(libs.kotlinx.serialization)
+
+    // Glance (widgets)
+    implementation(libs.glance.appwidget)
+    implementation(libs.glance.material3)
 
     // Encryption
     implementation(libs.sqlcipher)

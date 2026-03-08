@@ -340,14 +340,32 @@ private fun SettingsUiView(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewMo
         }
 
         item { SettingsSectionHeader("Core") }
-        item { StringSetting("Model", "model", settingsObj, onUpdate, placeholder = "default (not set)") }
+        item {
+            DropdownSetting(
+                "Model", "model", settingsObj, onUpdate,
+                options = listOf(
+                    "claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001",
+                    "claude-opus-4-20250918", "claude-sonnet-4-20250514",
+                    "claude-sonnet-4-5-20250514", "claude-haiku-4-5-20250414"
+                ),
+                allowCustom = true,
+                placeholder = "default (claude-sonnet-4-6)",
+                hint = "Select a model or type a custom model ID. See docs.anthropic.com/en/docs/about-claude/models"
+            )
+        }
         item { CcSegmentedSetting("Effort Level", "effortLevel", settingsObj, onUpdate, options = listOf("low", "medium", "high")) }
-        item { CcSwitchSetting("Fast Mode", "fastMode", settingsObj, onUpdate) }
-        item { CcSwitchSetting("Auto Memory", "autoMemoryEnabled", settingsObj, onUpdate, default = true) }
+        item { CcSwitchSetting("Fast Mode", "fastMode", settingsObj, onUpdate, hint = "Uses same model with faster output") }
+        item { CcSwitchSetting("Auto Memory", "autoMemoryEnabled", settingsObj, onUpdate, default = true, hint = "Automatically save learnings to MEMORY.md") }
         item { IntSliderSetting("Cleanup Period (days)", "cleanupPeriodDays", settingsObj, onUpdate, range = 0..90, default = 0) }
 
         item { SettingsSectionHeader("Permissions") }
-        item { CcSegmentedSetting("Default Mode", "permissions.defaultMode", settingsObj, onUpdate, options = listOf("default", "acceptEdits", "plan", "bypassPermissions")) }
+        item {
+            DropdownSetting(
+                "Default Mode", "permissions.defaultMode", settingsObj, onUpdate,
+                options = listOf("default", "acceptEdits", "plan", "bypassPermissions"),
+                hint = "default = ask for each tool · acceptEdits = auto-approve file edits · plan = read-only · bypassPermissions = approve all"
+            )
+        }
         item { StringListSetting("Allow", "permissions.allow", settingsObj, onUpdate, placeholder = "e.g. Bash(git:*)") }
         item { StringListSetting("Ask", "permissions.ask", settingsObj, onUpdate, placeholder = "e.g. WebFetch") }
         item { StringListSetting("Deny", "permissions.deny", settingsObj, onUpdate, placeholder = "e.g. Bash(rm:*)") }
@@ -357,8 +375,8 @@ private fun SettingsUiView(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewMo
         item { HooksViewer(settingsObj) }
 
         item { SettingsSectionHeader("Sandbox") }
-        item { CcSwitchSetting("Enabled", "sandbox.enabled", settingsObj, onUpdate) }
-        item { CcSwitchSetting("Auto-allow Bash if Sandboxed", "sandbox.autoAllowBashIfSandboxed", settingsObj, onUpdate, default = true) }
+        item { CcSwitchSetting("Enabled", "sandbox.enabled", settingsObj, onUpdate, hint = "Run commands in an isolated sandbox") }
+        item { CcSwitchSetting("Auto-allow Bash if Sandboxed", "sandbox.autoAllowBashIfSandboxed", settingsObj, onUpdate, default = true, hint = "Skip Bash permission prompts when sandbox is active") }
         item { StringListSetting("Allowed Domains", "sandbox.allowedDomains", settingsObj, onUpdate, placeholder = "example.com") }
         item { StringListSetting("Filesystem Allow Write", "sandbox.filesystem.allowWrite", settingsObj, onUpdate, placeholder = "/path") }
         item { StringListSetting("Filesystem Deny Write", "sandbox.filesystem.denyWrite", settingsObj, onUpdate, placeholder = "/path") }
@@ -367,26 +385,39 @@ private fun SettingsUiView(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewMo
         item { PluginsMapSetting(settingsObj, onUpdate) }
 
         item { SettingsSectionHeader("UI / Display") }
-        item { CcSegmentedSetting("Theme", "theme", settingsObj, onUpdate, options = listOf("dark", "light", "light-daltonized", "dark-daltonized")) }
-        item { StringSetting("Language", "language", settingsObj, onUpdate, placeholder = "e.g. en") }
-        item { StringSetting("Output Style", "outputStyle", settingsObj, onUpdate) }
-        item { CcSwitchSetting("Verbose", "verbose", settingsObj, onUpdate) }
+        item {
+            DropdownSetting(
+                "Theme", "theme", settingsObj, onUpdate,
+                options = listOf("dark", "light", "light-daltonized", "dark-daltonized"),
+                placeholder = "dark"
+            )
+        }
+        item { StringSetting("Language", "language", settingsObj, onUpdate, placeholder = "e.g. en", hint = "ISO 639-1 language code for responses") }
+        item { StringSetting("Output Style", "outputStyle", settingsObj, onUpdate, hint = "Custom instructions prepended to system prompt") }
+        item { CcSwitchSetting("Verbose", "verbose", settingsObj, onUpdate, hint = "Show detailed tool call output") }
         item { CcSwitchSetting("Show Turn Duration", "showTurnDuration", settingsObj, onUpdate, default = true) }
         item { CcSwitchSetting("Terminal Progress Bar", "terminalProgressBarEnabled", settingsObj, onUpdate, default = true) }
         item { CcSwitchSetting("Spinner Tips", "spinnerTipsEnabled", settingsObj, onUpdate, default = true) }
 
         item { SettingsSectionHeader("Git / Attribution") }
-        item { StringSetting("Commit Attribution", "attribution.commit", settingsObj, onUpdate) }
-        item { StringSetting("PR Attribution", "attribution.pr", settingsObj, onUpdate) }
-        item { CcSwitchSetting("Include Git Instructions", "includeGitInstructions", settingsObj, onUpdate, default = true) }
+        item { StringSetting("Commit Attribution", "attribution.commit", settingsObj, onUpdate, hint = "Co-author line appended to commits") }
+        item { StringSetting("PR Attribution", "attribution.pr", settingsObj, onUpdate, hint = "Footer added to PR descriptions") }
+        item { CcSwitchSetting("Include Git Instructions", "includeGitInstructions", settingsObj, onUpdate, default = true, hint = "Add git workflow guidance to system prompt") }
 
         item { SettingsSectionHeader("Environment") }
         item { CcEnvVarsCard(settingsObj, onUpdate) }
 
         item { SettingsSectionHeader("Advanced") }
-        item { StringSetting("API Key Helper", "apiKeyHelper", settingsObj, onUpdate) }
-        item { CcSegmentedSetting("Auto-updates Channel", "autoUpdatesChannel", settingsObj, onUpdate, options = listOf("stable", "latest")) }
-        item { CcSwitchSetting("Skip WebFetch Preflight", "skipWebFetchPreflight", settingsObj, onUpdate) }
+        item { StringSetting("API Key Helper", "apiKeyHelper", settingsObj, onUpdate, hint = "Shell command that returns an API key on stdout") }
+        item {
+            DropdownSetting(
+                "Auto-updates Channel", "autoUpdatesChannel", settingsObj, onUpdate,
+                options = listOf("stable", "latest"),
+                placeholder = "stable",
+                hint = "stable = production releases · latest = pre-release builds"
+            )
+        }
+        item { CcSwitchSetting("Skip WebFetch Preflight", "skipWebFetchPreflight", settingsObj, onUpdate, hint = "Skip URL validation before fetching") }
 
         item { Spacer(Modifier.height(16.dp)) }
     }
@@ -735,22 +766,60 @@ private fun OverviewStatCard(label: String, value: String, icon: ImageVector, mo
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun ProjectsTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
-    // Memory viewer dialog
+    // Full-screen memory viewer/editor
     if (state.selectedProjectMemory != null) {
-        AlertDialog(
-            onDismissRequest = { viewModel.onEvent(ClaudeCodeEvent.DismissProjectMemory) },
-            title = { Text(state.selectedProjectName ?: "Memory") },
-            text = {
-                Text(
-                    state.selectedProjectMemory,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.DismissProjectMemory) }) { Text("Close") }
-            }
-        )
+        Column(Modifier.fillMaxSize()) {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("Memory", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            state.selectedProjectName ?: "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.DismissProjectMemory) }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                },
+                actions = {
+                    if (state.editingProjectMemory) {
+                        TextButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.CancelEditProjectMemory) }) {
+                            Text("Cancel")
+                        }
+                        Button(
+                            onClick = { viewModel.onEvent(ClaudeCodeEvent.SaveProjectMemory) },
+                            enabled = !state.isSavingProjectMemory
+                        ) {
+                            if (state.isSavingProjectMemory) {
+                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text("Save")
+                            }
+                        }
+                    } else {
+                        OutlinedButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.StartEditProjectMemory) }) {
+                            Icon(Icons.Default.Edit, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Edit")
+                        }
+                    }
+                }
+            )
+            MarkdownEditorView(
+                content = if (state.editingProjectMemory) state.editedProjectMemory else state.selectedProjectMemory,
+                onContentChange = { viewModel.onEvent(ClaudeCodeEvent.UpdateEditedProjectMemory(it)) },
+                modifier = Modifier.fillMaxSize(),
+                readOnly = !state.editingProjectMemory
+            )
+        }
+        return
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -775,7 +844,7 @@ private fun ProjectsTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel
                             Icon(Icons.Default.Folder, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(project.displayName, style = MaterialTheme.typography.titleSmall)
+                                Text(project.displayName, style = MaterialTheme.typography.titleSmall, fontFamily = FontFamily.Monospace)
                                 Text(
                                     "${project.sessionCount} session${if (project.sessionCount != 1) "s" else ""}",
                                     style = MaterialTheme.typography.bodySmall,

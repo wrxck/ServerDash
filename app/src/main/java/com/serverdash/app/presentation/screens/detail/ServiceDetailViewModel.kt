@@ -21,6 +21,7 @@ data class ServiceDetailUiState(
     val controlResult: String? = null,
     val logs: List<ServiceLog> = emptyList(),
     val isLoadingLogs: Boolean = false,
+    val logScope: GetServiceLogsUseCase.LogScope = GetServiceLogsUseCase.LogScope.SERVICE_ONLY,
     val metricsHistory: List<SystemMetrics> = emptyList(),
     val configContent: String = "",
     val configPath: String = "",
@@ -39,6 +40,7 @@ sealed interface ServiceDetailEvent {
     data class LoadConfig(val path: String) : ServiceDetailEvent
     data class UpdateConfig(val content: String) : ServiceDetailEvent
     data object SaveConfig : ServiceDetailEvent
+    data class ChangeLogScope(val scope: GetServiceLogsUseCase.LogScope) : ServiceDetailEvent
     data object DismissError : ServiceDetailEvent
 }
 
@@ -100,6 +102,10 @@ class ServiceDetailViewModel @Inject constructor(
             is ServiceDetailEvent.DismissConfirmDialog -> {
                 _state.update { it.copy(showConfirmDialog = null) }
             }
+            is ServiceDetailEvent.ChangeLogScope -> {
+                _state.update { it.copy(logScope = event.scope) }
+                loadLogs()
+            }
             is ServiceDetailEvent.RefreshLogs -> loadLogs()
             is ServiceDetailEvent.LoadConfig -> {
                 _state.update { it.copy(configPath = event.path) }
@@ -135,7 +141,7 @@ class ServiceDetailViewModel @Inject constructor(
         val service = _state.value.service ?: return
         viewModelScope.launch {
             _state.update { it.copy(isLoadingLogs = true) }
-            getServiceLogs(service).fold(
+            getServiceLogs(service, scope = _state.value.logScope).fold(
                 onSuccess = { logs -> _state.update { it.copy(logs = logs, isLoadingLogs = false) } },
                 onFailure = { e -> _state.update { it.copy(isLoadingLogs = false, error = "Failed to load logs: ${e.message}") } }
             )

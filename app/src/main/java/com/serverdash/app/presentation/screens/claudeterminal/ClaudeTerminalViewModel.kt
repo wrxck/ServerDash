@@ -2,309 +2,339 @@ package com.serverdash.app.presentation.screens.claudeterminal
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.serverdash.app.data.remote.ssh.SshSessionManager
 import com.serverdash.app.domain.repository.SshRepository
+import com.serverdash.app.domain.usecase.BuildClaudeContextUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.*
-import java.util.UUID
 import javax.inject.Inject
 
-data class ClaudeSession(
-    val id: String = UUID.randomUUID().toString(),
+data class TmuxSession(
     val name: String,
-    val projectPath: String,
-    val messages: List<ClaudeMessage> = emptyList(),
-    val isActive: Boolean = true,
-    val createdAt: Long = System.currentTimeMillis()
-)
-
-data class ClaudeMessage(
-    val role: String, // "user", "assistant", "system", "tool"
-    val content: String,
-    val timestamp: Long = System.currentTimeMillis(),
-    val isStreaming: Boolean = false
+    val created: String = "",
+    val attached: Boolean = false,
+    val size: String = ""
 )
 
 data class ClaudeTerminalUiState(
-    val sessions: List<ClaudeSession> = emptyList(),
-    val activeSessionId: String? = null,
-    val inputText: String = "",
-    val isProcessing: Boolean = false,
-    val isCreatingSession: Boolean = false,
+    val terminalOutput: String = "",
+    val isConnected: Boolean = false,
+    val isConnecting: Boolean = false,
+    val projectPath: String = "",
+    val currentSessionName: String = "",
     val availableProjects: List<String> = emptyList(),
-    val showNewSessionDialog: Boolean = false,
-    val showSessionManager: Boolean = false,
-    val error: String? = null
+    val tmuxSessions: List<TmuxSession> = emptyList(),
+    val isLoadingSessions: Boolean = false,
+    val showProjectPicker: Boolean = false,
+    val showSessionList: Boolean = false,
+    val error: String? = null,
+    val cols: Int = 120,
+    val rows: Int = 40
 )
 
 sealed interface ClaudeTerminalEvent {
-    data class CreateSession(val name: String, val projectPath: String) : ClaudeTerminalEvent
-    data class SendMessage(val text: String) : ClaudeTerminalEvent
-    data class SwitchSession(val id: String) : ClaudeTerminalEvent
-    data class DeleteSession(val id: String) : ClaudeTerminalEvent
-    data class RenameSession(val id: String, val name: String) : ClaudeTerminalEvent
-    data object ToggleSessionManager : ClaudeTerminalEvent
-    data object DismissNewSessionDialog : ClaudeTerminalEvent
-    data object ShowNewSessionDialog : ClaudeTerminalEvent
-    data class UpdateInput(val text: String) : ClaudeTerminalEvent
+    data class SendInput(val text: String) : ClaudeTerminalEvent
+    data class SendSpecialKey(val key: SpecialKey) : ClaudeTerminalEvent
+    data class NewSession(val projectPath: String, val name: String = "") : ClaudeTerminalEvent
+    data class AttachSession(val name: String) : ClaudeTerminalEvent
+    data class KillSession(val name: String) : ClaudeTerminalEvent
+    data class Resize(val cols: Int, val rows: Int) : ClaudeTerminalEvent
+    data object ShowProjectPicker : ClaudeTerminalEvent
+    data object DismissProjectPicker : ClaudeTerminalEvent
+    data object ShowSessionList : ClaudeTerminalEvent
+    data object DismissSessionList : ClaudeTerminalEvent
+    data object RefreshSessions : ClaudeTerminalEvent
     data object DismissError : ClaudeTerminalEvent
+    data object Detach : ClaudeTerminalEvent
+    data class StartWithContext(
+        val contextType: String,
+        val contextParams: String
+    ) : ClaudeTerminalEvent
 }
+
+enum class SpecialKey(val bytes: ByteArray) {
+    ENTER(byteArrayOf(13)),
+    TAB(byteArrayOf(9)),
+    ESCAPE(byteArrayOf(27)),
+    BACKSPACE(byteArrayOf(127)),
+    CTRL_C(byteArrayOf(3)),
+    CTRL_D(byteArrayOf(4)),
+    CTRL_Z(byteArrayOf(26)),
+    ARROW_UP(byteArrayOf(27, 91, 65)),
+    ARROW_DOWN(byteArrayOf(27, 91, 66)),
+    ARROW_RIGHT(byteArrayOf(27, 91, 67)),
+    ARROW_LEFT(byteArrayOf(27, 91, 68)),
+}
+
+private const val TMUX_PREFIX = "sd-claude-"
 
 @HiltViewModel
 class ClaudeTerminalViewModel @Inject constructor(
-    private val sshRepository: SshRepository
+    private val sshRepository: SshRepository,
+    private val sshSessionManager: SshSessionManager,
+    private val buildClaudeContextUseCase: BuildClaudeContextUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ClaudeTerminalUiState())
     val state: StateFlow<ClaudeTerminalUiState> = _state.asStateFlow()
 
+    private var interactiveSession: SshSessionManager.InteractiveSession? = null
+    private var readJob: Job? = null
+
+    private val outputBuffer = StringBuilder()
+    private val maxOutputSize = 65536
+
     init {
         loadAvailableProjects()
+        refreshTmuxSessions()
     }
 
     fun onEvent(event: ClaudeTerminalEvent) {
         when (event) {
-            is ClaudeTerminalEvent.CreateSession -> createSession(event.name, event.projectPath)
-            is ClaudeTerminalEvent.SendMessage -> sendMessage(event.text)
-            is ClaudeTerminalEvent.SwitchSession -> switchSession(event.id)
-            is ClaudeTerminalEvent.DeleteSession -> deleteSession(event.id)
-            is ClaudeTerminalEvent.RenameSession -> renameSession(event.id, event.name)
-            is ClaudeTerminalEvent.ToggleSessionManager -> _state.update { it.copy(showSessionManager = !it.showSessionManager) }
-            is ClaudeTerminalEvent.DismissNewSessionDialog -> _state.update { it.copy(showNewSessionDialog = false) }
-            is ClaudeTerminalEvent.ShowNewSessionDialog -> _state.update { it.copy(showNewSessionDialog = true) }
-            is ClaudeTerminalEvent.UpdateInput -> _state.update { it.copy(inputText = event.text) }
+            is ClaudeTerminalEvent.SendInput -> sendInput(event.text)
+            is ClaudeTerminalEvent.SendSpecialKey -> sendSpecialKey(event.key)
+            is ClaudeTerminalEvent.NewSession -> newTmuxSession(event.projectPath, event.name)
+            is ClaudeTerminalEvent.AttachSession -> attachTmuxSession(event.name)
+            is ClaudeTerminalEvent.KillSession -> killTmuxSession(event.name)
+            is ClaudeTerminalEvent.Resize -> resize(event.cols, event.rows)
+            is ClaudeTerminalEvent.ShowProjectPicker -> _state.update { it.copy(showProjectPicker = true) }
+            is ClaudeTerminalEvent.DismissProjectPicker -> _state.update { it.copy(showProjectPicker = false) }
+            is ClaudeTerminalEvent.ShowSessionList -> {
+                refreshTmuxSessions()
+                _state.update { it.copy(showSessionList = true) }
+            }
+            is ClaudeTerminalEvent.DismissSessionList -> _state.update { it.copy(showSessionList = false) }
+            is ClaudeTerminalEvent.RefreshSessions -> refreshTmuxSessions()
             is ClaudeTerminalEvent.DismissError -> _state.update { it.copy(error = null) }
+            is ClaudeTerminalEvent.Detach -> detachFromSession()
+            is ClaudeTerminalEvent.StartWithContext -> startWithContext(event.contextType, event.contextParams)
         }
     }
 
     private fun loadAvailableProjects() {
         viewModelScope.launch {
-            // Try to discover project directories from the Claude Code data
-            val username = sshRepository.getConnectedUsername() ?: "root"
+            val username = sshSessionManager.getConnectedUsername() ?: "root"
             val homeDir = if (username == "root") "/root" else "/home/$username"
             val result = sshRepository.executeCommand(
-                "ls -d $homeDir/.claude/projects/*/ 2>/dev/null | head -20"
-            )
-            result.getOrNull()?.let { cmdResult ->
-                val projects = cmdResult.output.lines()
-                    .filter { it.isNotBlank() }
-                    .map { path ->
-                        // Decode the Claude project dir name back to a path
-                        val dirName = path.trimEnd('/').substringAfterLast('/')
-                        dirName.replace("-", "/").let { decoded ->
-                            // The first character should be / for absolute paths
-                            if (decoded.startsWith("/")) decoded else "/$decoded"
-                        }
-                    }
-                _state.update { it.copy(availableProjects = projects) }
-            }
-
-            // Also try to find common project directories
-            val findResult = sshRepository.executeCommand(
                 "find $homeDir -maxdepth 3 -name '.git' -type d 2>/dev/null | head -20 | sed 's/\\/\\.git\$//'"
             )
-            findResult.getOrNull()?.let { cmdResult ->
-                val gitProjects = cmdResult.output.lines().filter { it.isNotBlank() }
-                val current = _state.value.availableProjects
-                val merged = (current + gitProjects).distinct()
-                _state.update { it.copy(availableProjects = merged) }
+            result.getOrNull()?.let { cmdResult ->
+                val projects = cmdResult.output.lines().filter { it.isNotBlank() }
+                _state.update { it.copy(availableProjects = projects) }
             }
         }
     }
 
-    private fun createSession(name: String, projectPath: String) {
-        val session = ClaudeSession(
-            name = name.ifBlank { projectPath.substringAfterLast('/').ifBlank { "New Session" } },
-            projectPath = projectPath,
-            messages = listOf(
-                ClaudeMessage(
-                    role = "system",
-                    content = "Session created for project: $projectPath"
-                )
+    private fun refreshTmuxSessions() {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoadingSessions = true) }
+            val result = sshRepository.executeCommand(
+                "tmux list-sessions -F '#{session_name}|#{session_created_string}|#{session_attached}|#{session_width}x#{session_height}' 2>/dev/null | grep '^$TMUX_PREFIX'"
             )
-        )
-        _state.update {
-            it.copy(
-                sessions = it.sessions + session,
-                activeSessionId = session.id,
-                showNewSessionDialog = false,
-                isCreatingSession = false
-            )
+            val sessions = result.getOrNull()?.output?.lines()
+                ?.filter { it.isNotBlank() }
+                ?.map { line ->
+                    val parts = line.split("|", limit = 4)
+                    TmuxSession(
+                        name = parts.getOrElse(0) { "" },
+                        created = parts.getOrElse(1) { "" },
+                        attached = parts.getOrElse(2) { "0" } != "0",
+                        size = parts.getOrElse(3) { "" }
+                    )
+                } ?: emptyList()
+            _state.update { it.copy(tmuxSessions = sessions, isLoadingSessions = false) }
         }
     }
 
-    private fun sendMessage(text: String) {
-        val trimmed = text.trim()
-        if (trimmed.isBlank()) return
+    /**
+     * Create a new tmux session running `claude` in the given project directory.
+     * The session persists on the server even if we disconnect.
+     */
+    private fun newTmuxSession(projectPath: String, name: String) {
+        if (_state.value.isConnecting || _state.value.isConnected) return
 
-        val sessionId = _state.value.activeSessionId ?: return
-        val session = _state.value.sessions.find { it.id == sessionId } ?: return
+        val sessionName = if (name.isNotBlank()) {
+            "$TMUX_PREFIX${name.replace(" ", "-").replace(Regex("[^a-zA-Z0-9_-]"), "")}"
+        } else {
+            val slug = projectPath.substringAfterLast('/').ifBlank { "default" }
+            "$TMUX_PREFIX$slug-${System.currentTimeMillis() / 1000 % 10000}"
+        }
 
-        // Add user message
-        val userMessage = ClaudeMessage(role = "user", content = trimmed)
-        val updatedMessages = session.messages + userMessage
-        updateSessionMessages(sessionId, updatedMessages)
-        _state.update { it.copy(inputText = "", isProcessing = true) }
+        _state.update { it.copy(isConnecting = true, projectPath = projectPath, showProjectPicker = false, currentSessionName = sessionName) }
+        outputBuffer.clear()
 
         viewModelScope.launch {
             try {
-                val response = executeClaudeCommand(trimmed, session.projectPath, session.messages)
-                val assistantMessage = ClaudeMessage(
-                    role = "assistant",
-                    content = response
-                )
-                val currentSession = _state.value.sessions.find { it.id == sessionId }
-                if (currentSession != null) {
-                    updateSessionMessages(sessionId, currentSession.messages + assistantMessage)
+                // Ensure tmux is available
+                val tmuxCheck = sshRepository.executeCommand("which tmux 2>/dev/null")
+                if (tmuxCheck.getOrNull()?.output?.isBlank() != false) {
+                    _state.update { it.copy(isConnecting = false, error = "tmux is not installed on the server. Install with: sudo apt install tmux") }
+                    return@launch
                 }
+
+                // Create tmux session with claude in the target directory
+                val cdCmd = if (projectPath.isNotBlank()) "cd '${projectPath.replace("'", "'\\''")}' && " else ""
+                val createCmd = "tmux new-session -d -s '$sessionName' -x ${_state.value.cols} -y ${_state.value.rows} '${cdCmd}claude; read -p \"[Claude exited. Press Enter to close]\"'"
+                val createResult = sshRepository.executeCommand(createCmd)
+                if (createResult.isFailure) {
+                    _state.update { it.copy(isConnecting = false, error = "Failed to create tmux session: ${createResult.exceptionOrNull()?.message}") }
+                    return@launch
+                }
+
+                // Now attach to it
+                attachToTmux(sessionName)
             } catch (e: Exception) {
-                val errorMessage = ClaudeMessage(
-                    role = "system",
-                    content = "Error: ${e.message ?: "Unknown error"}"
-                )
-                val currentSession = _state.value.sessions.find { it.id == sessionId }
-                if (currentSession != null) {
-                    updateSessionMessages(sessionId, currentSession.messages + errorMessage)
-                }
-                _state.update { it.copy(error = e.message) }
-            } finally {
-                _state.update { it.copy(isProcessing = false) }
+                _state.update { it.copy(isConnecting = false, error = "Error: ${e.message}") }
             }
         }
     }
 
-    private suspend fun executeClaudeCommand(
-        prompt: String,
-        projectPath: String,
-        previousMessages: List<ClaudeMessage>
-    ): String {
-        // Build the context by replaying previous conversation turns
-        val contextPrompt = buildContextPrompt(prompt, previousMessages)
+    /**
+     * Attach to an existing tmux session via PTY.
+     */
+    private fun attachTmuxSession(name: String) {
+        if (_state.value.isConnecting || _state.value.isConnected) return
+        _state.update { it.copy(isConnecting = true, currentSessionName = name, showSessionList = false) }
+        outputBuffer.clear()
 
-        // Escape the prompt for shell
-        val escapedPrompt = contextPrompt
-            .replace("\\", "\\\\")
-            .replace("'", "'\\''")
-            .replace("\"", "\\\"")
-
-        // Use claude --print for non-interactive single-turn execution
-        val command = buildString {
-            append("cd '${projectPath.replace("'", "'\\''")}' 2>/dev/null; ")
-            append("claude --print --output-format json ")
-            append("'$escapedPrompt' 2>/dev/null")
-        }
-
-        val result = sshRepository.executeCommand(command)
-        val cmdResult = result.getOrElse { throw it }
-
-        if (cmdResult.exitCode != 0 && cmdResult.output.isBlank()) {
-            val errMsg = cmdResult.error.ifBlank { "Claude CLI returned exit code ${cmdResult.exitCode}" }
-            throw Exception(errMsg)
-        }
-
-        return parseClaudeResponse(cmdResult.output)
-    }
-
-    private fun buildContextPrompt(
-        currentPrompt: String,
-        previousMessages: List<ClaudeMessage>
-    ): String {
-        // Filter to only user/assistant messages for context replay
-        val conversationTurns = previousMessages.filter { it.role in listOf("user", "assistant") }
-
-        if (conversationTurns.isEmpty()) {
-            return currentPrompt
-        }
-
-        // Build a context string that replays the conversation
-        return buildString {
-            appendLine("Previous conversation context:")
-            conversationTurns.forEach { msg ->
-                when (msg.role) {
-                    "user" -> appendLine("User: ${msg.content}")
-                    "assistant" -> appendLine("Assistant: ${msg.content}")
-                }
-            }
-            appendLine()
-            appendLine("Current request:")
-            append(currentPrompt)
+        viewModelScope.launch {
+            attachToTmux(name)
         }
     }
 
-    private fun parseClaudeResponse(output: String): String {
-        if (output.isBlank()) return "(empty response)"
+    private suspend fun attachToTmux(sessionName: String) {
+        try {
+            val result = sshSessionManager.startInteractiveShell(
+                cols = _state.value.cols,
+                rows = _state.value.rows,
+                initialCommand = "tmux attach-session -t '$sessionName'"
+            )
 
-        return try {
-            // Try parsing as JSON (--output-format json)
-            val element = Json.parseToJsonElement(output.trim())
-            when (element) {
-                is JsonObject -> {
-                    // Handle structured JSON response
-                    val result = element["result"]?.jsonPrimitive?.content
-                    val content = element["content"]?.let { contentElement ->
-                        when (contentElement) {
-                            is JsonPrimitive -> contentElement.content
-                            is JsonArray -> contentElement.joinToString("\n") { item ->
-                                when (item) {
-                                    is JsonObject -> item["text"]?.jsonPrimitive?.content
-                                        ?: item.toString()
-                                    is JsonPrimitive -> item.content
-                                    else -> item.toString()
-                                }
-                            }
-                            else -> contentElement.toString()
-                        }
-                    }
-                    val message = element["message"]?.jsonPrimitive?.content
-                    val error = element["error"]?.jsonPrimitive?.content
-
-                    error ?: result ?: content ?: message ?: output.trim()
+            result.fold(
+                onSuccess = { session ->
+                    interactiveSession = session
+                    _state.update { it.copy(isConnected = true, isConnecting = false) }
+                    startReadingOutput(session)
+                },
+                onFailure = { e ->
+                    _state.update { it.copy(isConnecting = false, error = "Failed to attach: ${e.message}") }
                 }
-                is JsonPrimitive -> element.content
-                else -> output.trim()
-            }
+            )
         } catch (e: Exception) {
-            // Not JSON, return as plain text
-            output.trim()
+            _state.update { it.copy(isConnecting = false, error = "Connection error: ${e.message}") }
         }
     }
 
-    private fun updateSessionMessages(sessionId: String, messages: List<ClaudeMessage>) {
-        _state.update { state ->
-            state.copy(
-                sessions = state.sessions.map { session ->
-                    if (session.id == sessionId) session.copy(messages = messages)
-                    else session
+    private fun killTmuxSession(name: String) {
+        viewModelScope.launch {
+            sshRepository.executeCommand("tmux kill-session -t '$name' 2>/dev/null")
+            refreshTmuxSessions()
+        }
+    }
+
+    /**
+     * Detach from the tmux session without killing it.
+     * Claude keeps running in the background on the server.
+     */
+    private fun detachFromSession() {
+        // Send tmux detach key sequence: Ctrl+B, d
+        interactiveSession?.write(byteArrayOf(2)) // Ctrl+B
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(100)
+            interactiveSession?.write("d")
+            kotlinx.coroutines.delay(300)
+            // Close our SSH shell (tmux session stays alive on server)
+            readJob?.cancel()
+            readJob = null
+            interactiveSession?.close()
+            interactiveSession = null
+            _state.update { it.copy(isConnected = false, terminalOutput = "") }
+            outputBuffer.clear()
+            refreshTmuxSessions()
+        }
+    }
+
+    private fun startReadingOutput(session: SshSessionManager.InteractiveSession) {
+        readJob?.cancel()
+        readJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val buffer = ByteArray(8192)
+                val stream = session.inputStream
+                while (isActive && session.isOpen()) {
+                    val bytesRead = stream.read(buffer)
+                    if (bytesRead == -1) break
+                    if (bytesRead > 0) {
+                        val text = String(buffer, 0, bytesRead, Charsets.UTF_8)
+                        appendOutput(text)
+                    }
                 }
-            )
-        }
-    }
-
-    private fun switchSession(id: String) {
-        _state.update { it.copy(activeSessionId = id, showSessionManager = false) }
-    }
-
-    private fun deleteSession(id: String) {
-        _state.update { state ->
-            val newSessions = state.sessions.filter { it.id != id }
-            val newActiveId = if (state.activeSessionId == id) {
-                newSessions.lastOrNull()?.id
-            } else {
-                state.activeSessionId
+            } catch (_: Exception) { }
+            finally {
+                _state.update { it.copy(isConnected = false) }
+                refreshTmuxSessions()
             }
-            state.copy(sessions = newSessions, activeSessionId = newActiveId)
         }
     }
 
-    private fun renameSession(id: String, name: String) {
-        _state.update { state ->
-            state.copy(
-                sessions = state.sessions.map { session ->
-                    if (session.id == id) session.copy(name = name)
-                    else session
-                }
-            )
+    private fun appendOutput(text: String) {
+        synchronized(outputBuffer) {
+            outputBuffer.append(text)
+            if (outputBuffer.length > maxOutputSize) {
+                val excess = outputBuffer.length - maxOutputSize
+                outputBuffer.delete(0, excess)
+            }
         }
+        _state.update { it.copy(terminalOutput = outputBuffer.toString()) }
+    }
+
+    private fun sendInput(text: String) {
+        interactiveSession?.write(text)
+    }
+
+    private fun sendSpecialKey(key: SpecialKey) {
+        interactiveSession?.write(key.bytes)
+    }
+
+    private fun resize(cols: Int, rows: Int) {
+        _state.update { it.copy(cols = cols, rows = rows) }
+        interactiveSession?.resize(cols, rows)
+    }
+
+    private fun startWithContext(contextType: String, contextParams: String) {
+        val projectPath = contextParams.substringBefore("|").ifBlank { "/tmp" }
+        newTmuxSession(projectPath, "debug-${System.currentTimeMillis() / 1000 % 10000}")
+        viewModelScope.launch {
+            _state.first { it.isConnected }
+            kotlinx.coroutines.delay(3000) // Wait for Claude TUI to initialize
+            try {
+                val request = when (contextType) {
+                    "service_debug" -> {
+                        val parts = contextParams.split("|", limit = 3)
+                        BuildClaudeContextUseCase.ContextRequest.ServiceDebug(
+                            serviceName = parts.getOrElse(0) { "" },
+                            serviceType = parts.getOrElse(1) { "systemd" },
+                            errorMessage = parts.getOrElse(2) { "" }
+                        )
+                    }
+                    else -> BuildClaudeContextUseCase.ContextRequest.FullSnapshot
+                }
+                val context = buildClaudeContextUseCase.build(request)
+                sendInput(context)
+                sendSpecialKey(SpecialKey.ENTER)
+            } catch (_: Exception) { }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // Just close the SSH shell - tmux session stays alive on server
+        readJob?.cancel()
+        readJob = null
+        interactiveSession?.close()
+        interactiveSession = null
     }
 }
