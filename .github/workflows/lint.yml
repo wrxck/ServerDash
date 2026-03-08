@@ -28,7 +28,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Run ktlint
-        uses: musichin/ktlint-check@v3
+        uses: musichin/ktlint-check@v4
         with:
           ktlint-version: '1.5.0'
           patterns: |
@@ -43,19 +43,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
       - name: Run detekt
         uses: natiginfo/action-detekt-all@1.23.7
         with:
           args: >-
             --input app/src
-            --config detekt.yml
             --build-upon-default-config
             --report sarif:build/reports/detekt.sarif
         continue-on-error: true
 
       - name: Upload SARIF results
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: build/reports/detekt.sarif
         continue-on-error: true
