@@ -3,6 +3,7 @@ package com.serverdash.app.presentation.screens.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.serverdash.app.domain.model.*
+import com.serverdash.app.domain.plugin.PluginRegistry
 import com.serverdash.app.domain.repository.PreferencesRepository
 import com.serverdash.app.domain.repository.ServerRepository
 import com.serverdash.app.domain.repository.SshRepository
@@ -57,7 +58,9 @@ sealed interface SettingsEvent {
     data class UpdateTerminalFontSize(val size: Int) : SettingsEvent
     data class UpdateTerminalMaxHistory(val max: Int) : SettingsEvent
     data class UpdateTerminalShowTimestamps(val show: Boolean) : SettingsEvent
-    // Connection
+    // plugins
+    data class TogglePlugin(val pluginId: String) : SettingsEvent
+    // connection
     data class UpdateConnectionTimeout(val seconds: Int) : SettingsEvent
     data class UpdateAutoReconnect(val enabled: Boolean) : SettingsEvent
     data class UpdateReconnectDelay(val seconds: Int) : SettingsEvent
@@ -82,7 +85,8 @@ sealed interface SettingsEvent {
 class SettingsViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val serverRepository: ServerRepository,
-    private val sshRepository: SshRepository
+    private val sshRepository: SshRepository,
+    val pluginRegistry: PluginRegistry
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
@@ -156,7 +160,16 @@ class SettingsViewModel @Inject constructor(
             // Kiosk
             is SettingsEvent.UpdateKioskMode -> updatePref { it.copy(kioskMode = event.enabled) }
             is SettingsEvent.UpdateAutoStart -> updatePref { it.copy(autoStartOnBoot = event.enabled) }
-            // Danger zone
+            // plugins
+            is SettingsEvent.TogglePlugin -> {
+                updatePref { prefs ->
+                    val current = prefs.disabledPlugins.toMutableSet()
+                    if (current.contains(event.pluginId)) current.remove(event.pluginId)
+                    else current.add(event.pluginId)
+                    prefs.copy(disabledPlugins = current)
+                }
+            }
+            // danger zone
             is SettingsEvent.Disconnect -> _state.update { it.copy(showDisconnectConfirm = true) }
             is SettingsEvent.ConfirmDisconnect -> {
                 viewModelScope.launch {
