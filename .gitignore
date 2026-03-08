@@ -28,3 +28,6 @@ google-services.json
 .vscode/
 *.swp
 *.swo
+
+# Claude Code
+CLAUDE.md
