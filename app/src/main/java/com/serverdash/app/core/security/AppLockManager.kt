@@ -5,6 +5,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.serverdash.app.data.preferences.PreferencesManager
+import com.serverdash.app.domain.model.AppLockAuthMethod
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,11 +46,24 @@ class AppLockManager @Inject constructor(
         // Time is already tracked via lastAuthenticatedTime
     }
 
+    private fun getAuthenticators(authMethod: AppLockAuthMethod): Int = when (authMethod) {
+        AppLockAuthMethod.BIOMETRIC_ONLY ->
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or
+            BiometricManager.Authenticators.BIOMETRIC_WEAK
+        AppLockAuthMethod.DEVICE_CREDENTIAL_ONLY ->
+            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        AppLockAuthMethod.ANY ->
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or
+            BiometricManager.Authenticators.BIOMETRIC_WEAK or
+            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+    }
+
     /**
      * Trigger biometric/device-credential authentication.
      */
     fun authenticate(
         activity: FragmentActivity,
+        authMethod: AppLockAuthMethod = AppLockAuthMethod.ANY,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
@@ -78,30 +92,27 @@ class AppLockManager @Inject constructor(
         }
 
         val biometricPrompt = BiometricPrompt(activity, executor, callback)
+        val authenticators = getAuthenticators(authMethod)
 
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+        val builder = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Unlock ServerDash")
             .setSubtitle("Authenticate to access the app")
-            .setAllowedAuthenticators(
-                BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                BiometricManager.Authenticators.BIOMETRIC_WEAK or
-                BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            )
-            .build()
+            .setAllowedAuthenticators(authenticators)
 
-        biometricPrompt.authenticate(promptInfo)
+        // Negative button is required when DEVICE_CREDENTIAL is not included
+        if (authMethod == AppLockAuthMethod.BIOMETRIC_ONLY) {
+            builder.setNegativeButtonText("Cancel")
+        }
+
+        biometricPrompt.authenticate(builder.build())
     }
 
     /**
      * Check if the device has any authentication method set up.
      */
-    fun canAuthenticate(activity: FragmentActivity): Boolean {
+    fun canAuthenticate(activity: FragmentActivity, authMethod: AppLockAuthMethod = AppLockAuthMethod.ANY): Boolean {
         val biometricManager = BiometricManager.from(activity)
-        val result = biometricManager.canAuthenticate(
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or
-            BiometricManager.Authenticators.BIOMETRIC_WEAK or
-            BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        )
+        val result = biometricManager.canAuthenticate(getAuthenticators(authMethod))
         return result == BiometricManager.BIOMETRIC_SUCCESS
     }
 

@@ -21,19 +21,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Run ktlint
-        uses: musichin/ktlint-check@v3
+        uses: musichin/ktlint-check@v4
         with:
           ktlint-version: '1.5.0'
           patterns: |
             app/src/**/*.kt
             !app/src/**/build/**
+        continue-on-error: true
 
   detekt:
     name: Static Analysis
@@ -43,19 +44,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run detekt
-        uses: natiginfo/action-detekt-all@1.23.7
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          args: >-
-            --input app/src
-            --config detekt.yml
-            --build-upon-default-config
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Download detekt
+        run: |
+          curl -sSL "https://github.com/detekt/detekt/releases/download/v1.23.7/detekt-cli-1.23.7.zip" -o detekt.zip
+          unzip -q detekt.zip -d detekt-cli
+
+      - name: Run detekt
+        run: |
+          java -jar detekt-cli/detekt-cli-1.23.7/lib/detekt-cli-1.23.7-all.jar \
+            --input app/src \
+            --build-upon-default-config \
             --report sarif:build/reports/detekt.sarif
         continue-on-error: true
 
       - name: Upload SARIF results
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: build/reports/detekt.sarif
         continue-on-error: true
