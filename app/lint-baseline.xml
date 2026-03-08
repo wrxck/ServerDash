@@ -1,0 +1,1362 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.7.3" type="baseline" client="gradle" dependencies="false" name="AGP (8.7.3)" variant="all" version="8.7.3">
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:targetCellWidth=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_quick_actions_info.xml"
+            line="5"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:targetCellHeight=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_quick_actions_info.xml"
+            line="6"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `maxResizeWidth` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:maxResizeWidth=&quot;250dp&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_quick_actions_info.xml"
+            line="7"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `maxResizeHeight` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:maxResizeHeight=&quot;110dp&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_quick_actions_info.xml"
+            line="8"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `previewLayout` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:previewLayout=&quot;@layout/widget_quick_actions_preview&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_quick_actions_info.xml"
+            line="12"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:targetCellWidth=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_server_status_info.xml"
+            line="5"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:targetCellHeight=&quot;1&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_server_status_info.xml"
+            line="6"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `maxResizeWidth` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:maxResizeWidth=&quot;250dp&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_server_status_info.xml"
+            line="7"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `maxResizeHeight` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:maxResizeHeight=&quot;110dp&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_server_status_info.xml"
+            line="8"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `previewLayout` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:previewLayout=&quot;@layout/widget_server_status_preview&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_server_status_info.xml"
+            line="12"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:targetCellWidth=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_services_info.xml"
+            line="5"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:targetCellHeight=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_services_info.xml"
+            line="6"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `maxResizeWidth` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:maxResizeWidth=&quot;320dp&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_services_info.xml"
+            line="7"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `maxResizeHeight` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:maxResizeHeight=&quot;320dp&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_services_info.xml"
+            line="8"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `previewLayout` is only used in API level 31 and higher (current min is 28)"
+        errorLine1="    android:previewLayout=&quot;@layout/widget_services_preview&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_services_info.xml"
+            line="12"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="IntentFilterUniqueDataAttributes"
+        message="Consider splitting data tag into multiple tags with individual attributes to avoid confusion"
+        errorLine1="                &lt;data"
+        errorLine2="                ^">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="40"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="IntentFilterUniqueDataAttributes"
+        message="Consider splitting data tag into multiple tags with individual attributes to avoid confusion"
+        errorLine1="                &lt;data"
+        errorLine2="                ^">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="43"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="IntentFilterUniqueDataAttributes"
+        message="Consider splitting data tag into multiple tags with individual attributes to avoid confusion"
+        errorLine1="                &lt;data"
+        errorLine2="                ^">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="46"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 8.7.3 is available: 9.1.0"
+        errorLine1="agp = &quot;8.7.3&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 8.7.3 is available: 9.1.0"
+        errorLine1="agp = &quot;8.7.3&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 8.7.3 is available: 9.1.0"
+        errorLine1="agp = &quot;8.7.3&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose.ui:ui-text-google-fonts than 1.7.6 is available: 1.10.4"
+        errorLine1="    implementation(&quot;androidx.compose.ui:ui-text-google-fonts:1.7.6&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="85"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.02.01"
+        errorLine1="compose-bom = &quot;2024.12.01&quot;"
+        errorLine2="              ~~~~~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="5"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.02.01"
+        errorLine1="compose-bom = &quot;2024.12.01&quot;"
+        errorLine2="              ~~~~~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="5"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.02.01"
+        errorLine1="compose-bom = &quot;2024.12.01&quot;"
+        errorLine2="              ~~~~~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="5"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-compiler than 2.6.1 is available: 2.8.4"
+        errorLine1="room = &quot;2.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="7"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-compiler than 2.6.1 is available: 2.8.4"
+        errorLine1="room = &quot;2.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="7"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-compiler than 2.6.1 is available: 2.8.4"
+        errorLine1="room = &quot;2.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="7"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-ktx than 2.6.1 is available: 2.8.4"
+        errorLine1="room = &quot;2.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="7"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-ktx than 2.6.1 is available: 2.8.4"
+        errorLine1="room = &quot;2.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="7"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-ktx than 2.6.1 is available: 2.8.4"
+        errorLine1="room = &quot;2.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="7"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-runtime than 2.6.1 is available: 2.8.4"
+        errorLine1="room = &quot;2.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="7"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-runtime than 2.6.1 is available: 2.8.4"
+        errorLine1="room = &quot;2.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="7"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-runtime than 2.6.1 is available: 2.8.4"
+        errorLine1="room = &quot;2.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="7"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.datastore:datastore-preferences than 1.1.1 is available: 1.2.0"
+        errorLine1="datastore = &quot;1.1.1&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="8"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.datastore:datastore-preferences than 1.1.1 is available: 1.2.0"
+        errorLine1="datastore = &quot;1.1.1&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="8"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.datastore:datastore-preferences than 1.1.1 is available: 1.2.0"
+        errorLine1="datastore = &quot;1.1.1&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="8"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.work:work-runtime-ktx than 2.10.0 is available: 2.11.1"
+        errorLine1="workmanager = &quot;2.10.0&quot;"
+        errorLine2="              ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="9"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.work:work-runtime-ktx than 2.10.0 is available: 2.11.1"
+        errorLine1="workmanager = &quot;2.10.0&quot;"
+        errorLine2="              ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="9"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.work:work-runtime-ktx than 2.10.0 is available: 2.11.1"
+        errorLine1="workmanager = &quot;2.10.0&quot;"
+        errorLine2="              ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="9"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-compose than 2.8.5 is available: 2.9.7"
+        errorLine1="navigation = &quot;2.8.5&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="10"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-compose than 2.8.5 is available: 2.9.7"
+        errorLine1="navigation = &quot;2.8.5&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="10"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-compose than 2.8.5 is available: 2.9.7"
+        errorLine1="navigation = &quot;2.8.5&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="10"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.10.0"
+        errorLine1="lifecycle = &quot;2.8.7&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="14"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.10.0"
+        errorLine1="lifecycle = &quot;2.8.7&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="14"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.10.0"
+        errorLine1="lifecycle = &quot;2.8.7&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="14"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.10.0"
+        errorLine1="lifecycle = &quot;2.8.7&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="14"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.10.0"
+        errorLine1="lifecycle = &quot;2.8.7&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="14"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.10.0"
+        errorLine1="lifecycle = &quot;2.8.7&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="14"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.10.0"
+        errorLine1="lifecycle = &quot;2.8.7&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="14"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.10.0"
+        errorLine1="lifecycle = &quot;2.8.7&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="14"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.10.0"
+        errorLine1="lifecycle = &quot;2.8.7&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="14"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.espresso:espresso-core than 3.6.1 is available: 3.7.0"
+        errorLine1="espresso = &quot;3.6.1&quot;"
+        errorLine2="           ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="20"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.espresso:espresso-core than 3.6.1 is available: 3.7.0"
+        errorLine1="espresso = &quot;3.6.1&quot;"
+        errorLine2="           ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="20"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.espresso:espresso-core than 3.6.1 is available: 3.7.0"
+        errorLine1="espresso = &quot;3.6.1&quot;"
+        errorLine2="           ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="20"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.3.0"
+        errorLine1="hilt-navigation = &quot;1.2.0&quot;"
+        errorLine2="                  ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="21"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.3.0"
+        errorLine1="hilt-navigation = &quot;1.2.0&quot;"
+        errorLine2="                  ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="21"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.3.0"
+        errorLine1="hilt-navigation = &quot;1.2.0&quot;"
+        errorLine2="                  ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="21"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.security:security-crypto than 1.1.0-alpha06 is available: 1.1.0"
+        errorLine1="security-crypto = &quot;1.1.0-alpha06&quot;"
+        errorLine2="                  ~~~~~~~~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="23"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.security:security-crypto than 1.1.0-alpha06 is available: 1.1.0"
+        errorLine1="security-crypto = &quot;1.1.0-alpha06&quot;"
+        errorLine2="                  ~~~~~~~~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="23"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.security:security-crypto than 1.1.0-alpha06 is available: 1.1.0"
+        errorLine1="security-crypto = &quot;1.1.0-alpha06&quot;"
+        errorLine2="                  ~~~~~~~~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="23"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.9.3 is available: 1.12.4"
+        errorLine1="activity-compose = { group = &quot;androidx.activity&quot;, name = &quot;activity-compose&quot;, version = &quot;1.9.3&quot; }"
+        errorLine2="                                                                                       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="39"
+            column="88"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.9.3 is available: 1.12.4"
+        errorLine1="activity-compose = { group = &quot;androidx.activity&quot;, name = &quot;activity-compose&quot;, version = &quot;1.9.3&quot; }"
+        errorLine2="                                                                                       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="39"
+            column="88"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.9.3 is available: 1.12.4"
+        errorLine1="activity-compose = { group = &quot;androidx.activity&quot;, name = &quot;activity-compose&quot;, version = &quot;1.9.3&quot; }"
+        errorLine2="                                                                                       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="39"
+            column="88"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-work than 1.2.0 is available: 1.3.0"
+        errorLine1="workmanager-hilt = { group = &quot;androidx.hilt&quot;, name = &quot;hilt-work&quot;, version = &quot;1.2.0&quot; }"
+        errorLine2="                                                                            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="62"
+            column="77"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-work than 1.2.0 is available: 1.3.0"
+        errorLine1="workmanager-hilt = { group = &quot;androidx.hilt&quot;, name = &quot;hilt-work&quot;, version = &quot;1.2.0&quot; }"
+        errorLine2="                                                                            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="62"
+            column="77"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-work than 1.2.0 is available: 1.3.0"
+        errorLine1="workmanager-hilt = { group = &quot;androidx.hilt&quot;, name = &quot;hilt-work&quot;, version = &quot;1.2.0&quot; }"
+        errorLine2="                                                                            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="62"
+            column="77"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.17.0"
+        errorLine1="core-ktx = { group = &quot;androidx.core&quot;, name = &quot;core-ktx&quot;, version = &quot;1.15.0&quot; }"
+        errorLine2="                                                                   ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="82"
+            column="68"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.17.0"
+        errorLine1="core-ktx = { group = &quot;androidx.core&quot;, name = &quot;core-ktx&quot;, version = &quot;1.15.0&quot; }"
+        errorLine2="                                                                   ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="82"
+            column="68"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.17.0"
+        errorLine1="core-ktx = { group = &quot;androidx.core&quot;, name = &quot;core-ktx&quot;, version = &quot;1.15.0&quot; }"
+        errorLine2="                                                                   ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="82"
+            column="68"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0"
+        errorLine1="test-runner = { group = &quot;androidx.test&quot;, name = &quot;runner&quot;, version = &quot;1.6.2&quot; }"
+        errorLine2="                                                                    ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="105"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0"
+        errorLine1="test-runner = { group = &quot;androidx.test&quot;, name = &quot;runner&quot;, version = &quot;1.6.2&quot; }"
+        errorLine2="                                                                    ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="105"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0"
+        errorLine1="test-runner = { group = &quot;androidx.test&quot;, name = &quot;runner&quot;, version = &quot;1.6.2&quot; }"
+        errorLine2="                                                                    ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="105"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:rules than 1.6.1 is available: 1.7.0"
+        errorLine1="test-rules = { group = &quot;androidx.test&quot;, name = &quot;rules&quot;, version = &quot;1.6.1&quot; }"
+        errorLine2="                                                                  ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="106"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:rules than 1.6.1 is available: 1.7.0"
+        errorLine1="test-rules = { group = &quot;androidx.test&quot;, name = &quot;rules&quot;, version = &quot;1.6.1&quot; }"
+        errorLine2="                                                                  ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="106"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:rules than 1.6.1 is available: 1.7.0"
+        errorLine1="test-rules = { group = &quot;androidx.test&quot;, name = &quot;rules&quot;, version = &quot;1.6.1&quot; }"
+        errorLine2="                                                                  ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="106"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA!&quot; instead of &quot;DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1&quot;?"
+        errorLine1="            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTAeFw0wODA0MTUyMzM2NTZaFw0zNTA5MDEyMzM2NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgCggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPKQmsHxajtWjmQwWfna8mZuSeJS48LIgAZlKkpFeVyxW0qMBujb8X8ETrWy550PXjkdg6zhCNRVhmMX6sEtaQi6RjfDGCkbGSCK0bklRKDsMGDIM+KNVAK4pHA+JWPSA5hOufLp2WiqQDqXdO0WCJrcZQ4dUVA+W0y5FvO9a/sOX5V2Tc94HLzVZxpOPjCkylVxEMwqy5VGjbBwN6LQMHE6ZVMDO0ZMaMgW4k45NE2gM3DjWFN2E8Cj6Cz7ux45PQ8AqVLBAGEjVdZfzeqBmNBECAQOjgfwwgfkwHQYDVR0OBBYEFHxFTribIMIwJqHsQu7VKuG/0U37MB8GA1UdIwQYMBaAFHxFTribIMIwJqHsQu7VKuG/0U37MAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMIGYBgNVHR8EgZAwgY0wR6BFoEOGQWh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvRThGQTIwQUVFNTVGOUEyNDBCQkUwREI0MEJGNTBGMUIwRKBCoECGPmh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvOTdFMDk2NDgxMjAzMjU4NDANBgkqhkiG9w0BAQQFAAOCAQEAqZ4DhCDEEaGFwCjFie3RSv9VYCgmNINSYNh1qjMSFk7KJuFEACSSxDyaQU0S+sBx3DJikq9iXCkEDU2TYCw0n72XFqMa1P0ggqMKoR/fSJaVBqHBwb2MmF1fl8CmE4RYHTfyHQI0vBip+AMh4YjLB2m0LOMBe9kfjCNB1h/VDyJuFWVqvCGakbCmCYNbgTXJIISwJBPoMBAAP+H8K/f19gCFl/R1dSaasfviU0BqiyRq7X4gkz8bMzr/mPN34KbCfCOfJOJo8oVZBkSTfOHMT0o6rHJXN+YxIr7qlFNNH3LM7M7BBfMQn1m+maTx3y3D/+byiN3XBFpnQwA=="
+        errorLine2="                                                        ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="9"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;GA!&quot; instead of &quot;GA1&quot;?"
+        errorLine1="            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTAeFw0wODA0MTUyMzM2NTZaFw0zNTA5MDEyMzM2NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgCggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPKQmsHxajtWjmQwWfna8mZuSeJS48LIgAZlKkpFeVyxW0qMBujb8X8ETrWy550PXjkdg6zhCNRVhmMX6sEtaQi6RjfDGCkbGSCK0bklRKDsMGDIM+KNVAK4pHA+JWPSA5hOufLp2WiqQDqXdO0WCJrcZQ4dUVA+W0y5FvO9a/sOX5V2Tc94HLzVZxpOPjCkylVxEMwqy5VGjbBwN6LQMHE6ZVMDO0ZMaMgW4k45NE2gM3DjWFN2E8Cj6Cz7ux45PQ8AqVLBAGEjVdZfzeqBmNBECAQOjgfwwgfkwHQYDVR0OBBYEFHxFTribIMIwJqHsQu7VKuG/0U37MB8GA1UdIwQYMBaAFHxFTribIMIwJqHsQu7VKuG/0U37MAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMIGYBgNVHR8EgZAwgY0wR6BFoEOGQWh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvRThGQTIwQUVFNTVGOUEyNDBCQkUwREI0MEJGNTBGMUIwRKBCoECGPmh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvOTdFMDk2NDgxMjAzMjU4NDANBgkqhkiG9w0BAQQFAAOCAQEAqZ4DhCDEEaGFwCjFie3RSv9VYCgmNINSYNh1qjMSFk7KJuFEACSSxDyaQU0S+sBx3DJikq9iXCkEDU2TYCw0n72XFqMa1P0ggqMKoR/fSJaVBqHBwb2MmF1fl8CmE4RYHTfyHQI0vBip+AMh4YjLB2m0LOMBe9kfjCNB1h/VDyJuFWVqvCGakbCmCYNbgTXJIISwJBPoMBAAP+H8K/f19gCFl/R1dSaasfviU0BqiyRq7X4gkz8bMzr/mPN34KbCfCOfJOJo8oVZBkSTfOHMT0o6rHJXN+YxIr7qlFNNH3LM7M7BBfMQn1m+maTx3y3D/+byiN3XBFpnQwA=="
+        errorLine2="                                                                                                                                                       ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="9"
+            column="152"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;GA!&quot; instead of &quot;GA1&quot;?"
+        errorLine1="            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTAeFw0wODA0MTUyMzM2NTZaFw0zNTA5MDEyMzM2NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgCggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPKQmsHxajtWjmQwWfna8mZuSeJS48LIgAZlKkpFeVyxW0qMBujb8X8ETrWy550PXjkdg6zhCNRVhmMX6sEtaQi6RjfDGCkbGSCK0bklRKDsMGDIM+KNVAK4pHA+JWPSA5hOufLp2WiqQDqXdO0WCJrcZQ4dUVA+W0y5FvO9a/sOX5V2Tc94HLzVZxpOPjCkylVxEMwqy5VGjbBwN6LQMHE6ZVMDO0ZMaMgW4k45NE2gM3DjWFN2E8Cj6Cz7ux45PQ8AqVLBAGEjVdZfzeqBmNBECAQOjgfwwgfkwHQYDVR0OBBYEFHxFTribIMIwJqHsQu7VKuG/0U37MB8GA1UdIwQYMBaAFHxFTribIMIwJqHsQu7VKuG/0U37MAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMIGYBgNVHR8EgZAwgY0wR6BFoEOGQWh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvRThGQTIwQUVFNTVGOUEyNDBCQkUwREI0MEJGNTBGMUIwRKBCoECGPmh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvOTdFMDk2NDgxMjAzMjU4NDANBgkqhkiG9w0BAQQFAAOCAQEAqZ4DhCDEEaGFwCjFie3RSv9VYCgmNINSYNh1qjMSFk7KJuFEACSSxDyaQU0S+sBx3DJikq9iXCkEDU2TYCw0n72XFqMa1P0ggqMKoR/fSJaVBqHBwb2MmF1fl8CmE4RYHTfyHQI0vBip+AMh4YjLB2m0LOMBe9kfjCNB1h/VDyJuFWVqvCGakbCmCYNbgTXJIISwJBPoMBAAP+H8K/f19gCFl/R1dSaasfviU0BqiyRq7X4gkz8bMzr/mPN34KbCfCOfJOJo8oVZBkSTfOHMT0o6rHJXN+YxIr7qlFNNH3LM7M7BBfMQn1m+maTx3y3D/+byiN3XBFpnQwA=="
+        errorLine2="                                                                                                                                                                               ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="9"
+            column="176"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;GA!&quot; instead of &quot;GA1&quot;?"
+        errorLine1="            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTAeFw0wODA0MTUyMzM2NTZaFw0zNTA5MDEyMzM2NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgCggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPKQmsHxajtWjmQwWfna8mZuSeJS48LIgAZlKkpFeVyxW0qMBujb8X8ETrWy550PXjkdg6zhCNRVhmMX6sEtaQi6RjfDGCkbGSCK0bklRKDsMGDIM+KNVAK4pHA+JWPSA5hOufLp2WiqQDqXdO0WCJrcZQ4dUVA+W0y5FvO9a/sOX5V2Tc94HLzVZxpOPjCkylVxEMwqy5VGjbBwN6LQMHE6ZVMDO0ZMaMgW4k45NE2gM3DjWFN2E8Cj6Cz7ux45PQ8AqVLBAGEjVdZfzeqBmNBECAQOjgfwwgfkwHQYDVR0OBBYEFHxFTribIMIwJqHsQu7VKuG/0U37MB8GA1UdIwQYMBaAFHxFTribIMIwJqHsQu7VKuG/0U37MAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMIGYBgNVHR8EgZAwgY0wR6BFoEOGQWh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvRThGQTIwQUVFNTVGOUEyNDBCQkUwREI0MEJGNTBGMUIwRKBCoECGPmh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvOTdFMDk2NDgxMjAzMjU4NDANBgkqhkiG9w0BAQQFAAOCAQEAqZ4DhCDEEaGFwCjFie3RSv9VYCgmNINSYNh1qjMSFk7KJuFEACSSxDyaQU0S+sBx3DJikq9iXCkEDU2TYCw0n72XFqMa1P0ggqMKoR/fSJaVBqHBwb2MmF1fl8CmE4RYHTfyHQI0vBip+AMh4YjLB2m0LOMBe9kfjCNB1h/VDyJuFWVqvCGakbCmCYNbgTXJIISwJBPoMBAAP+H8K/f19gCFl/R1dSaasfviU0BqiyRq7X4gkz8bMzr/mPN34KbCfCOfJOJo8oVZBkSTfOHMT0o6rHJXN+YxIr7qlFNNH3LM7M7BBfMQn1m+maTx3y3D/+byiN3XBFpnQwA=="
+        errorLine2="                                                                                                                                                                                                       ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="9"
+            column="200"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;GA!&quot; instead of &quot;GA1&quot;?"
+        errorLine1="            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTAeFw0wODA0MTUyMzM2NTZaFw0zNTA5MDEyMzM2NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgCggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPKQmsHxajtWjmQwWfna8mZuSeJS48LIgAZlKkpFeVyxW0qMBujb8X8ETrWy550PXjkdg6zhCNRVhmMX6sEtaQi6RjfDGCkbGSCK0bklRKDsMGDIM+KNVAK4pHA+JWPSA5hOufLp2WiqQDqXdO0WCJrcZQ4dUVA+W0y5FvO9a/sOX5V2Tc94HLzVZxpOPjCkylVxEMwqy5VGjbBwN6LQMHE6ZVMDO0ZMaMgW4k45NE2gM3DjWFN2E8Cj6Cz7ux45PQ8AqVLBAGEjVdZfzeqBmNBECAQOjgfwwgfkwHQYDVR0OBBYEFHxFTribIMIwJqHsQu7VKuG/0U37MB8GA1UdIwQYMBaAFHxFTribIMIwJqHsQu7VKuG/0U37MAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMIGYBgNVHR8EgZAwgY0wR6BFoEOGQWh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvRThGQTIwQUVFNTVGOUEyNDBCQkUwREI0MEJGNTBGMUIwRKBCoECGPmh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvOTdFMDk2NDgxMjAzMjU4NDANBgkqhkiG9w0BAQQFAAOCAQEAqZ4DhCDEEaGFwCjFie3RSv9VYCgmNINSYNh1qjMSFk7KJuFEACSSxDyaQU0S+sBx3DJikq9iXCkEDU2TYCw0n72XFqMa1P0ggqMKoR/fSJaVBqHBwb2MmF1fl8CmE4RYHTfyHQI0vBip+AMh4YjLB2m0LOMBe9kfjCNB1h/VDyJuFWVqvCGakbCmCYNbgTXJIISwJBPoMBAAP+H8K/f19gCFl/R1dSaasfviU0BqiyRq7X4gkz8bMzr/mPN34KbCfCOfJOJo8oVZBkSTfOHMT0o6rHJXN+YxIr7qlFNNH3LM7M7BBfMQn1m+maTx3y3D/+byiN3XBFpnQwA=="
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                           ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="9"
+            column="396"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;GA!&quot; instead of &quot;GA1&quot;?"
+        errorLine1="            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTAeFw0wODA0MTUyMzM2NTZaFw0zNTA5MDEyMzM2NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgCggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPKQmsHxajtWjmQwWfna8mZuSeJS48LIgAZlKkpFeVyxW0qMBujb8X8ETrWy550PXjkdg6zhCNRVhmMX6sEtaQi6RjfDGCkbGSCK0bklRKDsMGDIM+KNVAK4pHA+JWPSA5hOufLp2WiqQDqXdO0WCJrcZQ4dUVA+W0y5FvO9a/sOX5V2Tc94HLzVZxpOPjCkylVxEMwqy5VGjbBwN6LQMHE6ZVMDO0ZMaMgW4k45NE2gM3DjWFN2E8Cj6Cz7ux45PQ8AqVLBAGEjVdZfzeqBmNBECAQOjgfwwgfkwHQYDVR0OBBYEFHxFTribIMIwJqHsQu7VKuG/0U37MB8GA1UdIwQYMBaAFHxFTribIMIwJqHsQu7VKuG/0U37MAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMIGYBgNVHR8EgZAwgY0wR6BFoEOGQWh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvRThGQTIwQUVFNTVGOUEyNDBCQkUwREI0MEJGNTBGMUIwRKBCoECGPmh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvOTdFMDk2NDgxMjAzMjU4NDANBgkqhkiG9w0BAQQFAAOCAQEAqZ4DhCDEEaGFwCjFie3RSv9VYCgmNINSYNh1qjMSFk7KJuFEACSSxDyaQU0S+sBx3DJikq9iXCkEDU2TYCw0n72XFqMa1P0ggqMKoR/fSJaVBqHBwb2MmF1fl8CmE4RYHTfyHQI0vBip+AMh4YjLB2m0LOMBe9kfjCNB1h/VDyJuFWVqvCGakbCmCYNbgTXJIISwJBPoMBAAP+H8K/f19gCFl/R1dSaasfviU0BqiyRq7X4gkz8bMzr/mPN34KbCfCOfJOJo8oVZBkSTfOHMT0o6rHJXN+YxIr7qlFNNH3LM7M7BBfMQn1m+maTx3y3D/+byiN3XBFpnQwA=="
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                   ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="9"
+            column="420"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;GA!&quot; instead of &quot;GA1&quot;?"
+        errorLine1="            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTAeFw0wODA0MTUyMzM2NTZaFw0zNTA5MDEyMzM2NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgCggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPKQmsHxajtWjmQwWfna8mZuSeJS48LIgAZlKkpFeVyxW0qMBujb8X8ETrWy550PXjkdg6zhCNRVhmMX6sEtaQi6RjfDGCkbGSCK0bklRKDsMGDIM+KNVAK4pHA+JWPSA5hOufLp2WiqQDqXdO0WCJrcZQ4dUVA+W0y5FvO9a/sOX5V2Tc94HLzVZxpOPjCkylVxEMwqy5VGjbBwN6LQMHE6ZVMDO0ZMaMgW4k45NE2gM3DjWFN2E8Cj6Cz7ux45PQ8AqVLBAGEjVdZfzeqBmNBECAQOjgfwwgfkwHQYDVR0OBBYEFHxFTribIMIwJqHsQu7VKuG/0U37MB8GA1UdIwQYMBaAFHxFTribIMIwJqHsQu7VKuG/0U37MAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMIGYBgNVHR8EgZAwgY0wR6BFoEOGQWh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvRThGQTIwQUVFNTVGOUEyNDBCQkUwREI0MEJGNTBGMUIwRKBCoECGPmh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvOTdFMDk2NDgxMjAzMjU4NDANBgkqhkiG9w0BAQQFAAOCAQEAqZ4DhCDEEaGFwCjFie3RSv9VYCgmNINSYNh1qjMSFk7KJuFEACSSxDyaQU0S+sBx3DJikq9iXCkEDU2TYCw0n72XFqMa1P0ggqMKoR/fSJaVBqHBwb2MmF1fl8CmE4RYHTfyHQI0vBip+AMh4YjLB2m0LOMBe9kfjCNB1h/VDyJuFWVqvCGakbCmCYNbgTXJIISwJBPoMBAAP+H8K/f19gCFl/R1dSaasfviU0BqiyRq7X4gkz8bMzr/mPN34KbCfCOfJOJo8oVZBkSTfOHMT0o6rHJXN+YxIr7qlFNNH3LM7M7BBfMQn1m+maTx3y3D/+byiN3XBFpnQwA=="
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                           ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="9"
+            column="444"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;GA!&quot; instead of &quot;GA1&quot;?"
+        errorLine1="            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTAeFw0wODA0MTUyMzM2NTZaFw0zNTA5MDEyMzM2NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgCggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPKQmsHxajtWjmQwWfna8mZuSeJS48LIgAZlKkpFeVyxW0qMBujb8X8ETrWy550PXjkdg6zhCNRVhmMX6sEtaQi6RjfDGCkbGSCK0bklRKDsMGDIM+KNVAK4pHA+JWPSA5hOufLp2WiqQDqXdO0WCJrcZQ4dUVA+W0y5FvO9a/sOX5V2Tc94HLzVZxpOPjCkylVxEMwqy5VGjbBwN6LQMHE6ZVMDO0ZMaMgW4k45NE2gM3DjWFN2E8Cj6Cz7ux45PQ8AqVLBAGEjVdZfzeqBmNBECAQOjgfwwgfkwHQYDVR0OBBYEFHxFTribIMIwJqHsQu7VKuG/0U37MB8GA1UdIwQYMBaAFHxFTribIMIwJqHsQu7VKuG/0U37MAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMIGYBgNVHR8EgZAwgY0wR6BFoEOGQWh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvRThGQTIwQUVFNTVGOUEyNDBCQkUwREI0MEJGNTBGMUIwRKBCoECGPmh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvOTdFMDk2NDgxMjAzMjU4NDANBgkqhkiG9w0BAQQFAAOCAQEAqZ4DhCDEEaGFwCjFie3RSv9VYCgmNINSYNh1qjMSFk7KJuFEACSSxDyaQU0S+sBx3DJikq9iXCkEDU2TYCw0n72XFqMa1P0ggqMKoR/fSJaVBqHBwb2MmF1fl8CmE4RYHTfyHQI0vBip+AMh4YjLB2m0LOMBe9kfjCNB1h/VDyJuFWVqvCGakbCmCYNbgTXJIISwJBPoMBAAP+H8K/f19gCFl/R1dSaasfviU0BqiyRq7X4gkz8bMzr/mPN34KbCfCOfJOJo8oVZBkSTfOHMT0o6rHJXN+YxIr7qlFNNH3LM7M7BBfMQn1m+maTx3y3D/+byiN3XBFpnQwA=="
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="9"
+            column="946"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;MAwGA!&quot; instead of &quot;MAwGA1&quot;?"
+        errorLine1="            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTAeFw0wODA0MTUyMzM2NTZaFw0zNTA5MDEyMzM2NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgCggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPKQmsHxajtWjmQwWfna8mZuSeJS48LIgAZlKkpFeVyxW0qMBujb8X8ETrWy550PXjkdg6zhCNRVhmMX6sEtaQi6RjfDGCkbGSCK0bklRKDsMGDIM+KNVAK4pHA+JWPSA5hOufLp2WiqQDqXdO0WCJrcZQ4dUVA+W0y5FvO9a/sOX5V2Tc94HLzVZxpOPjCkylVxEMwqy5VGjbBwN6LQMHE6ZVMDO0ZMaMgW4k45NE2gM3DjWFN2E8Cj6Cz7ux45PQ8AqVLBAGEjVdZfzeqBmNBECAQOjgfwwgfkwHQYDVR0OBBYEFHxFTribIMIwJqHsQu7VKuG/0U37MB8GA1UdIwQYMBaAFHxFTribIMIwJqHsQu7VKuG/0U37MAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMIGYBgNVHR8EgZAwgY0wR6BFoEOGQWh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvRThGQTIwQUVFNTVGOUEyNDBCQkUwREI0MEJGNTBGMUIwRKBCoECGPmh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvOTdFMDk2NDgxMjAzMjU4NDANBgkqhkiG9w0BAQQFAAOCAQEAqZ4DhCDEEaGFwCjFie3RSv9VYCgmNINSYNh1qjMSFk7KJuFEACSSxDyaQU0S+sBx3DJikq9iXCkEDU2TYCw0n72XFqMa1P0ggqMKoR/fSJaVBqHBwb2MmF1fl8CmE4RYHTfyHQI0vBip+AMh4YjLB2m0LOMBe9kfjCNB1h/VDyJuFWVqvCGakbCmCYNbgTXJIISwJBPoMBAAP+H8K/f19gCFl/R1dSaasfviU0BqiyRq7X4gkz8bMzr/mPN34KbCfCOfJOJo8oVZBkSTfOHMT0o6rHJXN+YxIr7qlFNNH3LM7M7BBfMQn1m+maTx3y3D/+byiN3XBFpnQwA=="
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="9"
+            column="987"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA!&quot; instead of &quot;NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1&quot;?"
+        errorLine1="            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTAeFw0wODA0MTUyMzM2NTZaFw0zNTA5MDEyMzM2NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgCggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPKQmsHxajtWjmQwWfna8mZuSeJS48LIgAZlKkpFeVyxW0qMBujb8X8ETrWy550PXjkdg6zhCNRVhmMX6sEtaQi6RjfDGCkbGSCK0bklRKDsMGDIM+KNVAK4pHA+JWPSA5hOufLp2WiqQDqXdO0WCJrcZQ4dUVA+W0y5FvO9a/sOX5V2Tc94HLzVZxpOPjCkylVxEMwqy5VGjbBwN6LQMHE6ZVMDO0ZMaMgW4k45NE2gM3DjWFN2E8Cj6Cz7ux45PQ8AqVLBAGEjVdZfzeqBmNBECAQOjgfwwgfkwHQYDVR0OBBYEFHxFTribIMIwJqHsQu7VKuG/0U37MB8GA1UdIwQYMBaAFHxFTribIMIwJqHsQu7VKuG/0U37MAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMIGYBgNVHR8EgZAwgY0wR6BFoEOGQWh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvRThGQTIwQUVFNTVGOUEyNDBCQkUwREI0MEJGNTBGMUIwRKBCoECGPmh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvOTdFMDk2NDgxMjAzMjU4NDANBgkqhkiG9w0BAQQFAAOCAQEAqZ4DhCDEEaGFwCjFie3RSv9VYCgmNINSYNh1qjMSFk7KJuFEACSSxDyaQU0S+sBx3DJikq9iXCkEDU2TYCw0n72XFqMa1P0ggqMKoR/fSJaVBqHBwb2MmF1fl8CmE4RYHTfyHQI0vBip+AMh4YjLB2m0LOMBe9kfjCNB1h/VDyJuFWVqvCGakbCmCYNbgTXJIISwJBPoMBAAP+H8K/f19gCFl/R1dSaasfviU0BqiyRq7X4gkz8bMzr/mPN34KbCfCOfJOJo8oVZBkSTfOHMT0o6rHJXN+YxIr7qlFNNH3LM7M7BBfMQn1m+maTx3y3D/+byiN3XBFpnQwA=="
+        errorLine2="                                                                                                                                                                                                                                                                                                                ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="9"
+            column="305"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;XFqMa!&quot; instead of &quot;XFqMa1&quot;?"
+        errorLine1="            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTAeFw0wODA0MTUyMzM2NTZaFw0zNTA5MDEyMzM2NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgCggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPKQmsHxajtWjmQwWfna8mZuSeJS48LIgAZlKkpFeVyxW0qMBujb8X8ETrWy550PXjkdg6zhCNRVhmMX6sEtaQi6RjfDGCkbGSCK0bklRKDsMGDIM+KNVAK4pHA+JWPSA5hOufLp2WiqQDqXdO0WCJrcZQ4dUVA+W0y5FvO9a/sOX5V2Tc94HLzVZxpOPjCkylVxEMwqy5VGjbBwN6LQMHE6ZVMDO0ZMaMgW4k45NE2gM3DjWFN2E8Cj6Cz7ux45PQ8AqVLBAGEjVdZfzeqBmNBECAQOjgfwwgfkwHQYDVR0OBBYEFHxFTribIMIwJqHsQu7VKuG/0U37MB8GA1UdIwQYMBaAFHxFTribIMIwJqHsQu7VKuG/0U37MAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMIGYBgNVHR8EgZAwgY0wR6BFoEOGQWh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvRThGQTIwQUVFNTVGOUEyNDBCQkUwREI0MEJGNTBGMUIwRKBCoECGPmh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvOTdFMDk2NDgxMjAzMjU4NDANBgkqhkiG9w0BAQQFAAOCAQEAqZ4DhCDEEaGFwCjFie3RSv9VYCgmNINSYNh1qjMSFk7KJuFEACSSxDyaQU0S+sBx3DJikq9iXCkEDU2TYCw0n72XFqMa1P0ggqMKoR/fSJaVBqHBwb2MmF1fl8CmE4RYHTfyHQI0vBip+AMh4YjLB2m0LOMBe9kfjCNB1h/VDyJuFWVqvCGakbCmCYNbgTXJIISwJBPoMBAAP+H8K/f19gCFl/R1dSaasfviU0BqiyRq7X4gkz8bMzr/mPN34KbCfCOfJOJo8oVZBkSTfOHMT0o6rHJXN+YxIr7qlFNNH3LM7M7BBfMQn1m+maTx3y3D/+byiN3XBFpnQwA=="
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="9"
+            column="1370"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;pYTEWMBQGA!&quot; instead of &quot;pYTEWMBQGA1&quot;?"
+        errorLine1="            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTAeFw0wODA0MTUyMzM2NTZaFw0zNTA5MDEyMzM2NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgCggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPKQmsHxajtWjmQwWfna8mZuSeJS48LIgAZlKkpFeVyxW0qMBujb8X8ETrWy550PXjkdg6zhCNRVhmMX6sEtaQi6RjfDGCkbGSCK0bklRKDsMGDIM+KNVAK4pHA+JWPSA5hOufLp2WiqQDqXdO0WCJrcZQ4dUVA+W0y5FvO9a/sOX5V2Tc94HLzVZxpOPjCkylVxEMwqy5VGjbBwN6LQMHE6ZVMDO0ZMaMgW4k45NE2gM3DjWFN2E8Cj6Cz7ux45PQ8AqVLBAGEjVdZfzeqBmNBECAQOjgfwwgfkwHQYDVR0OBBYEFHxFTribIMIwJqHsQu7VKuG/0U37MB8GA1UdIwQYMBaAFHxFTribIMIwJqHsQu7VKuG/0U37MAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMIGYBgNVHR8EgZAwgY0wR6BFoEOGQWh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvRThGQTIwQUVFNTVGOUEyNDBCQkUwREI0MEJGNTBGMUIwRKBCoECGPmh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvOTdFMDk2NDgxMjAzMjU4NDANBgkqhkiG9w0BAQQFAAOCAQEAqZ4DhCDEEaGFwCjFie3RSv9VYCgmNINSYNh1qjMSFk7KJuFEACSSxDyaQU0S+sBx3DJikq9iXCkEDU2TYCw0n72XFqMa1P0ggqMKoR/fSJaVBqHBwb2MmF1fl8CmE4RYHTfyHQI0vBip+AMh4YjLB2m0LOMBe9kfjCNB1h/VDyJuFWVqvCGakbCmCYNbgTXJIISwJBPoMBAAP+H8K/f19gCFl/R1dSaasfviU0BqiyRq7X4gkz8bMzr/mPN34KbCfCOfJOJo8oVZBkSTfOHMT0o6rHJXN+YxIr7qlFNNH3LM7M7BBfMQn1m+maTx3y3D/+byiN3XBFpnQwA=="
+        errorLine2="                                                                                                               ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="9"
+            column="112"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;pYTEWMBQGA!&quot; instead of &quot;pYTEWMBQGA1&quot;?"
+        errorLine1="            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTAeFw0wODA0MTUyMzM2NTZaFw0zNTA5MDEyMzM2NTZaMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHQW5kcm9pZDEQMA4GA1UECxMHQW5kcm9pZDEQMA4GA1UEAxMHQW5kcm9pZDEiMCAGCSqGSIb3DQEJARYTYW5kcm9pZEBhbmRyb2lkLmNvbTCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgCggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPKQmsHxajtWjmQwWfna8mZuSeJS48LIgAZlKkpFeVyxW0qMBujb8X8ETrWy550PXjkdg6zhCNRVhmMX6sEtaQi6RjfDGCkbGSCK0bklRKDsMGDIM+KNVAK4pHA+JWPSA5hOufLp2WiqQDqXdO0WCJrcZQ4dUVA+W0y5FvO9a/sOX5V2Tc94HLzVZxpOPjCkylVxEMwqy5VGjbBwN6LQMHE6ZVMDO0ZMaMgW4k45NE2gM3DjWFN2E8Cj6Cz7ux45PQ8AqVLBAGEjVdZfzeqBmNBECAQOjgfwwgfkwHQYDVR0OBBYEFHxFTribIMIwJqHsQu7VKuG/0U37MB8GA1UdIwQYMBaAFHxFTribIMIwJqHsQu7VKuG/0U37MAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMIGYBgNVHR8EgZAwgY0wR6BFoEOGQWh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvRThGQTIwQUVFNTVGOUEyNDBCQkUwREI0MEJGNTBGMUIwRKBCoECGPmh0dHBzOi8vYW5kcm9pZC5nb29nbGVhcGlzLmNvbS9hdHRlc3RhdGlvbi9jcmwvOTdFMDk2NDgxMjAzMjU4NDANBgkqhkiG9w0BAQQFAAOCAQEAqZ4DhCDEEaGFwCjFie3RSv9VYCgmNINSYNh1qjMSFk7KJuFEACSSxDyaQU0S+sBx3DJikq9iXCkEDU2TYCw0n72XFqMa1P0ggqMKoR/fSJaVBqHBwb2MmF1fl8CmE4RYHTfyHQI0vBip+AMh4YjLB2m0LOMBe9kfjCNB1h/VDyJuFWVqvCGakbCmCYNbgTXJIISwJBPoMBAAP+H8K/f19gCFl/R1dSaasfviU0BqiyRq7X4gkz8bMzr/mPN34KbCfCOfJOJo8oVZBkSTfOHMT0o6rHJXN+YxIr7qlFNNH3LM7M7BBfMQn1m+maTx3y3D/+byiN3XBFpnQwA=="
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                   ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="9"
+            column="356"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;GA!&quot; instead of &quot;GA1&quot;?"
+        errorLine1="            MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9pZDEVMBMGA1UEAxMMR29vZ2xlIEluYy4wHhcNMDgwODIxMjMxMzM0WhcNMzYwMTA2MjMxMzM0WjB5MQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEUMBIGA1UEChMLR29vZ2xlIEluYy4xEDAOBgNVBAsTB0FuZHJvaWQxFTATBgNVBAMTDEdvb2dsZSBJbmMuMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5Q9QJwLR8gqz3vOJ+TkxhBDz2IKhS4IWfIb+fJRJbKz+HcJJTqFPSSFKMCG1JLMbocW82jUfGeMM2Qr0GhxBn4bORpXMWIScOESYOEPVhGZeILp6A5gGBl4IxpcPTFTpYqjLn1U5CY6a2J8g6GP/KLBRPe7Rl8GWb9QKkfadVD/vaFWZBaCuASs38OCFdGv5vPNZBLzMkGP0FPXfxMIF1hb5MPV0VN8nTK7c2u7Am/B8R6y1UR4MZ/yCqBjqDPmJBExg8qZh2jROwzCYQBmyWTf+8v8Dl32mBPHYGHqUPQph+FmPwdafRm/AP2c1hJhiW4oKWB9L+YF6PdpHQIDAQABo4HAMIG9MB0GA1UdDgQWBBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAfBgNVHSMEGDAWgBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjBaBgNVHR8EUzBRME+gTaBLhklodHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0ZXN0YXRpb24vY3JsLzE2OEIzMjI5MjY0RjdCNTA0QUI3MjUxNjY4OURBNUQ4MA0GCSqGSIb3DQEBCwUAA4IBAQBzLEaJvo0i5bsOvCsOT/j2Cq3MJp+4MvMLn/3pSJkPcqb5rIGfLuYFweBEpK1f8H+iwk3YLJPPzMU2aIhE9VmGYv0BMEQCAB7KPOCNB3hN2i9EGFNV0BxvH9B/oGPY/I2D0oWiI14fWAuXoxGT3EOfl0MTQ3PnkVNV84GUWSA4g/jHnYcxd8/rv2jJ4esfcCl1TmZGb7IXC3DWXqIMFCuHsg9pVuZpC3IOuX2FxMPCSLpUPpKCGcS7x6sJ2Wy/sxA8oqBGMiE6MtYTWzE5GDFCoHSU9D1d40bslCGnIHIoFNy+YhzE+J67Fl6+r4SRPkLzCwhEK7Sb9PxB1YZ"
+        errorLine2="                                                                                                                                                                                   ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="14"
+            column="180"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;GA!&quot; instead of &quot;GA1&quot;?"
+        errorLine1="            MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9pZDEVMBMGA1UEAxMMR29vZ2xlIEluYy4wHhcNMDgwODIxMjMxMzM0WhcNMzYwMTA2MjMxMzM0WjB5MQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEUMBIGA1UEChMLR29vZ2xlIEluYy4xEDAOBgNVBAsTB0FuZHJvaWQxFTATBgNVBAMTDEdvb2dsZSBJbmMuMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5Q9QJwLR8gqz3vOJ+TkxhBDz2IKhS4IWfIb+fJRJbKz+HcJJTqFPSSFKMCG1JLMbocW82jUfGeMM2Qr0GhxBn4bORpXMWIScOESYOEPVhGZeILp6A5gGBl4IxpcPTFTpYqjLn1U5CY6a2J8g6GP/KLBRPe7Rl8GWb9QKkfadVD/vaFWZBaCuASs38OCFdGv5vPNZBLzMkGP0FPXfxMIF1hb5MPV0VN8nTK7c2u7Am/B8R6y1UR4MZ/yCqBjqDPmJBExg8qZh2jROwzCYQBmyWTf+8v8Dl32mBPHYGHqUPQph+FmPwdafRm/AP2c1hJhiW4oKWB9L+YF6PdpHQIDAQABo4HAMIG9MB0GA1UdDgQWBBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAfBgNVHSMEGDAWgBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjBaBgNVHR8EUzBRME+gTaBLhklodHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0ZXN0YXRpb24vY3JsLzE2OEIzMjI5MjY0RjdCNTA0QUI3MjUxNjY4OURBNUQ4MA0GCSqGSIb3DQEBCwUAA4IBAQBzLEaJvo0i5bsOvCsOT/j2Cq3MJp+4MvMLn/3pSJkPcqb5rIGfLuYFweBEpK1f8H+iwk3YLJPPzMU2aIhE9VmGYv0BMEQCAB7KPOCNB3hN2i9EGFNV0BxvH9B/oGPY/I2D0oWiI14fWAuXoxGT3EOfl0MTQ3PnkVNV84GUWSA4g/jHnYcxd8/rv2jJ4esfcCl1TmZGb7IXC3DWXqIMFCuHsg9pVuZpC3IOuX2FxMPCSLpUPpKCGcS7x6sJ2Wy/sxA8oqBGMiE6MtYTWzE5GDFCoHSU9D1d40bslCGnIHIoFNy+YhzE+J67Fl6+r4SRPkLzCwhEK7Sb9PxB1YZ"
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="14"
+            column="831"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;GA!&quot; instead of &quot;GA1&quot;?"
+        errorLine1="            MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9pZDEVMBMGA1UEAxMMR29vZ2xlIEluYy4wHhcNMDgwODIxMjMxMzM0WhcNMzYwMTA2MjMxMzM0WjB5MQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEUMBIGA1UEChMLR29vZ2xlIEluYy4xEDAOBgNVBAsTB0FuZHJvaWQxFTATBgNVBAMTDEdvb2dsZSBJbmMuMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5Q9QJwLR8gqz3vOJ+TkxhBDz2IKhS4IWfIb+fJRJbKz+HcJJTqFPSSFKMCG1JLMbocW82jUfGeMM2Qr0GhxBn4bORpXMWIScOESYOEPVhGZeILp6A5gGBl4IxpcPTFTpYqjLn1U5CY6a2J8g6GP/KLBRPe7Rl8GWb9QKkfadVD/vaFWZBaCuASs38OCFdGv5vPNZBLzMkGP0FPXfxMIF1hb5MPV0VN8nTK7c2u7Am/B8R6y1UR4MZ/yCqBjqDPmJBExg8qZh2jROwzCYQBmyWTf+8v8Dl32mBPHYGHqUPQph+FmPwdafRm/AP2c1hJhiW4oKWB9L+YF6PdpHQIDAQABo4HAMIG9MB0GA1UdDgQWBBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAfBgNVHSMEGDAWgBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjBaBgNVHR8EUzBRME+gTaBLhklodHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0ZXN0YXRpb24vY3JsLzE2OEIzMjI5MjY0RjdCNTA0QUI3MjUxNjY4OURBNUQ4MA0GCSqGSIb3DQEBCwUAA4IBAQBzLEaJvo0i5bsOvCsOT/j2Cq3MJp+4MvMLn/3pSJkPcqb5rIGfLuYFweBEpK1f8H+iwk3YLJPPzMU2aIhE9VmGYv0BMEQCAB7KPOCNB3hN2i9EGFNV0BxvH9B/oGPY/I2D0oWiI14fWAuXoxGT3EOfl0MTQ3PnkVNV84GUWSA4g/jHnYcxd8/rv2jJ4esfcCl1TmZGb7IXC3DWXqIMFCuHsg9pVuZpC3IOuX2FxMPCSLpUPpKCGcS7x6sJ2Wy/sxA8oqBGMiE6MtYTWzE5GDFCoHSU9D1d40bslCGnIHIoFNy+YhzE+J67Fl6+r4SRPkLzCwhEK7Sb9PxB1YZ"
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="14"
+            column="939"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;HcJJTqFPSSFKMCG!&quot; instead of &quot;HcJJTqFPSSFKMCG1&quot;?"
+        errorLine1="            MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9pZDEVMBMGA1UEAxMMR29vZ2xlIEluYy4wHhcNMDgwODIxMjMxMzM0WhcNMzYwMTA2MjMxMzM0WjB5MQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEUMBIGA1UEChMLR29vZ2xlIEluYy4xEDAOBgNVBAsTB0FuZHJvaWQxFTATBgNVBAMTDEdvb2dsZSBJbmMuMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5Q9QJwLR8gqz3vOJ+TkxhBDz2IKhS4IWfIb+fJRJbKz+HcJJTqFPSSFKMCG1JLMbocW82jUfGeMM2Qr0GhxBn4bORpXMWIScOESYOEPVhGZeILp6A5gGBl4IxpcPTFTpYqjLn1U5CY6a2J8g6GP/KLBRPe7Rl8GWb9QKkfadVD/vaFWZBaCuASs38OCFdGv5vPNZBLzMkGP0FPXfxMIF1hb5MPV0VN8nTK7c2u7Am/B8R6y1UR4MZ/yCqBjqDPmJBExg8qZh2jROwzCYQBmyWTf+8v8Dl32mBPHYGHqUPQph+FmPwdafRm/AP2c1hJhiW4oKWB9L+YF6PdpHQIDAQABo4HAMIG9MB0GA1UdDgQWBBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAfBgNVHSMEGDAWgBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjBaBgNVHR8EUzBRME+gTaBLhklodHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0ZXN0YXRpb24vY3JsLzE2OEIzMjI5MjY0RjdCNTA0QUI3MjUxNjY4OURBNUQ4MA0GCSqGSIb3DQEBCwUAA4IBAQBzLEaJvo0i5bsOvCsOT/j2Cq3MJp+4MvMLn/3pSJkPcqb5rIGfLuYFweBEpK1f8H+iwk3YLJPPzMU2aIhE9VmGYv0BMEQCAB7KPOCNB3hN2i9EGFNV0BxvH9B/oGPY/I2D0oWiI14fWAuXoxGT3EOfl0MTQ3PnkVNV84GUWSA4g/jHnYcxd8/rv2jJ4esfcCl1TmZGb7IXC3DWXqIMFCuHsg9pVuZpC3IOuX2FxMPCSLpUPpKCGcS7x6sJ2Wy/sxA8oqBGMiE6MtYTWzE5GDFCoHSU9D1d40bslCGnIHIoFNy+YhzE+J67Fl6+r4SRPkLzCwhEK7Sb9PxB1YZ"
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="14"
+            column="521"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;IxpcPTFTpYqjLn!&quot; instead of &quot;IxpcPTFTpYqjLn1&quot;?"
+        errorLine1="            MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9pZDEVMBMGA1UEAxMMR29vZ2xlIEluYy4wHhcNMDgwODIxMjMxMzM0WhcNMzYwMTA2MjMxMzM0WjB5MQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEUMBIGA1UEChMLR29vZ2xlIEluYy4xEDAOBgNVBAsTB0FuZHJvaWQxFTATBgNVBAMTDEdvb2dsZSBJbmMuMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5Q9QJwLR8gqz3vOJ+TkxhBDz2IKhS4IWfIb+fJRJbKz+HcJJTqFPSSFKMCG1JLMbocW82jUfGeMM2Qr0GhxBn4bORpXMWIScOESYOEPVhGZeILp6A5gGBl4IxpcPTFTpYqjLn1U5CY6a2J8g6GP/KLBRPe7Rl8GWb9QKkfadVD/vaFWZBaCuASs38OCFdGv5vPNZBLzMkGP0FPXfxMIF1hb5MPV0VN8nTK7c2u7Am/B8R6y1UR4MZ/yCqBjqDPmJBExg8qZh2jROwzCYQBmyWTf+8v8Dl32mBPHYGHqUPQph+FmPwdafRm/AP2c1hJhiW4oKWB9L+YF6PdpHQIDAQABo4HAMIG9MB0GA1UdDgQWBBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAfBgNVHSMEGDAWgBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjBaBgNVHR8EUzBRME+gTaBLhklodHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0ZXN0YXRpb24vY3JsLzE2OEIzMjI5MjY0RjdCNTA0QUI3MjUxNjY4OURBNUQ4MA0GCSqGSIb3DQEBCwUAA4IBAQBzLEaJvo0i5bsOvCsOT/j2Cq3MJp+4MvMLn/3pSJkPcqb5rIGfLuYFweBEpK1f8H+iwk3YLJPPzMU2aIhE9VmGYv0BMEQCAB7KPOCNB3hN2i9EGFNV0BxvH9B/oGPY/I2D0oWiI14fWAuXoxGT3EOfl0MTQ3PnkVNV84GUWSA4g/jHnYcxd8/rv2jJ4esfcCl1TmZGb7IXC3DWXqIMFCuHsg9pVuZpC3IOuX2FxMPCSLpUPpKCGcS7x6sJ2Wy/sxA8oqBGMiE6MtYTWzE5GDFCoHSU9D1d40bslCGnIHIoFNy+YhzE+J67Fl6+r4SRPkLzCwhEK7Sb9PxB1YZ"
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="14"
+            column="596"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;MQswCQYDVQQGEwJVUzETMBEGA!&quot; instead of &quot;MQswCQYDVQQGEwJVUzETMBEGA1&quot;?"
+        errorLine1="            MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9pZDEVMBMGA1UEAxMMR29vZ2xlIEluYy4wHhcNMDgwODIxMjMxMzM0WhcNMzYwMTA2MjMxMzM0WjB5MQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEUMBIGA1UEChMLR29vZ2xlIEluYy4xEDAOBgNVBAsTB0FuZHJvaWQxFTATBgNVBAMTDEdvb2dsZSBJbmMuMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5Q9QJwLR8gqz3vOJ+TkxhBDz2IKhS4IWfIb+fJRJbKz+HcJJTqFPSSFKMCG1JLMbocW82jUfGeMM2Qr0GhxBn4bORpXMWIScOESYOEPVhGZeILp6A5gGBl4IxpcPTFTpYqjLn1U5CY6a2J8g6GP/KLBRPe7Rl8GWb9QKkfadVD/vaFWZBaCuASs38OCFdGv5vPNZBLzMkGP0FPXfxMIF1hb5MPV0VN8nTK7c2u7Am/B8R6y1UR4MZ/yCqBjqDPmJBExg8qZh2jROwzCYQBmyWTf+8v8Dl32mBPHYGHqUPQph+FmPwdafRm/AP2c1hJhiW4oKWB9L+YF6PdpHQIDAQABo4HAMIG9MB0GA1UdDgQWBBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAfBgNVHSMEGDAWgBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjBaBgNVHR8EUzBRME+gTaBLhklodHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0ZXN0YXRpb24vY3JsLzE2OEIzMjI5MjY0RjdCNTA0QUI3MjUxNjY4OURBNUQ4MA0GCSqGSIb3DQEBCwUAA4IBAQBzLEaJvo0i5bsOvCsOT/j2Cq3MJp+4MvMLn/3pSJkPcqb5rIGfLuYFweBEpK1f8H+iwk3YLJPPzMU2aIhE9VmGYv0BMEQCAB7KPOCNB3hN2i9EGFNV0BxvH9B/oGPY/I2D0oWiI14fWAuXoxGT3EOfl0MTQ3PnkVNV84GUWSA4g/jHnYcxd8/rv2jJ4esfcCl1TmZGb7IXC3DWXqIMFCuHsg9pVuZpC3IOuX2FxMPCSLpUPpKCGcS7x6sJ2Wy/sxA8oqBGMiE6MtYTWzE5GDFCoHSU9D1d40bslCGnIHIoFNy+YhzE+J67Fl6+r4SRPkLzCwhEK7Sb9PxB1YZ"
+        errorLine2="                                                                                                                                                                                                                                                                                ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="14"
+            column="273"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;PxB!&quot; instead of &quot;PxB1&quot;?"
+        errorLine1="            MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9pZDEVMBMGA1UEAxMMR29vZ2xlIEluYy4wHhcNMDgwODIxMjMxMzM0WhcNMzYwMTA2MjMxMzM0WjB5MQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEUMBIGA1UEChMLR29vZ2xlIEluYy4xEDAOBgNVBAsTB0FuZHJvaWQxFTATBgNVBAMTDEdvb2dsZSBJbmMuMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5Q9QJwLR8gqz3vOJ+TkxhBDz2IKhS4IWfIb+fJRJbKz+HcJJTqFPSSFKMCG1JLMbocW82jUfGeMM2Qr0GhxBn4bORpXMWIScOESYOEPVhGZeILp6A5gGBl4IxpcPTFTpYqjLn1U5CY6a2J8g6GP/KLBRPe7Rl8GWb9QKkfadVD/vaFWZBaCuASs38OCFdGv5vPNZBLzMkGP0FPXfxMIF1hb5MPV0VN8nTK7c2u7Am/B8R6y1UR4MZ/yCqBjqDPmJBExg8qZh2jROwzCYQBmyWTf+8v8Dl32mBPHYGHqUPQph+FmPwdafRm/AP2c1hJhiW4oKWB9L+YF6PdpHQIDAQABo4HAMIG9MB0GA1UdDgQWBBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAfBgNVHSMEGDAWgBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjBaBgNVHR8EUzBRME+gTaBLhklodHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0ZXN0YXRpb24vY3JsLzE2OEIzMjI5MjY0RjdCNTA0QUI3MjUxNjY4OURBNUQ4MA0GCSqGSIb3DQEBCwUAA4IBAQBzLEaJvo0i5bsOvCsOT/j2Cq3MJp+4MvMLn/3pSJkPcqb5rIGfLuYFweBEpK1f8H+iwk3YLJPPzMU2aIhE9VmGYv0BMEQCAB7KPOCNB3hN2i9EGFNV0BxvH9B/oGPY/I2D0oWiI14fWAuXoxGT3EOfl0MTQ3PnkVNV84GUWSA4g/jHnYcxd8/rv2jJ4esfcCl1TmZGb7IXC3DWXqIMFCuHsg9pVuZpC3IOuX2FxMPCSLpUPpKCGcS7x6sJ2Wy/sxA8oqBGMiE6MtYTWzE5GDFCoHSU9D1d40bslCGnIHIoFNy+YhzE+J67Fl6+r4SRPkLzCwhEK7Sb9PxB1YZ"
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="14"
+            column="1445"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;esfcCl!&quot; instead of &quot;esfcCl1&quot;?"
+        errorLine1="            MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9pZDEVMBMGA1UEAxMMR29vZ2xlIEluYy4wHhcNMDgwODIxMjMxMzM0WhcNMzYwMTA2MjMxMzM0WjB5MQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEUMBIGA1UEChMLR29vZ2xlIEluYy4xEDAOBgNVBAsTB0FuZHJvaWQxFTATBgNVBAMTDEdvb2dsZSBJbmMuMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5Q9QJwLR8gqz3vOJ+TkxhBDz2IKhS4IWfIb+fJRJbKz+HcJJTqFPSSFKMCG1JLMbocW82jUfGeMM2Qr0GhxBn4bORpXMWIScOESYOEPVhGZeILp6A5gGBl4IxpcPTFTpYqjLn1U5CY6a2J8g6GP/KLBRPe7Rl8GWb9QKkfadVD/vaFWZBaCuASs38OCFdGv5vPNZBLzMkGP0FPXfxMIF1hb5MPV0VN8nTK7c2u7Am/B8R6y1UR4MZ/yCqBjqDPmJBExg8qZh2jROwzCYQBmyWTf+8v8Dl32mBPHYGHqUPQph+FmPwdafRm/AP2c1hJhiW4oKWB9L+YF6PdpHQIDAQABo4HAMIG9MB0GA1UdDgQWBBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAfBgNVHSMEGDAWgBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjBaBgNVHR8EUzBRME+gTaBLhklodHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0ZXN0YXRpb24vY3JsLzE2OEIzMjI5MjY0RjdCNTA0QUI3MjUxNjY4OURBNUQ4MA0GCSqGSIb3DQEBCwUAA4IBAQBzLEaJvo0i5bsOvCsOT/j2Cq3MJp+4MvMLn/3pSJkPcqb5rIGfLuYFweBEpK1f8H+iwk3YLJPPzMU2aIhE9VmGYv0BMEQCAB7KPOCNB3hN2i9EGFNV0BxvH9B/oGPY/I2D0oWiI14fWAuXoxGT3EOfl0MTQ3PnkVNV84GUWSA4g/jHnYcxd8/rv2jJ4esfcCl1TmZGb7IXC3DWXqIMFCuHsg9pVuZpC3IOuX2FxMPCSLpUPpKCGcS7x6sJ2Wy/sxA8oqBGMiE6MtYTWzE5GDFCoHSU9D1d40bslCGnIHIoFNy+YhzE+J67Fl6+r4SRPkLzCwhEK7Sb9PxB1YZ"
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="14"
+            column="1301"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;gVmlldzEUMBIGA!&quot; instead of &quot;gVmlldzEUMBIGA1&quot;?"
+        errorLine1="            MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9pZDEVMBMGA1UEAxMMR29vZ2xlIEluYy4wHhcNMDgwODIxMjMxMzM0WhcNMzYwMTA2MjMxMzM0WjB5MQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEUMBIGA1UEChMLR29vZ2xlIEluYy4xEDAOBgNVBAsTB0FuZHJvaWQxFTATBgNVBAMTDEdvb2dsZSBJbmMuMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5Q9QJwLR8gqz3vOJ+TkxhBDz2IKhS4IWfIb+fJRJbKz+HcJJTqFPSSFKMCG1JLMbocW82jUfGeMM2Qr0GhxBn4bORpXMWIScOESYOEPVhGZeILp6A5gGBl4IxpcPTFTpYqjLn1U5CY6a2J8g6GP/KLBRPe7Rl8GWb9QKkfadVD/vaFWZBaCuASs38OCFdGv5vPNZBLzMkGP0FPXfxMIF1hb5MPV0VN8nTK7c2u7Am/B8R6y1UR4MZ/yCqBjqDPmJBExg8qZh2jROwzCYQBmyWTf+8v8Dl32mBPHYGHqUPQph+FmPwdafRm/AP2c1hJhiW4oKWB9L+YF6PdpHQIDAQABo4HAMIG9MB0GA1UdDgQWBBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAfBgNVHSMEGDAWgBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjBaBgNVHR8EUzBRME+gTaBLhklodHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0ZXN0YXRpb24vY3JsLzE2OEIzMjI5MjY0RjdCNTA0QUI3MjUxNjY4OURBNUQ4MA0GCSqGSIb3DQEBCwUAA4IBAQBzLEaJvo0i5bsOvCsOT/j2Cq3MJp+4MvMLn/3pSJkPcqb5rIGfLuYFweBEpK1f8H+iwk3YLJPPzMU2aIhE9VmGYv0BMEQCAB7KPOCNB3hN2i9EGFNV0BxvH9B/oGPY/I2D0oWiI14fWAuXoxGT3EOfl0MTQ3PnkVNV84GUWSA4g/jHnYcxd8/rv2jJ4esfcCl1TmZGb7IXC3DWXqIMFCuHsg9pVuZpC3IOuX2FxMPCSLpUPpKCGcS7x6sJ2Wy/sxA8oqBGMiE6MtYTWzE5GDFCoHSU9D1d40bslCGnIHIoFNy+YhzE+J67Fl6+r4SRPkLzCwhEK7Sb9PxB1YZ"
+        errorLine2="                                                                                                                                                                                                                                                                                                                                                       ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="14"
+            column="344"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;pYTEWMBQGA!&quot; instead of &quot;pYTEWMBQGA1&quot;?"
+        errorLine1="            MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9pZDEVMBMGA1UEAxMMR29vZ2xlIEluYy4wHhcNMDgwODIxMjMxMzM0WhcNMzYwMTA2MjMxMzM0WjB5MQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEUMBIGA1UEChMLR29vZ2xlIEluYy4xEDAOBgNVBAsTB0FuZHJvaWQxFTATBgNVBAMTDEdvb2dsZSBJbmMuMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5Q9QJwLR8gqz3vOJ+TkxhBDz2IKhS4IWfIb+fJRJbKz+HcJJTqFPSSFKMCG1JLMbocW82jUfGeMM2Qr0GhxBn4bORpXMWIScOESYOEPVhGZeILp6A5gGBl4IxpcPTFTpYqjLn1U5CY6a2J8g6GP/KLBRPe7Rl8GWb9QKkfadVD/vaFWZBaCuASs38OCFdGv5vPNZBLzMkGP0FPXfxMIF1hb5MPV0VN8nTK7c2u7Am/B8R6y1UR4MZ/yCqBjqDPmJBExg8qZh2jROwzCYQBmyWTf+8v8Dl32mBPHYGHqUPQph+FmPwdafRm/AP2c1hJhiW4oKWB9L+YF6PdpHQIDAQABo4HAMIG9MB0GA1UdDgQWBBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAfBgNVHSMEGDAWgBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjBaBgNVHR8EUzBRME+gTaBLhklodHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0ZXN0YXRpb24vY3JsLzE2OEIzMjI5MjY0RjdCNTA0QUI3MjUxNjY4OURBNUQ4MA0GCSqGSIb3DQEBCwUAA4IBAQBzLEaJvo0i5bsOvCsOT/j2Cq3MJp+4MvMLn/3pSJkPcqb5rIGfLuYFweBEpK1f8H+iwk3YLJPPzMU2aIhE9VmGYv0BMEQCAB7KPOCNB3hN2i9EGFNV0BxvH9B/oGPY/I2D0oWiI14fWAuXoxGT3EOfl0MTQ3PnkVNV84GUWSA4g/jHnYcxd8/rv2jJ4esfcCl1TmZGb7IXC3DWXqIMFCuHsg9pVuZpC3IOuX2FxMPCSLpUPpKCGcS7x6sJ2Wy/sxA8oqBGMiE6MtYTWzE5GDFCoHSU9D1d40bslCGnIHIoFNy+YhzE+J67Fl6+r4SRPkLzCwhEK7Sb9PxB1YZ"
+        errorLine2="                                                                                                                                                                                                                                                                                                                           ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="14"
+            column="316"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;pZDEVMBMGA!&quot; instead of &quot;pZDEVMBMGA1&quot;?"
+        errorLine1="            MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9pZDEVMBMGA1UEAxMMR29vZ2xlIEluYy4wHhcNMDgwODIxMjMxMzM0WhcNMzYwMTA2MjMxMzM0WjB5MQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEUMBIGA1UEChMLR29vZ2xlIEluYy4xEDAOBgNVBAsTB0FuZHJvaWQxFTATBgNVBAMTDEdvb2dsZSBJbmMuMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5Q9QJwLR8gqz3vOJ+TkxhBDz2IKhS4IWfIb+fJRJbKz+HcJJTqFPSSFKMCG1JLMbocW82jUfGeMM2Qr0GhxBn4bORpXMWIScOESYOEPVhGZeILp6A5gGBl4IxpcPTFTpYqjLn1U5CY6a2J8g6GP/KLBRPe7Rl8GWb9QKkfadVD/vaFWZBaCuASs38OCFdGv5vPNZBLzMkGP0FPXfxMIF1hb5MPV0VN8nTK7c2u7Am/B8R6y1UR4MZ/yCqBjqDPmJBExg8qZh2jROwzCYQBmyWTf+8v8Dl32mBPHYGHqUPQph+FmPwdafRm/AP2c1hJhiW4oKWB9L+YF6PdpHQIDAQABo4HAMIG9MB0GA1UdDgQWBBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAfBgNVHSMEGDAWgBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjBaBgNVHR8EUzBRME+gTaBLhklodHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0ZXN0YXRpb24vY3JsLzE2OEIzMjI5MjY0RjdCNTA0QUI3MjUxNjY4OURBNUQ4MA0GCSqGSIb3DQEBCwUAA4IBAQBzLEaJvo0i5bsOvCsOT/j2Cq3MJp+4MvMLn/3pSJkPcqb5rIGfLuYFweBEpK1f8H+iwk3YLJPPzMU2aIhE9VmGYv0BMEQCAB7KPOCNB3hN2i9EGFNV0BxvH9B/oGPY/I2D0oWiI14fWAuXoxGT3EOfl0MTQ3PnkVNV84GUWSA4g/jHnYcxd8/rv2jJ4esfcCl1TmZGb7IXC3DWXqIMFCuHsg9pVuZpC3IOuX2FxMPCSLpUPpKCGcS7x6sJ2Wy/sxA8oqBGMiE6MtYTWzE5GDFCoHSU9D1d40bslCGnIHIoFNy+YhzE+J67Fl6+r4SRPkLzCwhEK7Sb9PxB1YZ"
+        errorLine2="                                                                                                                                                                                                   ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="14"
+            column="196"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="Did you mean &quot;ybmlhMRYwFAYDVQQHEw!&quot; instead of &quot;ybmlhMRYwFAYDVQQHEw1&quot;?"
+        errorLine1="            MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9pZDEVMBMGA1UEAxMMR29vZ2xlIEluYy4wHhcNMDgwODIxMjMxMzM0WhcNMzYwMTA2MjMxMzM0WjB5MQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEUMBIGA1UEChMLR29vZ2xlIEluYy4xEDAOBgNVBAsTB0FuZHJvaWQxFTATBgNVBAMTDEdvb2dsZSBJbmMuMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5Q9QJwLR8gqz3vOJ+TkxhBDz2IKhS4IWfIb+fJRJbKz+HcJJTqFPSSFKMCG1JLMbocW82jUfGeMM2Qr0GhxBn4bORpXMWIScOESYOEPVhGZeILp6A5gGBl4IxpcPTFTpYqjLn1U5CY6a2J8g6GP/KLBRPe7Rl8GWb9QKkfadVD/vaFWZBaCuASs38OCFdGv5vPNZBLzMkGP0FPXfxMIF1hb5MPV0VN8nTK7c2u7Am/B8R6y1UR4MZ/yCqBjqDPmJBExg8qZh2jROwzCYQBmyWTf+8v8Dl32mBPHYGHqUPQph+FmPwdafRm/AP2c1hJhiW4oKWB9L+YF6PdpHQIDAQABo4HAMIG9MB0GA1UdDgQWBBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAfBgNVHSMEGDAWgBRMqFH4dF9k2THGRLLMkJ2kcnvBhTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjBaBgNVHR8EUzBRME+gTaBLhklodHRwczovL2FuZHJvaWQuZ29vZ2xlYXBpcy5jb20vYXR0ZXN0YXRpb24vY3JsLzE2OEIzMjI5MjY0RjdCNTA0QUI3MjUxNjY4OURBNUQ4MA0GCSqGSIb3DQEBCwUAA4IBAQBzLEaJvo0i5bsOvCsOT/j2Cq3MJp+4MvMLn/3pSJkPcqb5rIGfLuYFweBEpK1f8H+iwk3YLJPPzMU2aIhE9VmGYv0BMEQCAB7KPOCNB3hN2i9EGFNV0BxvH9B/oGPY/I2D0oWiI14fWAuXoxGT3EOfl0MTQ3PnkVNV84GUWSA4g/jHnYcxd8/rv2jJ4esfcCl1TmZGb7IXC3DWXqIMFCuHsg9pVuZpC3IOuX2FxMPCSLpUPpKCGcS7x6sJ2Wy/sxA8oqBGMiE6MtYTWzE5GDFCoHSU9D1d40bslCGnIHIoFNy+YhzE+J67Fl6+r4SRPkLzCwhEK7Sb9PxB1YZ"
+        errorLine2="                                                                                                           ^">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="14"
+            column="108"/>
+    </issue>
+
+    <issue
+        id="TrustAllX509TrustManager"
+        message="`checkServerTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers">
+        <location
+            file="../../../../../private/var/root/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk18on/1.78.1/17b3541f736df97465f87d9f5b5dfa4991b37bb3/bcpkix-jdk18on-1.78.1.jar"/>
+    </issue>
+
+    <issue
+        id="ExportedReceiver"
+        message="Exported receiver does not require permission"
+        errorLine1="        &lt;receiver"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="77"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="This folder configuration (`v26`) is unnecessary; `minSdkVersion` is 28. Merge all the resources in this folder into `mipmap-anydpi`.">
+        <location
+            file="src/main/res/mipmap-anydpi-v26"/>
+    </issue>
+
+    <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `@android:color/background_light` with a theme that also paints a background (inferred theme is `@style/Theme.ServerDash`)"
+        errorLine1="    android:background=&quot;@android:color/background_light&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_quick_actions_preview.xml"
+            line="5"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `@android:color/background_light` with a theme that also paints a background (inferred theme is `@style/Theme.ServerDash`)"
+        errorLine1="    android:background=&quot;@android:color/background_light&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_server_status_preview.xml"
+            line="5"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `@android:color/background_light` with a theme that also paints a background (inferred theme is `@style/Theme.ServerDash`)"
+        errorLine1="    android:background=&quot;@android:color/background_light&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_services_preview.xml"
+            line="5"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="IconLauncherShape"
+        message="Launcher icons should not fill every pixel of their square region; see the design guide for details">
+        <location
+            file="src/main/res/mipmap-hdpi/ic_launcher.png"/>
+    </issue>
+
+    <issue
+        id="IconLauncherShape"
+        message="Launcher icons should not fill every pixel of their square region; see the design guide for details">
+        <location
+            file="src/main/res/mipmap-mdpi/ic_launcher.png"/>
+    </issue>
+
+    <issue
+        id="IconLauncherShape"
+        message="Launcher icons should not fill every pixel of their square region; see the design guide for details">
+        <location
+            file="src/main/res/mipmap-xhdpi/ic_launcher.png"/>
+    </issue>
+
+    <issue
+        id="IconLauncherShape"
+        message="Launcher icons should not fill every pixel of their square region; see the design guide for details">
+        <location
+            file="src/main/res/mipmap-xxhdpi/ic_launcher.png"/>
+    </issue>
+
+    <issue
+        id="IconLauncherShape"
+        message="Launcher icons should not fill every pixel of their square region; see the design guide for details">
+        <location
+            file="src/main/res/mipmap-xxxhdpi/ic_launcher.png"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    implementation(&quot;androidx.compose.ui:ui-text-google-fonts:1.7.6&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="85"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Loading...&quot;, should use `@string` resource"
+        errorLine1="        android:text=&quot;Loading...&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_loading.xml"
+            line="12"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;ServerDash&quot;, should use `@string` resource"
+        errorLine1="        android:text=&quot;ServerDash&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_quick_actions_preview.xml"
+            line="13"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;▶ Terminal&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;▶ Terminal&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_quick_actions_preview.xml"
+            line="30"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;✨ Claude Code&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;✨ Claude Code&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_quick_actions_preview.xml"
+            line="46"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;my-server&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;my-server&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_server_status_preview.xml"
+            line="24"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;CPU 12%&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;CPU 12%&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_server_status_preview.xml"
+            line="39"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;MEM 45%&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;MEM 45%&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_server_status_preview.xml"
+            line="47"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Services&quot;, should use `@string` resource"
+        errorLine1="        android:text=&quot;Services&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_services_preview.xml"
+            line="12"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;8 running&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;8 running&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_services_preview.xml"
+            line="26"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;1 failed&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;1 failed&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_services_preview.xml"
+            line="34"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;0 stopped&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;0 stopped&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_services_preview.xml"
+            line="42"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Failed:&quot;, should use `@string` resource"
+        errorLine1="        android:text=&quot;Failed:&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_services_preview.xml"
+            line="51"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;nginx.service&quot;, should use `@string` resource"
+        errorLine1="        android:text=&quot;nginx.service&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_services_preview.xml"
+            line="62"
+            column="9"/>
+    </issue>
+
+</issues>

@@ -4,7 +4,15 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Deep dark background matching ServerDash Dark theme -->
     <path
-        android:fillColor="#1B5E20"
+        android:fillColor="#0D0D0D"
         android:pathData="M0,0h108v108h-108z" />
+    <!-- Subtle radial gradient effect via concentric shapes -->
+    <path
+        android:fillColor="#141420"
+        android:pathData="M54,18 C74.88,18 92,35.12 92,56 C92,76.88 74.88,94 54,94 C33.12,94 16,76.88 16,56 C16,35.12 33.12,18 54,18z" />
+    <path
+        android:fillColor="#1A1B2A"
+        android:pathData="M54,26 C70.57,26 84,39.43 84,56 C84,72.57 70.57,86 54,86 C37.43,86 24,72.57 24,56 C24,39.43 37.43,26 54,26z" />
 </vector>

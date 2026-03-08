@@ -15,8 +15,8 @@ android {
         applicationId = "com.serverdash.app"
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "0.1.1"
 
         testInstrumentationRunner = "com.serverdash.app.HiltTestRunner"
     }
@@ -43,6 +43,10 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    lint {
+        baseline = file("lint-baseline.xml")
     }
 
     splits {

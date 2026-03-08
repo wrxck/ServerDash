@@ -3,12 +3,81 @@
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
-    android:viewportHeight="108"
-    android:tint="#2E7D32">
+    android:viewportHeight="108">
+
+    <!-- Server tower body -->
     <path
-        android:fillColor="@android:color/white"
-        android:pathData="M54,30 L54,30 C67.25,30 78,40.75 78,54 L78,54 C78,67.25 67.25,78 54,78 L54,78 C40.75,78 30,67.25 30,54 L30,54 C30,40.75 40.75,30 54,30z" />
+        android:fillColor="#5CCFE6"
+        android:pathData="M38,34 L70,34 C71.66,34 73,35.34 73,37 L73,73 C73,74.66 71.66,76 70,76 L38,76 C36.34,76 35,74.66 35,73 L35,37 C35,35.34 36.34,34 38,34z"
+        android:fillAlpha="0.15" />
+
+    <!-- Server tower outline -->
     <path
-        android:fillColor="#2E7D32"
-        android:pathData="M48,44 L48,64 L52,64 L52,56 L56,56 C59.31,56 62,53.31 62,50 C62,46.69 59.31,44 56,44 L48,44zM52,48 L56,48 C57.1,48 58,48.9 58,50 C58,51.1 57.1,52 56,52 L52,52 L52,48z" />
+        android:fillColor="#5CCFE6"
+        android:pathData="M38,34 L70,34 C71.66,34 73,35.34 73,37 L73,73 C73,74.66 71.66,76 70,76 L38,76 C36.34,76 35,74.66 35,73 L35,37 C35,35.34 36.34,34 38,34z"
+        android:strokeWidth="2"
+        android:strokeColor="#5CCFE6"
+        android:fillAlpha="0" />
+
+    <!-- Server unit 1 (top) - divider line -->
+    <path
+        android:fillColor="#5CCFE6"
+        android:pathData="M35,48 L73,48"
+        android:strokeWidth="1.5"
+        android:strokeColor="#5CCFE6" />
+
+    <!-- Server unit 2 (middle) - divider line -->
+    <path
+        android:fillColor="#5CCFE6"
+        android:pathData="M35,60 L73,60"
+        android:strokeWidth="1.5"
+        android:strokeColor="#5CCFE6" />
+
+    <!-- Drive bay indicators - top unit -->
+    <path
+        android:fillColor="#5CCFE6"
+        android:pathData="M40,39 C40.55,39 41,39.45 41,40 C41,40.55 40.55,41 40,41 C39.45,41 39,40.55 39,40 C39,39.45 39.45,39 40,39z" />
+    <path
+        android:fillColor="#5CCFE6"
+        android:pathData="M44,39 L66,39 C66.55,39 67,39.45 67,40 L67,41 C67,41.55 66.55,42 66,42 L44,42 C43.45,42 43,41.55 43,41 L43,40 C43,39.45 43.45,39 44,39z"
+        android:fillAlpha="0.4" />
+
+    <!-- Drive bay indicators - middle unit -->
+    <path
+        android:fillColor="#5CCFE6"
+        android:pathData="M40,51 C40.55,51 41,51.45 41,52 C41,52.55 40.55,53 40,53 C39.45,53 39,52.55 39,52 C39,51.45 39.45,51 40,51z" />
+    <path
+        android:fillColor="#5CCFE6"
+        android:pathData="M44,51 L66,51 C66.55,51 67,51.45 67,52 L67,53 C67,53.55 66.55,54 66,54 L44,54 C43.45,54 43,53.55 43,53 L43,52 C43,51.45 43.45,51 44,51z"
+        android:fillAlpha="0.4" />
+
+    <!-- Status LED - top (green = running) -->
+    <path
+        android:fillColor="#9ECE6A"
+        android:pathData="M68,40 C68.55,40 69,40.45 69,41 C69,41.55 68.55,42 68,42 C67.45,42 67,41.55 67,41 C67,40.45 67.45,40 68,40z" />
+
+    <!-- Status LED - middle (green = running) -->
+    <path
+        android:fillColor="#9ECE6A"
+        android:pathData="M68,52 C68.55,52 69,52.45 69,53 C69,53.55 68.55,54 68,54 C67.45,54 67,53.55 67,53 C67,52.45 67.45,52 68,52z" />
+
+    <!-- Heartbeat / pulse line across bottom unit -->
+    <path
+        android:pathData="M38,68 L46,68 L49,63 L52,72 L55,65 L58,68 L62,68 L65,63 L68,68 L70,68"
+        android:strokeWidth="2"
+        android:strokeColor="#5CCFE6"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Small "SD" text at very bottom -->
+    <path
+        android:fillColor="#5CCFE6"
+        android:fillAlpha="0.5"
+        android:pathData="M47,80 C47,79.2 47.5,78.6 48.3,78.4 C47.6,78.1 47.2,77.5 47.2,76.8 C47.2,75.8 48,75 49.2,75 C50,75 50.5,75.3 50.9,75.8 L50.2,76.4 C49.9,76 49.6,75.8 49.2,75.8 C48.5,75.8 48.1,76.2 48.1,76.8 C48.1,77.4 48.5,77.8 49.2,77.8 L49.6,77.8 L49.6,78.5 L49.2,78.5 C48.4,78.5 47.9,79 47.9,79.6 C47.9,80.3 48.4,80.7 49.2,80.7 C49.7,80.7 50.1,80.5 50.4,80.1 L51,80.6 C50.6,81.2 49.9,81.5 49.2,81.5 C47.9,81.5 47,80.8 47,80z" />
+    <path
+        android:fillColor="#5CCFE6"
+        android:fillAlpha="0.5"
+        android:pathData="M52,75.2 L54,75.2 C55.8,75.2 57,76.5 57,78.3 C57,80.2 55.8,81.5 54,81.5 L52,81.5 L52,75.2z M54,80.6 C55.3,80.6 56,79.7 56,78.3 C56,77 55.3,76 54,76 L53,76 L53,80.6 L54,80.6z" />
+
 </vector>

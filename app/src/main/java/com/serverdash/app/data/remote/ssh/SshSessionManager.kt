@@ -99,8 +99,8 @@ class SshSessionManager @Inject constructor() {
                     val session: Session = ssh.startSession()
                     try {
                         val cmd = session.exec(command)
-                        val output = IOUtils.readFully(cmd.inputStream).toString(Charsets.UTF_8)
-                        val error = IOUtils.readFully(cmd.errorStream).toString(Charsets.UTF_8)
+                        val output = String(IOUtils.readFully(cmd.inputStream).toByteArray(), Charsets.UTF_8)
+                        val error = String(IOUtils.readFully(cmd.errorStream).toByteArray(), Charsets.UTF_8)
                         cmd.join(timeoutSeconds, TimeUnit.SECONDS)
                         val exitCode = cmd.exitStatus ?: -1
                         Result.success(CommandResult(exitCode = exitCode, output = output, error = error))
@@ -178,7 +178,7 @@ class SshSessionManager @Inject constructor() {
                 val sftp = ssh.newSFTPClient()
                 try {
                     val file = sftp.open(path)
-                    val content = IOUtils.readFully(file.RemoteFileInputStream()).toString(Charsets.UTF_8)
+                    val content = String(IOUtils.readFully(file.RemoteFileInputStream()).toByteArray(), Charsets.UTF_8)
                     file.close()
                     Result.success(content)
                 } finally {
