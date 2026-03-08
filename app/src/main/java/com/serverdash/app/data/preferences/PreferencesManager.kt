@@ -65,6 +65,8 @@ class PreferencesManager @Inject constructor(
         val METRICS_RETENTION_HOURS = intPreferencesKey("metrics_retention_hours")
         val MAX_SERVICES = intPreferencesKey("max_services_displayed")
         val HIDE_UNKNOWN = booleanPreferencesKey("hide_unknown_services")
+        // plugins
+        val DISABLED_PLUGINS = stringSetPreferencesKey("disabled_plugins")
     }
 
     val preferences: Flow<AppPreferences> = context.dataStore.data.map { prefs -> readPrefs(prefs) }
@@ -116,7 +118,9 @@ class PreferencesManager @Inject constructor(
         // Data
         metricsRetentionHours = prefs[Keys.METRICS_RETENTION_HOURS] ?: 24,
         maxServicesDisplayed = prefs[Keys.MAX_SERVICES] ?: 0,
-        hideUnknownServices = prefs[Keys.HIDE_UNKNOWN] ?: false
+        hideUnknownServices = prefs[Keys.HIDE_UNKNOWN] ?: false,
+        // plugins
+        disabledPlugins = prefs[Keys.DISABLED_PLUGINS] ?: emptySet()
     )
 
     suspend fun updatePreferences(transform: (AppPreferences) -> AppPreferences) {
@@ -170,6 +174,8 @@ class PreferencesManager @Inject constructor(
             prefs[Keys.METRICS_RETENTION_HOURS] = updated.metricsRetentionHours
             prefs[Keys.MAX_SERVICES] = updated.maxServicesDisplayed
             prefs[Keys.HIDE_UNKNOWN] = updated.hideUnknownServices
+            // plugins
+            prefs[Keys.DISABLED_PLUGINS] = updated.disabledPlugins
         }
     }
 }
