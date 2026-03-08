@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.serverdash.app.core.util.MarkdownView
 import kotlinx.serialization.json.*
 
 @Composable
@@ -503,10 +504,18 @@ internal fun PlansDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeView
             onDismissRequest = { viewModel.onEvent(ClaudeCodeEvent.DismissPlanContent) },
             title = { Text(state.selectedPlanName ?: "Plan") },
             text = {
-                Text(
-                    state.selectedPlanContent,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
-                )
+                val isPlanMd = state.selectedPlanName?.endsWith(".md") == true
+                if (isPlanMd) {
+                    MarkdownView(
+                        markdown = state.selectedPlanContent,
+                        modifier = Modifier.heightIn(max = 500.dp)
+                    )
+                } else {
+                    Text(
+                        state.selectedPlanContent,
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+                    )
+                }
             },
             confirmButton = {
                 TextButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.DismissPlanContent) }) { Text("Close") }

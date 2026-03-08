@@ -19,6 +19,9 @@ class PreferencesManager @Inject constructor(
 ) {
     private object Keys {
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val SELECTED_THEME_ID = stringPreferencesKey("selected_theme_id")
+        val UNDO_DURATION = intPreferencesKey("undo_duration_seconds")
+        val CUSTOM_THEMES_JSON = stringPreferencesKey("custom_themes_json")
         val POLLING_INTERVAL = intPreferencesKey("polling_interval")
         val BRIGHTNESS_OVERRIDE = floatPreferencesKey("brightness_override")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
@@ -67,12 +70,42 @@ class PreferencesManager @Inject constructor(
         val HIDE_UNKNOWN = booleanPreferencesKey("hide_unknown_services")
         // plugins
         val DISABLED_PLUGINS = stringSetPreferencesKey("disabled_plugins")
+        // Privacy / Streaming mode
+        val STREAMING_MODE = booleanPreferencesKey("streaming_mode")
+        val PRIVACY_IPS = booleanPreferencesKey("privacy_ips")
+        val PRIVACY_PORTS = booleanPreferencesKey("privacy_ports")
+        val PRIVACY_EMAILS = booleanPreferencesKey("privacy_emails")
+        val PRIVACY_HOSTNAMES = booleanPreferencesKey("privacy_hostnames")
+        val PRIVACY_PATHS = booleanPreferencesKey("privacy_paths")
+        val PRIVACY_SSH = booleanPreferencesKey("privacy_ssh")
+        val PRIVACY_TOKENS = booleanPreferencesKey("privacy_tokens")
+        val PRIVACY_PASSWORDS = booleanPreferencesKey("privacy_passwords")
+        val PRIVACY_SERVICE_NAMES = booleanPreferencesKey("privacy_service_names")
+        val PRIVACY_REDACTED_SERVICES = stringSetPreferencesKey("privacy_redacted_services")
+        val PRIVACY_CUSTOM_PATTERNS = stringSetPreferencesKey("privacy_custom_patterns")
+        val PRIVACY_REPLACEMENT_TEXT = stringPreferencesKey("privacy_replacement_text")
+        // Fonts
+        val HEADER_FONT = stringPreferencesKey("header_font")
+        val BODY_FONT = stringPreferencesKey("body_font")
+        val CODE_FONT = stringPreferencesKey("code_font")
     }
 
     val preferences: Flow<AppPreferences> = context.dataStore.data.map { prefs -> readPrefs(prefs) }
 
+    val customThemesJson: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[Keys.CUSTOM_THEMES_JSON] ?: "[]"
+    }
+
+    suspend fun updateCustomThemesJson(json: String) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.CUSTOM_THEMES_JSON] = json
+        }
+    }
+
     private fun readPrefs(prefs: Preferences): AppPreferences = AppPreferences(
         themeMode = ThemeMode.valueOf(prefs[Keys.THEME_MODE] ?: ThemeMode.AUTO.name),
+        selectedThemeId = prefs[Keys.SELECTED_THEME_ID] ?: "default_dark",
+        undoDurationSeconds = prefs[Keys.UNDO_DURATION] ?: 5,
         pollingIntervalSeconds = prefs[Keys.POLLING_INTERVAL] ?: 10,
         brightnessOverride = prefs[Keys.BRIGHTNESS_OVERRIDE] ?: -1f,
         keepScreenOn = prefs[Keys.KEEP_SCREEN_ON] ?: true,
@@ -120,7 +153,25 @@ class PreferencesManager @Inject constructor(
         maxServicesDisplayed = prefs[Keys.MAX_SERVICES] ?: 0,
         hideUnknownServices = prefs[Keys.HIDE_UNKNOWN] ?: false,
         // plugins
-        disabledPlugins = prefs[Keys.DISABLED_PLUGINS] ?: emptySet()
+        disabledPlugins = prefs[Keys.DISABLED_PLUGINS] ?: emptySet(),
+        // Privacy / Streaming mode
+        streamingModeEnabled = prefs[Keys.STREAMING_MODE] ?: false,
+        privacyFilterIps = prefs[Keys.PRIVACY_IPS] ?: true,
+        privacyFilterPorts = prefs[Keys.PRIVACY_PORTS] ?: true,
+        privacyFilterEmails = prefs[Keys.PRIVACY_EMAILS] ?: true,
+        privacyFilterHostnames = prefs[Keys.PRIVACY_HOSTNAMES] ?: true,
+        privacyFilterPaths = prefs[Keys.PRIVACY_PATHS] ?: true,
+        privacyFilterSsh = prefs[Keys.PRIVACY_SSH] ?: true,
+        privacyFilterTokens = prefs[Keys.PRIVACY_TOKENS] ?: true,
+        privacyFilterPasswords = prefs[Keys.PRIVACY_PASSWORDS] ?: true,
+        privacyFilterServiceNames = prefs[Keys.PRIVACY_SERVICE_NAMES] ?: false,
+        privacyRedactedServiceNames = prefs[Keys.PRIVACY_REDACTED_SERVICES] ?: emptySet(),
+        privacyCustomPatterns = prefs[Keys.PRIVACY_CUSTOM_PATTERNS] ?: emptySet(),
+        privacyReplacementText = prefs[Keys.PRIVACY_REPLACEMENT_TEXT] ?: "[REDACTED]",
+        // Fonts
+        headerFont = prefs[Keys.HEADER_FONT] ?: "JetBrains Mono",
+        bodyFont = prefs[Keys.BODY_FONT] ?: "JetBrains Mono",
+        codeFont = prefs[Keys.CODE_FONT] ?: "JetBrains Mono"
     )
 
     suspend fun updatePreferences(transform: (AppPreferences) -> AppPreferences) {
@@ -128,6 +179,8 @@ class PreferencesManager @Inject constructor(
             val current = readPrefs(prefs)
             val updated = transform(current)
             prefs[Keys.THEME_MODE] = updated.themeMode.name
+            prefs[Keys.SELECTED_THEME_ID] = updated.selectedThemeId
+            prefs[Keys.UNDO_DURATION] = updated.undoDurationSeconds
             prefs[Keys.POLLING_INTERVAL] = updated.pollingIntervalSeconds
             prefs[Keys.BRIGHTNESS_OVERRIDE] = updated.brightnessOverride
             prefs[Keys.KEEP_SCREEN_ON] = updated.keepScreenOn
@@ -176,6 +229,24 @@ class PreferencesManager @Inject constructor(
             prefs[Keys.HIDE_UNKNOWN] = updated.hideUnknownServices
             // plugins
             prefs[Keys.DISABLED_PLUGINS] = updated.disabledPlugins
+            // Privacy / Streaming mode
+            prefs[Keys.STREAMING_MODE] = updated.streamingModeEnabled
+            prefs[Keys.PRIVACY_IPS] = updated.privacyFilterIps
+            prefs[Keys.PRIVACY_PORTS] = updated.privacyFilterPorts
+            prefs[Keys.PRIVACY_EMAILS] = updated.privacyFilterEmails
+            prefs[Keys.PRIVACY_HOSTNAMES] = updated.privacyFilterHostnames
+            prefs[Keys.PRIVACY_PATHS] = updated.privacyFilterPaths
+            prefs[Keys.PRIVACY_SSH] = updated.privacyFilterSsh
+            prefs[Keys.PRIVACY_TOKENS] = updated.privacyFilterTokens
+            prefs[Keys.PRIVACY_PASSWORDS] = updated.privacyFilterPasswords
+            prefs[Keys.PRIVACY_SERVICE_NAMES] = updated.privacyFilterServiceNames
+            prefs[Keys.PRIVACY_REDACTED_SERVICES] = updated.privacyRedactedServiceNames
+            prefs[Keys.PRIVACY_CUSTOM_PATTERNS] = updated.privacyCustomPatterns
+            prefs[Keys.PRIVACY_REPLACEMENT_TEXT] = updated.privacyReplacementText
+            // Fonts
+            prefs[Keys.HEADER_FONT] = updated.headerFont
+            prefs[Keys.BODY_FONT] = updated.bodyFont
+            prefs[Keys.CODE_FONT] = updated.codeFont
         }
     }
 }

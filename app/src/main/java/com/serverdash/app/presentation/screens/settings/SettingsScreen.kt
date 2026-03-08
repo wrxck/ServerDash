@@ -20,6 +20,8 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onDisconnected: () -> Unit,
     onNavigateToSecurity: () -> Unit = {},
+    onNavigateToTheme: () -> Unit = {},
+    onNavigateToPrivacy: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -100,12 +102,28 @@ fun SettingsScreen(
                     trailingContent = { Icon(Icons.Default.ChevronRight, null) },
                     modifier = Modifier.clickable { onNavigateToSecurity() }
                 )
+                ListItem(
+                    headlineContent = { Text("Streaming Mode") },
+                    supportingContent = { Text("Privacy filters for streaming and screen sharing") },
+                    leadingContent = { Icon(Icons.Default.VisibilityOff, null) },
+                    trailingContent = { Icon(Icons.Default.ChevronRight, null) },
+                    modifier = Modifier.clickable { onNavigateToPrivacy() }
+                )
             }
 
             // ── Display ──
             item { SectionDivider(); SectionHeader("Display") }
             item {
-                Text("Theme", style = MaterialTheme.typography.bodyMedium)
+                ListItem(
+                    headlineContent = { Text("Theme Studio") },
+                    supportingContent = { Text("Browse, create and edit themes") },
+                    leadingContent = { Icon(Icons.Default.Palette, null) },
+                    trailingContent = { Icon(Icons.Default.ChevronRight, null) },
+                    modifier = Modifier.clickable { onNavigateToTheme() }
+                )
+            }
+            item {
+                Text("Quick Theme Mode", style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ThemeMode.entries.forEach { mode ->
                         FilterChip(
@@ -133,6 +151,16 @@ fun SettingsScreen(
                     range = 0.01f..1f,
                     formatValue = { "%.0f%%".format(it * 100) },
                     onValueChange = { viewModel.onEvent(SettingsEvent.UpdateBrightness(it)) }
+                )
+            }
+            item {
+                SliderSetting(
+                    title = "Undo Duration",
+                    value = state.preferences.undoDurationSeconds.toFloat(),
+                    range = 2f..15f,
+                    steps = 12,
+                    formatValue = { "${it.toInt()}s" },
+                    onValueChange = { viewModel.onEvent(SettingsEvent.UpdateUndoDuration(it.toInt())) }
                 )
             }
 

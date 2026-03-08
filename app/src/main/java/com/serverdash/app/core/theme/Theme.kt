@@ -45,6 +45,27 @@ private val AppTypography = Typography(
     labelSmall = TextStyle(fontFamily = JetBrainsMono, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 0.5.sp)
 )
 
+fun buildTypography(
+    headerFontFamily: FontFamily = JetBrainsMono,
+    bodyFontFamily: FontFamily = JetBrainsMono
+): Typography = Typography(
+    displayLarge = TextStyle(fontFamily = headerFontFamily, fontWeight = FontWeight.Bold, fontSize = 57.sp, lineHeight = 64.sp, letterSpacing = (-0.25).sp),
+    displayMedium = TextStyle(fontFamily = headerFontFamily, fontWeight = FontWeight.Bold, fontSize = 45.sp, lineHeight = 52.sp),
+    displaySmall = TextStyle(fontFamily = headerFontFamily, fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 44.sp),
+    headlineLarge = TextStyle(fontFamily = headerFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 32.sp, lineHeight = 40.sp),
+    headlineMedium = TextStyle(fontFamily = headerFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 28.sp, lineHeight = 36.sp),
+    headlineSmall = TextStyle(fontFamily = headerFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 32.sp),
+    titleLarge = TextStyle(fontFamily = headerFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 28.sp),
+    titleMedium = TextStyle(fontFamily = headerFontFamily, fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.15.sp),
+    titleSmall = TextStyle(fontFamily = headerFontFamily, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp),
+    bodyLarge = TextStyle(fontFamily = bodyFontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.5.sp),
+    bodyMedium = TextStyle(fontFamily = bodyFontFamily, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.25.sp),
+    bodySmall = TextStyle(fontFamily = bodyFontFamily, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.4.sp),
+    labelLarge = TextStyle(fontFamily = bodyFontFamily, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp),
+    labelMedium = TextStyle(fontFamily = bodyFontFamily, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.5.sp),
+    labelSmall = TextStyle(fontFamily = bodyFontFamily, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 0.5.sp)
+)
+
 // ── Status colours (WCAG AA compliant on dark/light backgrounds) ──
 
 val StatusGreen = Color(0xFF66BB6A)   // 5.1:1 on #0D0D0D
@@ -168,31 +189,59 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun ServerDashTheme(
     themeMode: ThemeMode = ThemeMode.AUTO,
+    customColorScheme: ColorScheme? = null,
+    customIsDark: Boolean? = null,
+    headerFontFamily: FontFamily = JetBrainsMono,
+    bodyFontFamily: FontFamily = JetBrainsMono,
     content: @Composable () -> Unit
 ) {
     val isDarkSystem = isSystemInDarkTheme()
 
-    val colorScheme = when (themeMode) {
+    val colorScheme = customColorScheme ?: when (themeMode) {
         ThemeMode.AUTO -> if (isDarkSystem) DarkColorScheme else LightColorScheme
         ThemeMode.LIGHT -> LightColorScheme
         ThemeMode.DARK -> DarkColorScheme
         ThemeMode.TRUE_BLACK -> TrueBlackColorScheme
     }
 
+    val isDark = customIsDark ?: (themeMode == ThemeMode.DARK || themeMode == ThemeMode.TRUE_BLACK ||
+        (themeMode == ThemeMode.AUTO && isDarkSystem))
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         val activity = view.context as? Activity
         activity?.let {
             val window = it.window
-            val isDark = themeMode == ThemeMode.DARK || themeMode == ThemeMode.TRUE_BLACK ||
-                (themeMode == ThemeMode.AUTO && isDarkSystem)
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
         }
     }
 
+    val typography = remember(headerFontFamily, bodyFontFamily) {
+        buildTypography(headerFontFamily, bodyFontFamily)
+    }
+
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = AppTypography,
+        typography = typography,
         content = content
     )
+}
+
+fun resolveColorScheme(themeMode: ThemeMode, selectedThemeId: String, customThemes: List<AppTheme>, isDarkSystem: Boolean): Pair<ColorScheme, Boolean> {
+    // Check if using a non-default theme
+    if (selectedThemeId != "default_dark" && selectedThemeId != "default_light" && selectedThemeId != "true_black") {
+        val theme = BuiltInThemes.findById(selectedThemeId)
+            ?: customThemes.find { it.id == selectedThemeId }
+        if (theme != null) {
+            return theme.colors.toColorScheme(theme.isDark) to theme.isDark
+        }
+    }
+
+    // Fall back to ThemeMode-based resolution
+    return when (themeMode) {
+        ThemeMode.AUTO -> if (isDarkSystem) DarkColorScheme to true else LightColorScheme to false
+        ThemeMode.LIGHT -> LightColorScheme to false
+        ThemeMode.DARK -> DarkColorScheme to true
+        ThemeMode.TRUE_BLACK -> TrueBlackColorScheme to true
+    }
 }

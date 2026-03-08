@@ -18,12 +18,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.serverdash.app.core.util.MarkdownEditorView
 import kotlinx.serialization.json.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClaudeCodeScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToClaudeTerminal: () -> Unit = {},
     viewModel: ClaudeCodeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -84,7 +86,16 @@ fun ClaudeCodeScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            if (state.isDetected) {
+                ExtendedFloatingActionButton(
+                    onClick = onNavigateToClaudeTerminal,
+                    icon = { Icon(Icons.Default.Terminal, "Terminal") },
+                    text = { Text("Terminal") }
+                )
+            }
+        }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (state.isLoading) {
@@ -408,13 +419,11 @@ private fun ClaudeMdTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel
                     }
                 }
             }
-            OutlinedTextField(
-                value = state.claudeMdContent,
-                onValueChange = { viewModel.onEvent(ClaudeCodeEvent.UpdateClaudeMd(it)) },
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
-                textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                readOnly = !state.editingClaudeMd,
-                placeholder = { Text("# CLAUDE.md\n\nAdd project instructions here...") }
+            MarkdownEditorView(
+                content = state.claudeMdContent,
+                onContentChange = { viewModel.onEvent(ClaudeCodeEvent.UpdateClaudeMd(it)) },
+                modifier = Modifier.fillMaxSize(),
+                readOnly = !state.editingClaudeMd
             )
         }
     }

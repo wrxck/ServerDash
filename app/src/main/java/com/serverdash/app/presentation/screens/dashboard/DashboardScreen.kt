@@ -6,6 +6,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.lazy.items
@@ -46,7 +47,31 @@ fun DashboardScreen(
     val state by viewModel.state.collectAsState()
     val preferences by viewModel.preferences.collectAsState()
     val landscape = isLandscape()
-    val columns = if (landscape) 4 else 2
+    val columns = when {
+        preferences.gridColumns > 0 -> preferences.gridColumns
+        landscape -> 4
+        else -> 2
+    }
+
+    val displayServices = remember(state.filteredServices, preferences) {
+        var result = state.filteredServices.toList()
+        // Hide unknown
+        if (preferences.hideUnknownServices) {
+            result = result.filter { it.status != ServiceStatus.UNKNOWN }
+        }
+        // Sort
+        result = when (preferences.serviceSortOrder) {
+            ServiceSortOrder.PINNED_FIRST -> result.sortedWith(compareByDescending<Service> { it.isPinned }.thenBy { it.displayName.lowercase() })
+            ServiceSortOrder.NAME -> result.sortedBy { it.displayName.lowercase() }
+            ServiceSortOrder.STATUS -> result.sortedBy { it.status.ordinal }
+            ServiceSortOrder.TYPE -> result.sortedWith(compareBy<Service> { it.type }.thenBy { it.displayName.lowercase() })
+        }
+        // Max limit
+        if (preferences.maxServicesDisplayed > 0) {
+            result = result.take(preferences.maxServicesDisplayed)
+        }
+        result
+    }
 
     // Encryption prompt for existing users
     var showEncryptionPrompt by remember {
@@ -278,7 +303,7 @@ fun DashboardScreen(
             // Service count when filtered
             if (state.isFiltered) {
                 Text(
-                    "${state.filteredServices.size} of ${state.services.size} services",
+                    "${displayServices.size} of ${state.services.size} services",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -295,7 +320,7 @@ fun DashboardScreen(
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
-                } else if (state.filteredServices.isEmpty()) {
+                } else if (displayServices.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
@@ -311,17 +336,55 @@ fun DashboardScreen(
                         }
                     }
                 } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(columns),
-                        contentPadding = PaddingValues(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(state.filteredServices, key = { "${it.serverId}_${it.name}" }) { service ->
-                            ServiceCard(
-                                service = service,
-                                onClick = { viewModel.onEvent(DashboardEvent.NavigateToDetail(service)) }
-                            )
+                    when (preferences.dashboardLayout) {
+                        DashboardLayout.LIST -> {
+                            LazyColumn(
+                                contentPadding = PaddingValues(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(displayServices, key = { "${it.serverId}_${it.name}" }) { service ->
+                                    ServiceCard(
+                                        service = service,
+                                        compact = preferences.compactCards,
+                                        showDescription = preferences.showServiceDescription,
+                                        onClick = { viewModel.onEvent(DashboardEvent.NavigateToDetail(service)) }
+                                    )
+                                }
+                            }
+                        }
+                        DashboardLayout.COMPACT -> {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(columns),
+                                contentPadding = PaddingValues(4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                items(displayServices, key = { "${it.serverId}_${it.name}" }) { service ->
+                                    ServiceCard(
+                                        service = service,
+                                        compact = true,
+                                        showDescription = false,
+                                        onClick = { viewModel.onEvent(DashboardEvent.NavigateToDetail(service)) }
+                                    )
+                                }
+                            }
+                        }
+                        DashboardLayout.GRID -> {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(columns),
+                                contentPadding = PaddingValues(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(displayServices, key = { "${it.serverId}_${it.name}" }) { service ->
+                                    ServiceCard(
+                                        service = service,
+                                        compact = preferences.compactCards,
+                                        showDescription = preferences.showServiceDescription,
+                                        onClick = { viewModel.onEvent(DashboardEvent.NavigateToDetail(service)) }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -447,7 +510,12 @@ fun MetricChip(label: String, value: String) {
 }
 
 @Composable
-fun ServiceCard(service: Service, onClick: () -> Unit) {
+fun ServiceCard(
+    service: Service,
+    compact: Boolean = false,
+    showDescription: Boolean = false,
+    onClick: () -> Unit
+) {
     val statusColor = when (service.status) {
         ServiceStatus.RUNNING -> StatusGreen
         ServiceStatus.FAILED -> StatusRed
@@ -455,33 +523,47 @@ fun ServiceCard(service: Service, onClick: () -> Unit) {
         ServiceStatus.UNKNOWN -> StatusGray
     }
 
+    val cardPadding = if (compact) 6.dp else 12.dp
+    val dotSize = if (compact) 8.dp else 12.dp
+
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.padding(cardPadding), verticalAlignment = Alignment.CenterVertically) {
             // Status indicator dot
             Box(
                 modifier = Modifier
-                    .size(12.dp)
+                    .size(dotSize)
                     .background(statusColor, shape = androidx.compose.foundation.shape.CircleShape)
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(if (compact) 6.dp else 12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     service.displayName,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = if (compact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    "${service.type.name} - ${service.status.name}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (!compact) {
+                    Text(
+                        "${service.type.name} - ${service.status.name}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (showDescription && service.description.isNotBlank()) {
+                    Text(
+                        service.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
             if (service.isPinned) {
-                Icon(Icons.Default.PushPin, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Default.PushPin, null, Modifier.size(if (compact) 12.dp else 16.dp), tint = MaterialTheme.colorScheme.primary)
             }
         }
     }

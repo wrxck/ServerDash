@@ -132,6 +132,8 @@ enum class LogFontSize { SMALL, MEDIUM, LARGE }
 
 data class AppPreferences(
     val themeMode: ThemeMode = ThemeMode.AUTO,
+    val selectedThemeId: String = "default_dark",
+    val undoDurationSeconds: Int = 5,
     val pollingIntervalSeconds: Int = 10,
     val brightnessOverride: Float = -1f,
     val keepScreenOn: Boolean = true,
@@ -179,7 +181,25 @@ data class AppPreferences(
     val maxServicesDisplayed: Int = 0, // 0 = unlimited
     val hideUnknownServices: Boolean = false,
     // plugins
-    val disabledPlugins: Set<String> = emptySet()
+    val disabledPlugins: Set<String> = emptySet(),
+    // Privacy / Streaming mode
+    val streamingModeEnabled: Boolean = false,
+    val privacyFilterIps: Boolean = true,
+    val privacyFilterPorts: Boolean = true,
+    val privacyFilterEmails: Boolean = true,
+    val privacyFilterHostnames: Boolean = true,
+    val privacyFilterPaths: Boolean = true,
+    val privacyFilterSsh: Boolean = true,
+    val privacyFilterTokens: Boolean = true,
+    val privacyFilterPasswords: Boolean = true,
+    val privacyFilterServiceNames: Boolean = false,
+    val privacyRedactedServiceNames: Set<String> = emptySet(),
+    val privacyCustomPatterns: Set<String> = emptySet(),
+    val privacyReplacementText: String = "[REDACTED]",
+    // Fonts
+    val headerFont: String = "JetBrains Mono",
+    val bodyFont: String = "JetBrains Mono",
+    val codeFont: String = "JetBrains Mono"
 )
 
 data class ConnectionState(

@@ -25,6 +25,7 @@ sealed interface SettingsEvent {
     data class UpdateBrightness(val brightness: Float) : SettingsEvent
     data class UpdateKeepScreenOn(val enabled: Boolean) : SettingsEvent
     data class UpdatePixelShift(val enabled: Boolean) : SettingsEvent
+    data class UpdateUndoDuration(val seconds: Int) : SettingsEvent
     // Dashboard layout
     data class UpdateDashboardLayout(val layout: DashboardLayout) : SettingsEvent
     data class UpdateGridColumns(val columns: Int) : SettingsEvent
@@ -115,6 +116,7 @@ class SettingsViewModel @Inject constructor(
             is SettingsEvent.UpdateBrightness -> updatePref { it.copy(brightnessOverride = event.brightness) }
             is SettingsEvent.UpdateKeepScreenOn -> updatePref { it.copy(keepScreenOn = event.enabled) }
             is SettingsEvent.UpdatePixelShift -> updatePref { it.copy(pixelShiftEnabled = event.enabled) }
+            is SettingsEvent.UpdateUndoDuration -> updatePref { it.copy(undoDurationSeconds = event.seconds) }
             // Dashboard
             is SettingsEvent.UpdateDashboardLayout -> updatePref { it.copy(dashboardLayout = event.layout) }
             is SettingsEvent.UpdateGridColumns -> updatePref { it.copy(gridColumns = event.columns) }

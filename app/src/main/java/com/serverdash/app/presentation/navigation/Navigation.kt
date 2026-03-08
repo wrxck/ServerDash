@@ -15,16 +15,19 @@ import androidx.navigation.navArgument
 import com.serverdash.app.domain.repository.ServerRepository
 import com.serverdash.app.presentation.screens.about.AboutScreen
 import com.serverdash.app.presentation.screens.claudecode.ClaudeCodeScreen
+import com.serverdash.app.presentation.screens.claudeterminal.ClaudeTerminalScreen
 import com.serverdash.app.presentation.screens.dashboard.DashboardScreen
 import com.serverdash.app.presentation.screens.detail.ServiceDetailScreen
 import com.serverdash.app.data.encryption.EncryptionManager
 import com.serverdash.app.presentation.screens.fleet.FleetScreen
+import com.serverdash.app.presentation.screens.privacy.PrivacyScreen
 import com.serverdash.app.presentation.screens.git.GitScreen
 import com.serverdash.app.presentation.screens.guardian.GuardianScreen
 import com.serverdash.app.presentation.screens.security.SecurityScreen
 import com.serverdash.app.presentation.screens.settings.SettingsScreen
 import com.serverdash.app.presentation.screens.setup.SetupScreen
 import com.serverdash.app.presentation.screens.terminal.TerminalScreen
+import com.serverdash.app.presentation.screens.theme.ThemeScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,7 +49,10 @@ sealed class Screen(val route: String) {
     data object Guardian : Screen("guardian")
     data object Security : Screen("security")
     data object Git : Screen("git")
+    data object Theme : Screen("theme")
     data object About : Screen("about")
+    data object Privacy : Screen("privacy")
+    data object ClaudeTerminal : Screen("claude_terminal")
 }
 
 @HiltViewModel
@@ -136,12 +142,21 @@ fun ServerDashNavHost() {
                         popUpTo(0) { inclusive = true }
                     }
                 },
-                onNavigateToSecurity = { navController.navigate(Screen.Security.route) }
+                onNavigateToSecurity = { navController.navigate(Screen.Security.route) },
+                onNavigateToTheme = { navController.navigate(Screen.Theme.route) },
+                onNavigateToPrivacy = { navController.navigate(Screen.Privacy.route) }
             )
         }
 
         composable(Screen.ClaudeCode.route) {
             ClaudeCodeScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToClaudeTerminal = { navController.navigate(Screen.ClaudeTerminal.route) }
+            )
+        }
+
+        composable(Screen.ClaudeTerminal.route) {
+            ClaudeTerminalScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -170,8 +185,20 @@ fun ServerDashNavHost() {
             )
         }
 
+        composable(Screen.Theme.route) {
+            ThemeScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Screen.About.route) {
             AboutScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Privacy.route) {
+            PrivacyScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
