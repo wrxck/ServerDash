@@ -98,10 +98,25 @@ fun DashboardScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // Connection status bar
+            // connection status bar
             ConnectionStatusBar(state.connectionState)
 
-            // Alert banner
+            // detected plugin chips
+            if (state.detectedPlugins.any { it.value }) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    state.detectedPlugins.filter { it.value }.forEach { (id, _) ->
+                        AssistChip(
+                            onClick = { },
+                            label = { Text(id.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+            }
+
+            // alert banner
             if (state.activeAlerts.isNotEmpty()) {
                 AlertBanner(
                     alertCount = state.activeAlerts.size,
