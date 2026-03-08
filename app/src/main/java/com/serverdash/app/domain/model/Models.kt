@@ -138,6 +138,18 @@ enum class LockTimeout(val seconds: Long, val label: String) {
     FIVE_MINUTES(300, "After 5 minutes")
 }
 
+enum class SettingsDensity(val label: String, val itemSpacing: Int, val sectionSpacing: Int) {
+    COMPACT("Compact", 4, 8),
+    COMFORTABLE("Comfortable", 10, 16),
+    SPACIOUS("Spacious", 16, 24)
+}
+
+enum class AppLockAuthMethod(val label: String) {
+    ANY("Any method"),
+    BIOMETRIC_ONLY("Biometric only"),
+    DEVICE_CREDENTIAL_ONLY("PIN/Pattern/Password only")
+}
+
 data class AppPreferences(
     val themeMode: ThemeMode = ThemeMode.AUTO,
     val selectedThemeId: String = "default_dark",
@@ -212,7 +224,12 @@ data class AppPreferences(
     val cacheTtlSeconds: Int = 300, // 5 minutes default
     // App Lock
     val appLockEnabled: Boolean = false,
-    val appLockTimeout: LockTimeout = LockTimeout.IMMEDIATE
+    val appLockTimeout: LockTimeout = LockTimeout.IMMEDIATE,
+    val appLockAuthMethod: AppLockAuthMethod = AppLockAuthMethod.ANY,
+    // Settings UI
+    val settingsDensity: SettingsDensity = SettingsDensity.COMPACT,
+    // Recent themes (JSON map of themeId -> lastUsedTimestamp)
+    val recentThemeUsage: Map<String, Long> = emptyMap()
 )
 
 data class ConnectionState(
