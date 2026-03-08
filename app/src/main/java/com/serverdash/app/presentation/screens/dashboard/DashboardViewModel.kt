@@ -13,6 +13,18 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class ProcessInfo(
+    val pid: Int,
+    val user: String,
+    val cpuPercent: Float,
+    val memPercent: Float,
+    val vsz: String,
+    val rss: String,
+    val command: String
+)
+
+enum class MetricDetailType { CPU, MEMORY, DISK, PROCESSES }
+
 data class DashboardUiState(
     val services: List<Service> = emptyList(),
     val metrics: SystemMetrics? = null,
@@ -31,9 +43,15 @@ data class DashboardUiState(
     val statusFilters: Set<ServiceStatus> = emptySet(),
     val typeFilters: Set<ServiceType> = emptySet(),
     // plugin detection
+    val isDetectingPlugins: Boolean = true,
     val detectedPlugins: Map<String, Boolean> = emptyMap(),
     val fleetAvailable: Boolean = false,
-    val showNonFleetServices: Boolean = false
+    val showNonFleetServices: Boolean = false,
+    // metrics detail / process list
+    val activeMetricDetail: MetricDetailType? = null,
+    val processList: List<ProcessInfo> = emptyList(),
+    val isLoadingProcesses: Boolean = false,
+    val processSortBy: String = "cpu" // cpu, mem, pid
 ) {
     val filteredServices: List<Service> get() {
         var result = services
@@ -85,6 +103,12 @@ sealed interface DashboardEvent {
     data class ToggleTypeFilter(val type: ServiceType) : DashboardEvent
     data object ClearFilters : DashboardEvent
     data object ToggleShowNonFleetServices : DashboardEvent
+    // metrics detail
+    data class OpenMetricDetail(val type: MetricDetailType) : DashboardEvent
+    data object CloseMetricDetail : DashboardEvent
+    data class SortProcesses(val by: String) : DashboardEvent
+    data object RefreshProcesses : DashboardEvent
+    data class KillProcess(val pid: Int) : DashboardEvent
 }
 
 @HiltViewModel
@@ -180,14 +204,16 @@ class DashboardViewModel @Inject constructor(
 
     private fun detectPlugins() {
         viewModelScope.launch {
+            _state.update { it.copy(isDetectingPlugins = true) }
             try {
                 val detected = pluginRegistry.detectAll(sshRepository)
                 _state.update { it.copy(
                     detectedPlugins = detected,
-                    fleetAvailable = detected["fleet"] == true
+                    fleetAvailable = detected["fleet"] == true,
+                    isDetectingPlugins = false
                 )}
             } catch (_: Exception) {
-                // plugin detection failure is non-fatal
+                _state.update { it.copy(isDetectingPlugins = false) }
             }
         }
     }
@@ -259,6 +285,80 @@ class DashboardViewModel @Inject constructor(
                 _state.update { it.copy(showNonFleetServices = !it.showNonFleetServices) }
                 viewModelScope.launch { refreshData() }
             }
+            is DashboardEvent.OpenMetricDetail -> {
+                _state.update { it.copy(activeMetricDetail = event.type) }
+                if (event.type == MetricDetailType.PROCESSES) loadProcesses()
+            }
+            is DashboardEvent.CloseMetricDetail -> {
+                _state.update { it.copy(activeMetricDetail = null) }
+            }
+            is DashboardEvent.SortProcesses -> {
+                _state.update { state ->
+                    val sorted = sortProcessList(state.processList, event.by)
+                    state.copy(processList = sorted, processSortBy = event.by)
+                }
+            }
+            is DashboardEvent.RefreshProcesses -> loadProcesses()
+            is DashboardEvent.KillProcess -> killProcess(event.pid)
+        }
+    }
+
+    private fun loadProcesses() {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoadingProcesses = true) }
+            try {
+                val cmd = "ps aux --sort=-%cpu 2>/dev/null | head -51"
+                val result = sshRepository.executeCommand(cmd).getOrThrow()
+                val lines = result.output.lines()
+                val processes = lines.drop(1) // skip header
+                    .filter { it.isNotBlank() }
+                    .mapNotNull { line ->
+                        val parts = line.trim().split("\\s+".toRegex(), limit = 11)
+                        if (parts.size >= 11) {
+                            ProcessInfo(
+                                pid = parts[1].toIntOrNull() ?: 0,
+                                user = parts[0],
+                                cpuPercent = parts[2].toFloatOrNull() ?: 0f,
+                                memPercent = parts[3].toFloatOrNull() ?: 0f,
+                                vsz = formatBytes(parts[4].toLongOrNull()?.times(1024) ?: 0),
+                                rss = formatBytes(parts[5].toLongOrNull()?.times(1024) ?: 0),
+                                command = parts[10]
+                            )
+                        } else null
+                    }
+                val sorted = sortProcessList(processes, _state.value.processSortBy)
+                _state.update { it.copy(processList = sorted, isLoadingProcesses = false) }
+            } catch (e: Exception) {
+                _state.update { it.copy(isLoadingProcesses = false, error = "Process list failed: ${e.message}") }
+            }
+        }
+    }
+
+    private fun killProcess(pid: Int) {
+        viewModelScope.launch {
+            try {
+                sshRepository.executeCommand("kill $pid 2>/dev/null || sudo kill $pid 2>/dev/null")
+                delay(500)
+                loadProcesses()
+            } catch (_: Exception) { }
+        }
+    }
+
+    private fun sortProcessList(list: List<ProcessInfo>, by: String): List<ProcessInfo> {
+        return when (by) {
+            "cpu" -> list.sortedByDescending { it.cpuPercent }
+            "mem" -> list.sortedByDescending { it.memPercent }
+            "pid" -> list.sortedBy { it.pid }
+            else -> list
+        }
+    }
+
+    private fun formatBytes(bytes: Long): String {
+        return when {
+            bytes >= 1_073_741_824 -> "%.1fG".format(bytes / 1_073_741_824.0)
+            bytes >= 1_048_576 -> "%.0fM".format(bytes / 1_048_576.0)
+            bytes >= 1024 -> "%.0fK".format(bytes / 1024.0)
+            else -> "${bytes}B"
         }
     }
 }

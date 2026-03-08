@@ -16,6 +16,10 @@ import com.serverdash.app.domain.repository.ServerRepository
 import com.serverdash.app.presentation.screens.claudecode.ClaudeCodeScreen
 import com.serverdash.app.presentation.screens.dashboard.DashboardScreen
 import com.serverdash.app.presentation.screens.detail.ServiceDetailScreen
+import com.serverdash.app.data.encryption.EncryptionManager
+import com.serverdash.app.presentation.screens.fleet.FleetScreen
+import com.serverdash.app.presentation.screens.guardian.GuardianScreen
+import com.serverdash.app.presentation.screens.security.SecurityScreen
 import com.serverdash.app.presentation.screens.settings.SettingsScreen
 import com.serverdash.app.presentation.screens.setup.SetupScreen
 import com.serverdash.app.presentation.screens.terminal.TerminalScreen
@@ -36,11 +40,15 @@ sealed class Screen(val route: String) {
     data object Terminal : Screen("terminal")
     data object Settings : Screen("settings")
     data object ClaudeCode : Screen("claude_code")
+    data object Fleet : Screen("fleet")
+    data object Guardian : Screen("guardian")
+    data object Security : Screen("security")
 }
 
 @HiltViewModel
 class StartupViewModel @Inject constructor(
-    private val serverRepository: ServerRepository
+    private val serverRepository: ServerRepository,
+    val encryptionManager: EncryptionManager
 ) : ViewModel() {
     private val _hasConfig = MutableStateFlow<Boolean?>(null) // null = loading
     val hasConfig = _hasConfig.asStateFlow()
@@ -76,7 +84,8 @@ fun ServerDashNavHost() {
                     navController.navigate(Screen.Dashboard.route) {
                         popUpTo(Screen.Setup.route) { inclusive = true }
                     }
-                }
+                },
+                encryptionManager = startupViewModel.encryptionManager
             )
         }
 
@@ -87,7 +96,11 @@ fun ServerDashNavHost() {
                 },
                 onNavigateToTerminal = { navController.navigate(Screen.Terminal.route) },
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
-                onNavigateToClaudeCode = { navController.navigate(Screen.ClaudeCode.route) }
+                onNavigateToClaudeCode = { navController.navigate(Screen.ClaudeCode.route) },
+                onNavigateToFleet = { navController.navigate(Screen.Fleet.route) },
+                onNavigateToGuardian = { navController.navigate(Screen.Guardian.route) },
+                onNavigateToSecurity = { navController.navigate(Screen.Security.route) },
+                encryptionManager = startupViewModel.encryptionManager
             )
         }
 
@@ -116,12 +129,31 @@ fun ServerDashNavHost() {
                     navController.navigate(Screen.Setup.route) {
                         popUpTo(0) { inclusive = true }
                     }
-                }
+                },
+                onNavigateToSecurity = { navController.navigate(Screen.Security.route) }
             )
         }
 
         composable(Screen.ClaudeCode.route) {
             ClaudeCodeScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Fleet.route) {
+            FleetScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Guardian.route) {
+            GuardianScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Security.route) {
+            SecurityScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

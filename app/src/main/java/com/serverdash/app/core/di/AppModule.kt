@@ -1,7 +1,9 @@
 package com.serverdash.app.core.di
 
 import android.content.Context
+import android.util.Log
 import androidx.room.Room
+import com.serverdash.app.data.encryption.EncryptionManager
 import com.serverdash.app.data.local.db.*
 import com.serverdash.app.data.preferences.PreferencesManager
 import com.serverdash.app.data.remote.ssh.SshSessionManager
@@ -14,19 +16,43 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
+    private const val DB_NAME = "serverdash.db"
+
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
-        return Room.databaseBuilder(
+    fun provideDatabase(
+        @ApplicationContext context: Context,
+        encryptionManager: EncryptionManager
+    ): AppDatabase {
+        System.loadLibrary("sqlcipher")
+
+        // If encryption was just enabled, the existing DB is unencrypted.
+        // SQLCipher can't open an unencrypted DB with a passphrase, so we
+        // delete the old file and let Room recreate it encrypted.
+        if (encryptionManager.isEncryptionEnabled && encryptionManager.needsDatabaseMigration) {
+            context.deleteDatabase(DB_NAME)
+            encryptionManager.markDatabaseMigrated()
+        }
+
+        val builder = Room.databaseBuilder(
             context,
             AppDatabase::class.java,
-            "serverdash.db"
-        ).fallbackToDestructiveMigration().build()
+            DB_NAME
+        ).fallbackToDestructiveMigration()
+
+        if (encryptionManager.isEncryptionEnabled) {
+            val passphrase = encryptionManager.getDatabasePassphrase()
+            val factory = SupportOpenHelperFactory(passphrase)
+            builder.openHelperFactory(factory)
+        }
+
+        return builder.build()
     }
 
     @Provides

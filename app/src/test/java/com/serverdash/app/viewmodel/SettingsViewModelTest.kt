@@ -21,6 +21,7 @@ class SettingsViewModelTest {
     private lateinit var preferencesRepository: PreferencesRepository
     private lateinit var serverRepository: ServerRepository
     private lateinit var sshRepository: SshRepository
+    private lateinit var pluginRegistry: com.serverdash.app.domain.plugin.PluginRegistry
 
     @Before
     fun setup() {
@@ -28,6 +29,7 @@ class SettingsViewModelTest {
         preferencesRepository = mockk()
         serverRepository = mockk()
         sshRepository = mockk()
+        pluginRegistry = com.serverdash.app.domain.plugin.PluginRegistry()
 
         every { preferencesRepository.observePreferences() } returns flowOf(AppPreferences())
         every { serverRepository.observeServerConfig() } returns flowOf(null)
@@ -38,7 +40,7 @@ class SettingsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel() = SettingsViewModel(preferencesRepository, serverRepository, sshRepository)
+    private fun createViewModel() = SettingsViewModel(preferencesRepository, serverRepository, sshRepository, pluginRegistry)
 
     @Test
     fun `initial state has default preferences`() = runTest {

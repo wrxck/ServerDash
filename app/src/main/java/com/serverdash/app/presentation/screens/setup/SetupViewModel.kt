@@ -71,7 +71,7 @@ class SetupViewModel @Inject constructor(
             is SetupEvent.ToggleService -> toggleService(event.serviceName)
             is SetupEvent.SelectAll -> selectAll()
             is SetupEvent.CompleteSetup -> completeSetup()
-            is SetupEvent.NextStep -> _state.update { it.copy(currentStep = (it.currentStep + 1).coerceAtMost(2)) }
+            is SetupEvent.NextStep -> _state.update { it.copy(currentStep = (it.currentStep + 1).coerceAtMost(3)) }
             is SetupEvent.PrevStep -> _state.update { it.copy(currentStep = (it.currentStep - 1).coerceAtLeast(0)) }
         }
     }

@@ -1,7 +1,11 @@
 package com.serverdash.app.presentation.screens.claudecode
 
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -9,6 +13,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -21,7 +27,7 @@ fun ClaudeCodeScreen(
     viewModel: ClaudeCodeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    val tabs = listOf("MCP Servers", "Settings", "CLAUDE.md")
+    val tabs = listOf("Overview", "MCP Servers", "Settings", "CLAUDE.md", "Projects")
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(state.error) {
@@ -54,7 +60,18 @@ fun ClaudeCodeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Claude Code") },
+                title = {
+                    Column {
+                        Text("Claude Code")
+                        if (state.claudeVersion.isNotBlank() && state.isDetected) {
+                            Text(
+                                state.claudeVersion,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -85,17 +102,11 @@ fun ClaudeCodeScreen(
                     }
                 }
             } else {
-                ListItem(
-                    headlineContent = { Text("Claude Code") },
-                    supportingContent = { Text(state.claudeVersion) },
-                    leadingContent = { Icon(Icons.Default.SmartToy, null, tint = MaterialTheme.colorScheme.primary) }
-                )
-
                 if (state.claudeCodeUsers.size > 1) {
                     UserSelector(state, viewModel)
                 }
 
-                TabRow(selectedTabIndex = state.selectedTab) {
+                ScrollableTabRow(selectedTabIndex = state.selectedTab, edgePadding = 0.dp) {
                     tabs.forEachIndexed { index, title ->
                         Tab(
                             selected = state.selectedTab == index,
@@ -105,10 +116,26 @@ fun ClaudeCodeScreen(
                     }
                 }
 
-                when (state.selectedTab) {
-                    0 -> McpServersTab(state, viewModel)
-                    1 -> SettingsTab(state, viewModel)
-                    2 -> ClaudeMdTab(state, viewModel)
+                // Detail views overlay the tab content
+                val detail = state.activeDetail
+                if (detail != null) {
+                    when (detail) {
+                        DetailView.STORAGE -> StorageDetailView(state, viewModel)
+                        DetailView.PROJECTS -> ProjectsDetailView(state, viewModel)
+                        DetailView.SESSIONS -> SessionsDetailView(state, viewModel)
+                        DetailView.PLANS -> PlansDetailView(state, viewModel)
+                        DetailView.PLUGINS -> PluginsDetailView(state, viewModel)
+                        DetailView.HOOKS -> HooksDetailView(state, viewModel)
+                        DetailView.SKILLS -> SkillsDetailView(state, viewModel)
+                    }
+                } else {
+                    when (state.selectedTab) {
+                        0 -> OverviewTab(state, viewModel)
+                        1 -> McpServersTab(state, viewModel)
+                        2 -> SettingsTab(state, viewModel)
+                        3 -> ClaudeMdTab(state, viewModel)
+                        4 -> ProjectsTab(state, viewModel)
+                    }
                 }
             }
         }
@@ -389,6 +416,372 @@ private fun ClaudeMdTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel
                 readOnly = !state.editingClaudeMd,
                 placeholder = { Text("# CLAUDE.md\n\nAdd project instructions here...") }
             )
+        }
+    }
+}
+
+@Composable
+private fun ShimmerBox(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val alpha by transition.animateFloat(
+        initialValue = 0.15f,
+        targetValue = 0.35f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "shimmerAlpha"
+    )
+    Box(
+        modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = alpha))
+    )
+}
+
+@Composable
+private fun OverviewSkeleton() {
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Storage card skeleton
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    ShimmerBox(Modifier.size(80.dp, 16.dp))
+                    Spacer(Modifier.height(12.dp))
+                    ShimmerBox(Modifier.size(120.dp, 28.dp))
+                }
+            }
+        }
+        // Stat cards skeleton
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Card(Modifier.weight(1f)) {
+                    Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        ShimmerBox(Modifier.size(24.dp))
+                        Spacer(Modifier.height(8.dp))
+                        ShimmerBox(Modifier.size(40.dp, 24.dp))
+                        Spacer(Modifier.height(4.dp))
+                        ShimmerBox(Modifier.size(60.dp, 12.dp))
+                    }
+                }
+                Card(Modifier.weight(1f)) {
+                    Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        ShimmerBox(Modifier.size(24.dp))
+                        Spacer(Modifier.height(8.dp))
+                        ShimmerBox(Modifier.size(40.dp, 24.dp))
+                        Spacer(Modifier.height(4.dp))
+                        ShimmerBox(Modifier.size(60.dp, 12.dp))
+                    }
+                }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Card(Modifier.weight(1f)) {
+                    Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        ShimmerBox(Modifier.size(24.dp))
+                        Spacer(Modifier.height(8.dp))
+                        ShimmerBox(Modifier.size(40.dp, 24.dp))
+                        Spacer(Modifier.height(4.dp))
+                        ShimmerBox(Modifier.size(60.dp, 12.dp))
+                    }
+                }
+                Card(Modifier.weight(1f)) {
+                    Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        ShimmerBox(Modifier.size(24.dp))
+                        Spacer(Modifier.height(8.dp))
+                        ShimmerBox(Modifier.size(40.dp, 24.dp))
+                        Spacer(Modifier.height(4.dp))
+                        ShimmerBox(Modifier.size(60.dp, 12.dp))
+                    }
+                }
+            }
+        }
+        // Plugin/skill/hook card skeletons
+        repeat(3) {
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        ShimmerBox(Modifier.size(120.dp, 16.dp))
+                        Spacer(Modifier.height(12.dp))
+                        ShimmerBox(Modifier.fillMaxWidth().height(12.dp))
+                        Spacer(Modifier.height(6.dp))
+                        ShimmerBox(Modifier.fillMaxWidth(0.7f).height(12.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
+    if (state.isLoadingOverview) {
+        OverviewSkeleton()
+        return
+    }
+
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Disk usage card - clickable
+        item {
+            Card(
+                Modifier.fillMaxWidth().clickable {
+                    viewModel.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.STORAGE))
+                }
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Storage", style = MaterialTheme.typography.titleMedium)
+                        Icon(Icons.Default.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Storage, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (state.diskUsage.isNotBlank()) state.diskUsage else "...", style = MaterialTheme.typography.headlineSmall)
+                        Spacer(Modifier.width(4.dp))
+                        Text("total", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+
+        // Quick stats grid - all clickable
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OverviewStatCard("Projects", "${state.projectCount}", Icons.Default.Folder, Modifier.weight(1f).clickable {
+                    viewModel.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.PROJECTS))
+                })
+                OverviewStatCard("Sessions", "${state.sessionCount}", Icons.Default.Forum, Modifier.weight(1f).clickable {
+                    viewModel.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.SESSIONS))
+                })
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OverviewStatCard("Plans", "${state.planCount}", Icons.Default.Map, Modifier.weight(1f).clickable {
+                    viewModel.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.PLANS))
+                })
+                OverviewStatCard("Plugins", "${state.installedPlugins.size}", Icons.Default.Extension, Modifier.weight(1f).clickable {
+                    viewModel.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.PLUGINS))
+                })
+            }
+        }
+
+        // Installed plugins list - clickable to detail
+        if (state.installedPlugins.isNotEmpty()) {
+            item {
+                Card(
+                    Modifier.fillMaxWidth().clickable {
+                        viewModel.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.PLUGINS))
+                    }
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Installed Plugins", style = MaterialTheme.typography.titleMedium)
+                            Icon(Icons.Default.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        state.installedPlugins.take(3).forEach { plugin ->
+                            Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Extension, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.width(8.dp))
+                                Text(plugin, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                        if (state.installedPlugins.size > 3) {
+                            Text(
+                                "+${state.installedPlugins.size - 3} more",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Custom skills - clickable to CRUD
+        item {
+            Card(
+                Modifier.fillMaxWidth().clickable {
+                    viewModel.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.SKILLS))
+                }
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Custom Skills", style = MaterialTheme.typography.titleMedium)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("${state.customSkills.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(4.dp))
+                            Icon(Icons.Default.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (state.customSkills.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        state.customSkills.take(3).forEach { skill ->
+                            Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.AutoAwesome, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
+                                Spacer(Modifier.width(8.dp))
+                                Text(skill, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                        if (state.customSkills.size > 3) {
+                            Text(
+                                "+${state.customSkills.size - 3} more",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    } else {
+                        Text("Tap to create", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                    }
+                }
+            }
+        }
+
+        // Hooks - clickable to CRUD
+        item {
+            Card(
+                Modifier.fillMaxWidth().clickable {
+                    viewModel.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.HOOKS))
+                }
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Hook Scripts", style = MaterialTheme.typography.titleMedium)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("${state.hookFiles.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(4.dp))
+                            Icon(Icons.Default.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (state.hookFiles.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        state.hookFiles.take(3).forEach { hook ->
+                            Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Code, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.width(8.dp))
+                                Text(hook, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace)
+                            }
+                        }
+                        if (state.hookFiles.size > 3) {
+                            Text(
+                                "+${state.hookFiles.size - 3} more",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    } else {
+                        Text("Tap to create", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                    }
+                }
+            }
+        }
+
+        // Usage stats
+        if (state.usageStats.isNotBlank()) {
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Usage Stats", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(8.dp))
+                        val statsText = try {
+                            val statsObj = Json.parseToJsonElement(state.usageStats).jsonObject
+                            buildString {
+                                statsObj.entries.forEach { (k, v) ->
+                                    appendLine("$k: ${v.jsonPrimitive.content}")
+                                }
+                            }.trimEnd()
+                        } catch (e: Exception) { state.usageStats }
+                        Text(statsText, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
+        }
+
+        item { Spacer(Modifier.height(16.dp)) }
+    }
+}
+
+@Composable
+private fun OverviewStatCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier) {
+    Card(modifier) {
+        Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(4.dp))
+            Text(value, style = MaterialTheme.typography.headlineSmall)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun ProjectsTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
+    // Memory viewer dialog
+    if (state.selectedProjectMemory != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.onEvent(ClaudeCodeEvent.DismissProjectMemory) },
+            title = { Text(state.selectedProjectName ?: "Memory") },
+            text = {
+                Text(
+                    state.selectedProjectMemory,
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.DismissProjectMemory) }) { Text("Close") }
+            }
+        )
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        if (state.isLoadingProjects) {
+            CircularProgressIndicator(Modifier.align(Alignment.Center))
+        } else if (state.projects.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No projects found", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(state.projects.size) { index ->
+                    val project = state.projects[index]
+                    Card(Modifier.fillMaxWidth()) {
+                        Row(
+                            Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Folder, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(project.displayName, style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    "${project.sessionCount} session${if (project.sessionCount != 1) "s" else ""}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (project.hasMemory) {
+                                IconButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.ViewProjectMemory(project)) }) {
+                                    Icon(Icons.Default.Psychology, "View Memory", tint = MaterialTheme.colorScheme.tertiary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

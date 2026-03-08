@@ -26,6 +26,7 @@ interface SshRepository {
     suspend fun connect(config: ServerConfig): Result<Unit>
     suspend fun disconnect()
     suspend fun executeCommand(command: String): Result<CommandResult>
+    suspend fun executeSudoCommand(command: String): Result<CommandResult>
     suspend fun startLogStream(serviceName: String, serviceType: ServiceType): Flow<String>
     suspend fun readFile(path: String): Result<String>
     suspend fun writeFile(path: String, content: String): Result<Unit>

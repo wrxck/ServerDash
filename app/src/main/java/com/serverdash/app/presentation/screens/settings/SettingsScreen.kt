@@ -1,5 +1,6 @@
 package com.serverdash.app.presentation.screens.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -18,6 +19,7 @@ import com.serverdash.app.domain.model.*
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onDisconnected: () -> Unit,
+    onNavigateToSecurity: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -85,6 +87,19 @@ fun SettingsScreen(
                         leadingContent = { Icon(Icons.Default.Dns, null) }
                     )
                 }
+            }
+
+            // ── Security ──
+            item {
+                SectionDivider()
+                SectionHeader("Security")
+                ListItem(
+                    headlineContent = { Text("Your Data") },
+                    supportingContent = { Text("Encryption, stored data, privacy") },
+                    leadingContent = { Icon(Icons.Default.Shield, null) },
+                    trailingContent = { Icon(Icons.Default.ChevronRight, null) },
+                    modifier = Modifier.clickable { onNavigateToSecurity() }
+                )
             }
 
             // ── Display ──

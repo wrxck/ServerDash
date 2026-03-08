@@ -142,14 +142,14 @@ class RefreshServiceStatusUseCase @Inject constructor(
             val sections = result.output.split("===SYSTEMCTL===", "===DOCKER===", "===METRICS===")
 
             val services = serviceRepository.getServices(serverId).toMutableList()
-            // Update statuses from current state
+            // Update statuses from current state and discover new services
             if (sections.size > 1) {
                 val systemctlOutput = sections[1].trim()
-                updateServiceStatuses(services, systemctlOutput, ServiceType.SYSTEMD)
+                updateServiceStatuses(services, systemctlOutput, ServiceType.SYSTEMD, serverId)
             }
             if (sections.size > 2) {
                 val dockerOutput = sections[2].trim()
-                updateServiceStatuses(services, dockerOutput, ServiceType.DOCKER)
+                updateServiceStatuses(services, dockerOutput, ServiceType.DOCKER, serverId)
             }
 
             serviceRepository.saveServices(services)
@@ -159,8 +159,9 @@ class RefreshServiceStatusUseCase @Inject constructor(
         }
     }
 
-    private fun updateServiceStatuses(services: MutableList<Service>, output: String, type: ServiceType) {
+    private fun updateServiceStatuses(services: MutableList<Service>, output: String, type: ServiceType, serverId: Long = 1L) {
         val statusMap = mutableMapOf<String, Pair<ServiceStatus, String>>()
+        val descriptionMap = mutableMapOf<String, String>()
         output.lines().filter { it.isNotBlank() }.forEach { line ->
             if (type == ServiceType.SYSTEMD) {
                 val parts = line.trim().split("\\s+".toRegex(), limit = 5)
@@ -173,6 +174,7 @@ class RefreshServiceStatusUseCase @Inject constructor(
                         else -> ServiceStatus.UNKNOWN
                     }
                     statusMap[name] = status to parts[3]
+                    if (parts.size >= 5) descriptionMap[name] = parts[4]
                 }
             } else {
                 val parts = line.split("\t", limit = 2)
@@ -189,11 +191,29 @@ class RefreshServiceStatusUseCase @Inject constructor(
             }
         }
 
+        // Update existing services
+        val existingNames = services.filter { it.type == type }.map { it.name }.toSet()
         services.forEachIndexed { index, service ->
             if (service.type == type) {
                 statusMap[service.name]?.let { (status, subState) ->
                     services[index] = service.copy(status = status, subState = subState)
                 }
+            }
+        }
+
+        // Add newly discovered services not already in the list
+        statusMap.forEach { (name, statusPair) ->
+            if (name !in existingNames) {
+                services.add(Service(
+                    serverId = serverId,
+                    name = name,
+                    displayName = name,
+                    type = type,
+                    status = statusPair.first,
+                    subState = statusPair.second,
+                    description = descriptionMap[name] ?: "",
+                    group = if (type == ServiceType.DOCKER) "Docker" else "System"
+                ))
             }
         }
     }
@@ -203,11 +223,10 @@ class ControlServiceUseCase @Inject constructor(
     private val sshRepository: SshRepository
 ) {
     suspend operator fun invoke(service: Service, action: ServiceAction): Result<CommandResult> {
-        val command = when (service.type) {
-            ServiceType.SYSTEMD -> sshRepository.wrapWithSudo("systemctl ${action.command} ${service.name}")
-            ServiceType.DOCKER -> "docker ${action.command} ${service.name}"
+        return when (service.type) {
+            ServiceType.SYSTEMD -> sshRepository.executeSudoCommand("systemctl ${action.command} ${service.name}")
+            ServiceType.DOCKER -> sshRepository.executeCommand("docker ${action.command} ${service.name}")
         }
-        return sshRepository.executeCommand(command)
     }
 }
 
@@ -229,8 +248,7 @@ class GetServiceLogsUseCase @Inject constructor(
 
     private suspend fun fetchSystemdLogs(service: Service, lines: Int): Result<List<ServiceLog>> {
         // Try with sudo first to get full logs (all users + system)
-        val sudoCommand = sshRepository.wrapWithSudo("journalctl -u ${service.name} -n $lines --no-pager -o short-iso") + " 2>&1"
-        val sudoResult = sshRepository.executeCommand(sudoCommand)
+        val sudoResult = sshRepository.executeSudoCommand("journalctl -u ${service.name} -n $lines --no-pager -o short-iso 2>&1")
         val sudoOutput = sudoResult.getOrNull()?.output ?: ""
         val sudoLogs = parseJournalctlOutput(sudoOutput)
 
@@ -509,7 +527,7 @@ class FleetDiscoverServicesUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(serverId: Long): Result<List<Service>> {
         return try {
-            val result = sshRepository.executeCommand("fleet status --json 2>/dev/null")
+            val result = sshRepository.executeSudoCommand("fleet list --json 2>/dev/null")
             val output = result.getOrNull()?.output?.trim()
                 ?: return Result.failure(Exception("Fleet not available"))
             val services = parseFleetStatus(output, serverId)

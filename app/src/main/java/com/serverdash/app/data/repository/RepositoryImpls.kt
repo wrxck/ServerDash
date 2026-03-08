@@ -76,6 +76,7 @@ class SshRepositoryImpl @Inject constructor(
     override suspend fun connect(config: ServerConfig) = sshManager.connect(config)
     override suspend fun disconnect() = sshManager.disconnect()
     override suspend fun executeCommand(command: String) = sshManager.executeCommand(command)
+    override suspend fun executeSudoCommand(command: String) = sshManager.executeSudoCommand(command)
 
     override suspend fun startLogStream(serviceName: String, serviceType: ServiceType): Flow<String> {
         val command = when (serviceType) {

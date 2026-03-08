@@ -1,8 +1,11 @@
 package com.serverdash.app.presentation.screens.detail
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -10,12 +13,25 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.serverdash.app.core.theme.*
 import com.serverdash.app.domain.model.*
 import com.serverdash.app.domain.usecase.ServiceAction
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -185,27 +201,297 @@ private fun InfoRow(label: String, value: String) {
 
 @Composable
 private fun LogsTab(state: ServiceDetailUiState, onEvent: (ServiceDetailEvent) -> Unit) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(modifier = Modifier.padding(8.dp)) {
-            Button(onClick = { onEvent(ServiceDetailEvent.RefreshLogs) }, enabled = !state.isLoadingLogs) {
-                Text("Refresh Logs")
-            }
+    var searchQuery by remember { mutableStateOf("") }
+    var filterLevel by remember { mutableStateOf<String?>(null) }
+    var jsonPrettyPrint by remember { mutableStateOf(true) }
+    val listState = rememberLazyListState()
+
+    val filteredLogs = remember(state.logs, searchQuery, filterLevel) {
+        state.logs.filter { log ->
+            val matchesSearch = searchQuery.isBlank() || log.message.contains(searchQuery, ignoreCase = true)
+            val matchesLevel = filterLevel == null || detectLogLevel(log.message) == filterLevel
+            matchesSearch && matchesLevel
         }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Search bar
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            placeholder = { Text("Search logs...") },
+            leadingIcon = { Icon(Icons.Default.Search, null, Modifier.size(20.dp)) },
+            trailingIcon = {
+                if (searchQuery.isNotBlank()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Clear, "Clear")
+                    }
+                }
+            },
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+        )
+
+        // Filter chips and controls
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(
+                onClick = { onEvent(ServiceDetailEvent.RefreshLogs) },
+                enabled = !state.isLoadingLogs,
+                contentPadding = PaddingValues(horizontal = 12.dp)
+            ) {
+                Icon(Icons.Default.Refresh, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Refresh")
+            }
+
+            FilterChip(
+                selected = filterLevel == null,
+                onClick = { filterLevel = null },
+                label = { Text("All", fontSize = 11.sp) }
+            )
+            FilterChip(
+                selected = filterLevel == "ERROR",
+                onClick = { filterLevel = if (filterLevel == "ERROR") null else "ERROR" },
+                label = { Text("Error", fontSize = 11.sp) },
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0x33EF5350))
+            )
+            FilterChip(
+                selected = filterLevel == "WARN",
+                onClick = { filterLevel = if (filterLevel == "WARN") null else "WARN" },
+                label = { Text("Warn", fontSize = 11.sp) },
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0x33FF9800))
+            )
+            FilterChip(
+                selected = filterLevel == "INFO",
+                onClick = { filterLevel = if (filterLevel == "INFO") null else "INFO" },
+                label = { Text("Info", fontSize = 11.sp) }
+            )
+
+            Spacer(Modifier.width(8.dp))
+
+            FilterChip(
+                selected = jsonPrettyPrint,
+                onClick = { jsonPrettyPrint = !jsonPrettyPrint },
+                label = { Text("JSON", fontSize = 11.sp) },
+                leadingIcon = if (jsonPrettyPrint) {
+                    { Icon(Icons.Default.DataObject, null, Modifier.size(14.dp)) }
+                } else null
+            )
+
+            Spacer(Modifier.width(8.dp))
+
+            Text(
+                "${filteredLogs.size}/${state.logs.size}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(Modifier.height(4.dp))
+
         if (state.isLoadingLogs) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
+        } else if (filteredLogs.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    if (state.logs.isEmpty()) "No logs available" else "No logs match filter",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-                items(state.logs) { log ->
-                    Text(
-                        log.message,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(vertical = 1.dp)
-                    )
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                state = listState
+            ) {
+                items(filteredLogs.size) { index ->
+                    LogLine(log = filteredLogs[index], searchQuery = searchQuery, jsonPrettyPrint = jsonPrettyPrint)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LogLine(log: ServiceLog, searchQuery: String, jsonPrettyPrint: Boolean) {
+    val message = log.message
+    val logLevel = detectLogLevel(message)
+
+    // Check if message contains JSON
+    val jsonContent = if (jsonPrettyPrint) extractJson(message) else null
+
+    Column(modifier = Modifier.padding(vertical = 1.dp)) {
+        if (log.timestamp.isNotBlank()) {
+            Text(
+                log.timestamp,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                color = Color(0xFF78909C)
+            )
+        }
+        if (jsonContent != null) {
+            // Render non-JSON prefix if any
+            val jsonStart = message.indexOf(jsonContent.first)
+            if (jsonStart > 0) {
+                Text(
+                    highlightSearch(colorizeLogLine(message.substring(0, jsonStart), logLevel), searchQuery),
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+            // Render pretty-printed JSON
+            Text(
+                highlightSearch(colorizeJson(jsonContent.second), searchQuery),
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace
+            )
+        } else {
+            Text(
+                highlightSearch(colorizeLogLine(message, logLevel), searchQuery),
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+    }
+}
+
+private fun detectLogLevel(message: String): String {
+    val upper = message.uppercase()
+    return when {
+        upper.contains("ERROR") || upper.contains("FATAL") || upper.contains("CRIT") || upper.contains("EMERG") -> "ERROR"
+        upper.contains("WARN") || upper.contains("WARNING") -> "WARN"
+        upper.contains("DEBUG") || upper.contains("TRACE") -> "DEBUG"
+        else -> "INFO"
+    }
+}
+
+private fun colorizeLogLine(text: String, level: String): AnnotatedString = buildAnnotatedString {
+    val color = when (level) {
+        "ERROR" -> Color(0xFFEF5350)
+        "WARN" -> Color(0xFFFF9800)
+        "DEBUG" -> Color(0xFF78909C)
+        else -> Color.Unspecified
+    }
+    if (color != Color.Unspecified) {
+        withStyle(SpanStyle(color = color)) { append(text) }
+    } else {
+        append(text)
+    }
+}
+
+private fun extractJson(message: String): Pair<String, String>? {
+    // Find first { or [ that could start JSON
+    val braceIdx = message.indexOf('{')
+    val bracketIdx = message.indexOf('[')
+    val startIdx = when {
+        braceIdx >= 0 && bracketIdx >= 0 -> minOf(braceIdx, bracketIdx)
+        braceIdx >= 0 -> braceIdx
+        bracketIdx >= 0 -> bracketIdx
+        else -> return null
+    }
+    val jsonCandidate = message.substring(startIdx)
+    return try {
+        val element = Json.parseToJsonElement(jsonCandidate)
+        // Only pretty-print objects/arrays, not primitives
+        if (element is JsonObject || element is JsonArray) {
+            jsonCandidate to prettyPrintJson(element)
+        } else null
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun prettyPrintJson(element: JsonElement, indent: Int = 0): String {
+    val pad = "  ".repeat(indent)
+    val padInner = "  ".repeat(indent + 1)
+    return when (element) {
+        is JsonObject -> {
+            if (element.isEmpty()) "{}"
+            else element.entries.joinToString(",\n", "{\n", "\n$pad}") { (key, value) ->
+                "$padInner\"$key\": ${prettyPrintJson(value, indent + 1)}"
+            }
+        }
+        is JsonArray -> {
+            if (element.isEmpty()) "[]"
+            else element.joinToString(",\n", "[\n", "\n$pad]") { "$padInner${prettyPrintJson(it, indent + 1)}" }
+        }
+        is JsonPrimitive -> element.toString()
+        is JsonNull -> "null"
+    }
+}
+
+private fun colorizeJson(json: String): AnnotatedString = buildAnnotatedString {
+    val keyColor = Color(0xFF82B1FF)
+    val stringColor = Color(0xFFC3E88D)
+    val numberColor = Color(0xFFF78C6C)
+    val boolNullColor = Color(0xFFFF5370)
+    val braceColor = Color(0xFF89DDFF)
+
+    var i = 0
+    while (i < json.length) {
+        when {
+            json[i] == '"' -> {
+                // Find end of string
+                val end = findStringEnd(json, i)
+                val str = json.substring(i, end + 1)
+                // Check if it's a key (followed by :)
+                val afterStr = json.substring(end + 1).trimStart()
+                val color = if (afterStr.startsWith(":")) keyColor else stringColor
+                withStyle(SpanStyle(color = color)) { append(str) }
+                i = end + 1
+            }
+            json[i].isDigit() || (json[i] == '-' && i + 1 < json.length && json[i + 1].isDigit()) -> {
+                val start = i
+                while (i < json.length && (json[i].isDigit() || json[i] == '.' || json[i] == '-' || json[i] == 'e' || json[i] == 'E' || json[i] == '+')) i++
+                withStyle(SpanStyle(color = numberColor)) { append(json.substring(start, i)) }
+            }
+            json.startsWith("true", i) -> {
+                withStyle(SpanStyle(color = boolNullColor)) { append("true") }; i += 4
+            }
+            json.startsWith("false", i) -> {
+                withStyle(SpanStyle(color = boolNullColor)) { append("false") }; i += 5
+            }
+            json.startsWith("null", i) -> {
+                withStyle(SpanStyle(color = boolNullColor)) { append("null") }; i += 4
+            }
+            json[i] in "{}[]" -> {
+                withStyle(SpanStyle(color = braceColor, fontWeight = FontWeight.Bold)) { append(json[i].toString()) }; i++
+            }
+            else -> { append(json[i].toString()); i++ }
+        }
+    }
+}
+
+private fun findStringEnd(json: String, startQuote: Int): Int {
+    var i = startQuote + 1
+    while (i < json.length) {
+        if (json[i] == '\\') { i += 2; continue }
+        if (json[i] == '"') return i
+        i++
+    }
+    return json.length - 1
+}
+
+private fun highlightSearch(text: AnnotatedString, query: String): AnnotatedString {
+    if (query.isBlank()) return text
+    return buildAnnotatedString {
+        append(text)
+        val plainText = text.text
+        var searchFrom = 0
+        val lowerPlain = plainText.lowercase()
+        val lowerQuery = query.lowercase()
+        while (searchFrom < plainText.length) {
+            val idx = lowerPlain.indexOf(lowerQuery, searchFrom)
+            if (idx < 0) break
+            addStyle(SpanStyle(background = Color(0x66FFEB3B), fontWeight = FontWeight.Bold), idx, idx + query.length)
+            searchFrom = idx + query.length
         }
     }
 }

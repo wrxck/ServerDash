@@ -2,6 +2,7 @@ package com.serverdash.app.presentation.screens.dashboard
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,7 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.serverdash.app.core.theme.*
 import com.serverdash.app.core.util.*
+import com.serverdash.app.data.encryption.EncryptionManager
 import com.serverdash.app.domain.model.*
+import com.serverdash.app.presentation.screens.security.EncryptionPromptDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,12 +35,40 @@ fun DashboardScreen(
     onNavigateToTerminal: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToClaudeCode: () -> Unit = {},
+    onNavigateToFleet: () -> Unit = {},
+    onNavigateToGuardian: () -> Unit = {},
+    onNavigateToSecurity: () -> Unit = {},
+    encryptionManager: EncryptionManager? = null,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
     val preferences by viewModel.preferences.collectAsState()
     val landscape = isLandscape()
     val columns = if (landscape) 4 else 2
+
+    // Encryption prompt for existing users
+    var showEncryptionPrompt by remember {
+        mutableStateOf(encryptionManager?.shouldShowEncryptionPrompt == true)
+    }
+
+    if (showEncryptionPrompt && encryptionManager != null) {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val biometricAvailable = remember {
+            androidx.biometric.BiometricManager.from(context).canAuthenticate(
+                androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                    androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
+            ) == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS
+        }
+        EncryptionPromptDialog(
+            biometricAvailable = biometricAvailable,
+            encryptionManager = encryptionManager,
+            onDismissAfterSuccess = { showEncryptionPrompt = false },
+            onRemindLater = {
+                encryptionManager.dismissEncryptionPrompt()
+                showEncryptionPrompt = false
+            }
+        )
+    }
 
     LaunchedEffect(Unit) {
         viewModel.navigateToDetail.collect { service ->
@@ -127,15 +158,48 @@ fun DashboardScreen(
             // connection status bar
             ConnectionStatusBar(state.connectionState)
 
-            // detected plugin chips
-            if (state.detectedPlugins.any { it.value }) {
+            // detected plugin chips (with skeleton while loading)
+            if (state.isDetectingPlugins) {
+                val transition = rememberInfiniteTransition(label = "pluginShimmer")
+                val alpha by transition.animateFloat(
+                    initialValue = 0.15f,
+                    targetValue = 0.35f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(800, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "pluginShimmerAlpha"
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    repeat(3) {
+                        Box(
+                            Modifier
+                                .size(width = 80.dp, height = 32.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
+                                    shape = MaterialTheme.shapes.small
+                                )
+                        )
+                    }
+                }
+            } else if (state.detectedPlugins.any { it.value }) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     state.detectedPlugins.filter { it.value }.forEach { (id, _) ->
                         AssistChip(
-                            onClick = { },
+                            onClick = {
+                                when (id) {
+                                    "claude-code" -> onNavigateToClaudeCode()
+                                    "fleet" -> onNavigateToFleet()
+                                    "guardian" -> onNavigateToGuardian()
+                                    else -> onNavigateToSettings()
+                                }
+                            },
                             label = { Text(id.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelSmall) }
                         )
                     }
@@ -172,8 +236,12 @@ fun DashboardScreen(
                 )
             }
 
-            // Metrics summary
-            state.metrics?.let { MetricsSummaryRow(it) }
+            // Metrics cards with sparkline charts (clickable for detail)
+            if (state.activeMetricDetail != null) {
+                MetricDetailOverlay(state, viewModel)
+            } else {
+
+            state.metrics?.let { MetricsCardsRow(state, viewModel) }
 
             // Tabs
             if (state.availableTabs.size > 1) {
@@ -248,6 +316,8 @@ fun DashboardScreen(
                     }
                 }
             }
+
+            } // end of else (no metric detail)
         }
     }
 }

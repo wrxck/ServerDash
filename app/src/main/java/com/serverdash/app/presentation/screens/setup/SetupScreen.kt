@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.biometric.BiometricManager
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -17,17 +18,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.serverdash.app.data.encryption.EncryptionManager
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupScreen(
     onSetupComplete: () -> Unit,
+    encryptionManager: EncryptionManager? = null,
     viewModel: SetupViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -39,7 +44,7 @@ fun SetupScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Setup - Step ${state.currentStep + 1} of 3") }
+                title = { Text("Setup - Step ${state.currentStep + 1} of 4") }
             )
         }
     ) { padding ->
@@ -52,7 +57,7 @@ fun SetupScreen(
         ) {
             // Step indicator
             LinearProgressIndicator(
-                progress = { (state.currentStep + 1) / 3f },
+                progress = { (state.currentStep + 1) / 4f },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(16.dp))
@@ -61,6 +66,11 @@ fun SetupScreen(
                 0 -> ConnectionStep(state, viewModel::onEvent)
                 1 -> DiscoveryStep(state, viewModel::onEvent)
                 2 -> PinServicesStep(state, viewModel::onEvent)
+                3 -> EncryptionStep(
+                    encryptionManager = encryptionManager,
+                    onBack = { viewModel.onEvent(SetupEvent.PrevStep) },
+                    onComplete = { viewModel.onEvent(SetupEvent.CompleteSetup) }
+                )
             }
         }
     }
@@ -359,10 +369,214 @@ private fun PinServicesStep(state: SetupUiState, onEvent: (SetupEvent) -> Unit) 
                 modifier = Modifier.weight(1f)
             ) { Text("Back") }
             Button(
-                onClick = { onEvent(SetupEvent.CompleteSetup) },
+                onClick = { onEvent(SetupEvent.NextStep) },
                 modifier = Modifier.weight(1f),
                 enabled = state.selectedServices.isNotEmpty()
-            ) { Text("Finish Setup") }
+            ) { Text("Next: Security") }
+        }
+    }
+}
+
+@Composable
+private fun EncryptionStep(
+    encryptionManager: EncryptionManager?,
+    onBack: () -> Unit,
+    onComplete: () -> Unit
+) {
+    val context = LocalContext.current
+    val biometricAvailable = remember {
+        BiometricManager.from(context).canAuthenticate(
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.BIOMETRIC_WEAK
+        ) == BiometricManager.BIOMETRIC_SUCCESS
+    }
+    // null = not attempted, true = success, false = failure
+    var encryptionResult by remember { mutableStateOf<Boolean?>(null) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var usedBiometric by remember { mutableStateOf(false) }
+
+    fun attemptEncryption(withBiometric: Boolean) {
+        encryptionManager?.enableEncryption(withBiometric)?.fold(
+            onSuccess = {
+                encryptionResult = true
+                usedBiometric = withBiometric
+                errorMessage = null
+            },
+            onFailure = { e ->
+                encryptionResult = false
+                errorMessage = e.message ?: "Unknown error"
+            }
+        ) ?: run {
+            encryptionResult = false
+            errorMessage = "Encryption manager not available"
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Icon(
+            when (encryptionResult) {
+                true -> Icons.Default.CheckCircle
+                false -> Icons.Default.Error
+                null -> Icons.Default.Shield
+            },
+            contentDescription = null,
+            modifier = Modifier.size(48.dp),
+            tint = when (encryptionResult) {
+                true -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                false -> MaterialTheme.colorScheme.error
+                null -> MaterialTheme.colorScheme.primary
+            }
+        )
+        Text(
+            when (encryptionResult) {
+                true -> "Encryption Enabled"
+                false -> "Encryption Failed"
+                null -> "Protect Your Data"
+            },
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+
+        when (encryptionResult) {
+            true -> {
+                Text(
+                    if (usedBiometric) "Your data is now encrypted and protected with device biometrics."
+                    else "Your data is now encrypted with AES-256.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = androidx.compose.ui.graphics.Color(0xFF4CAF50).copy(alpha = 0.1f)
+                    )
+                ) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Lock, null,
+                            tint = androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                "Encryption enabled",
+                                fontWeight = FontWeight.Bold,
+                                color = androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                            )
+                            Text(
+                                "Database will be encrypted on next app restart",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+            false -> {
+                Text(
+                    "Something went wrong while setting up encryption. You can try again or skip for now.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                errorMessage?.let { msg ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                msg,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = { encryptionResult = null; errorMessage = null },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Try Again") }
+            }
+            null -> {
+                Text(
+                    "ServerDash stores SSH credentials, passwords, and private keys on this device. We strongly recommend enabling encryption to keep them secure.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("AES-256 database encryption (SQLCipher)", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Keys stored in Android hardware KeyStore", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Encrypted preferences for sensitive settings", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+
+                if (biometricAvailable) {
+                    Button(
+                        onClick = { attemptEncryption(true) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Fingerprint, null, Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Enable with Biometrics")
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = { attemptEncryption(false) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Lock, null, Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (biometricAvailable) "Enable without Biometrics" else "Enable Encryption")
+                }
+            }
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = onBack,
+                modifier = Modifier.weight(1f)
+            ) { Text("Back") }
+            Button(
+                onClick = {
+                    if (encryptionResult != true) {
+                        encryptionManager?.dismissEncryptionPrompt()
+                    }
+                    onComplete()
+                },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(if (encryptionResult == true) "Finish Setup" else "Remind Me Later")
+            }
         }
     }
 }

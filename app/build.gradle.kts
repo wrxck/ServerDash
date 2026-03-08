@@ -118,6 +118,11 @@ dependencies {
     // Serialization
     implementation(libs.kotlinx.serialization)
 
+    // Encryption
+    implementation(libs.sqlcipher)
+    implementation(libs.security.crypto)
+    implementation(libs.biometric)
+
     // Unit Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
