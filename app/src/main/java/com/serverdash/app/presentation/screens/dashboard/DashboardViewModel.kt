@@ -105,6 +105,9 @@ class DashboardViewModel @Inject constructor(
     private val _state = MutableStateFlow(DashboardUiState())
     val state: StateFlow<DashboardUiState> = _state.asStateFlow()
 
+    val preferences: StateFlow<AppPreferences> = preferencesRepository.observePreferences()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppPreferences())
+
     private var pollingJob: Job? = null
     private var serverId: Long = 1L
     private val _navigateToDetail = MutableSharedFlow<Service>()
