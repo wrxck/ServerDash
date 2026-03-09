@@ -67,5 +67,6 @@ class ScreenCacheManager @Inject constructor(
         const val GIT_PREFIX = "git_"
         const val SECURITY_PREFIX = "security_"
         const val SERVICE_DETAIL_PREFIX = "service_detail_"
+        const val SERVER_PREFIX = "server_"
     }
 }
