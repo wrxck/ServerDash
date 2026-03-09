@@ -23,7 +23,7 @@ class ClaudeCodeViewModelTest {
     private lateinit var sshRepository: SshRepository
     private lateinit var detectSystemUsers: DetectSystemUsersUseCase
     private lateinit var detectClaudeCodeUsers: DetectClaudeCodeUsersUseCase
-    private val cacheManager: com.serverdash.app.core.cache.ScreenCacheManager = mockk(relaxed = true)
+    private lateinit var cacheManager: com.serverdash.app.core.cache.ScreenCacheManager
 
     private val testUser = SystemUser(username = "matt", homeDirectory = "/home/matt", uid = 1000, hasClaudeCode = true)
     private val testUser2 = SystemUser(username = "alice", homeDirectory = "/home/alice", uid = 1001, hasClaudeCode = true)
@@ -37,14 +37,25 @@ class ClaudeCodeViewModelTest {
         sshRepository = mockk(relaxed = true)
         detectSystemUsers = mockk()
         detectClaudeCodeUsers = mockk()
+        cacheManager = mockk(relaxed = true)
 
         // Default: connected as "matt"
         every { sshRepository.getConnectedUsername() } returns "matt"
+
+        // Prevent ClassCastException from relaxed mocks returning broken Result<CommandResult>
+        coEvery { sshRepository.executeCommand(any()) } returns cmdResult("")
+        coEvery { sshRepository.executeSudoCommand(any()) } returns cmdResult("")
+        coEvery { sshRepository.executeAsUser(any(), any()) } returns cmdResult("")
+        coEvery { sshRepository.readFileAsUser(any(), any()) } returns Result.success("")
+
+        // Ensure cache never returns hits — tests control loading explicitly
+        coEvery { cacheManager.get<Any>(any()) } returns null
     }
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        clearAllMocks()
     }
 
     // ── Helper: stub detection so init completes, then return VM ──────
@@ -213,7 +224,7 @@ class ClaudeCodeViewModelTest {
         advanceUntilIdle()
 
         coEvery { sshRepository.executeCommand(match { it.contains("for d in ~/.claude/projects") }) } returns
-            cmdResult("-home-matt-fleet|5|Y\n-home-matt-web|2|N")
+            cmdResult("-home-matt-fleet|5|Y|/home/matt/fleet\n-home-matt-web|2|N|")
         vm.onEvent(ClaudeCodeEvent.SelectTab(4))
         advanceUntilIdle()
 
@@ -602,8 +613,9 @@ class ClaudeCodeViewModelTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
+        // VM now uses 4-field format: name|sessions|hasMem|realpath
         coEvery { sshRepository.executeCommand(match { it.contains("for d in ~/.claude/projects") }) } returns
-            cmdResult("-home-matt-fleet|5|Y\n-home-matt-web|2|N\n-home-matt-api|0|N")
+            cmdResult("-home-matt-fleet|5|Y|/home/matt/fleet\n-home-matt-web|2|N|\n-home-matt-api|0|N|")
         vm.onEvent(ClaudeCodeEvent.LoadProjects)
         advanceUntilIdle()
 
@@ -687,7 +699,7 @@ class ClaudeCodeViewModelTest {
         advanceUntilIdle()
 
         coEvery { sshRepository.executeCommand(match { it.contains("for d in ~/.claude/projects") }) } returns
-            cmdResult("-home-matt-fleet|3|Y")
+            cmdResult("-home-matt-fleet|3|Y|/home/matt/fleet")
 
         vm.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.PROJECTS))
         advanceUntilIdle()
@@ -843,7 +855,8 @@ class ClaudeCodeViewModelTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
-        coEvery { sshRepository.executeCommand(match { it.contains("find ~/.claude/skills/") }) } returns
+        // VM uses ls -1 ~/.claude/skills/
+        coEvery { sshRepository.executeCommand(match { it.contains("~/.claude/skills/") }) } returns
             cmdResult("summarize.md\ntranslate.md")
 
         vm.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.SKILLS))
@@ -887,7 +900,7 @@ class ClaudeCodeViewModelTest {
 
         coEvery { sshRepository.executeCommand(match { it.contains("mkdir -p ~/.claude/skills") }) } returns cmdResult("")
         coEvery { sshRepository.executeCommand(match { it.contains("cat > ~/") }) } returns cmdResult("")
-        coEvery { sshRepository.executeCommand(match { it.contains("find ~/.claude/skills/") }) } returns cmdResult("new-skill.md")
+        coEvery { sshRepository.executeCommand(match { it.contains("ls") && it.contains("skills") }) } returns cmdResult("new-skill.md")
         stubOverview()
 
         vm.onEvent(ClaudeCodeEvent.SaveSkill(null, SkillScript(filename = "new-skill.md", content = "# Skill")))
@@ -906,7 +919,7 @@ class ClaudeCodeViewModelTest {
         coEvery { sshRepository.executeCommand(match { it.contains("mkdir -p ~/.claude/skills") }) } returns cmdResult("")
         coEvery { sshRepository.executeCommand(match { it.contains("rm -f ~/.claude/skills/old.md") }) } returns cmdResult("")
         coEvery { sshRepository.executeCommand(match { it.contains("cat > ~/") }) } returns cmdResult("")
-        coEvery { sshRepository.executeCommand(match { it.contains("find ~/.claude/skills/") }) } returns cmdResult("renamed.md")
+        coEvery { sshRepository.executeCommand(match { it.contains("ls") && it.contains("skills") }) } returns cmdResult("renamed.md")
         stubOverview()
 
         vm.onEvent(ClaudeCodeEvent.SaveSkill("old.md", SkillScript(filename = "renamed.md", content = "content")))
@@ -920,8 +933,8 @@ class ClaudeCodeViewModelTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
-        // Load skills first
-        coEvery { sshRepository.executeCommand(match { it.contains("find ~/.claude/skills/") }) } returns
+        // Load skills first - VM uses ls -1 ~/.claude/skills/
+        coEvery { sshRepository.executeCommand(match { it.contains("ls") && it.contains("skills") }) } returns
             cmdResult("skill-a.md\nskill-b.md")
         vm.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.SKILLS))
         advanceUntilIdle()
@@ -981,6 +994,7 @@ class ClaudeCodeViewModelTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
+        // VM uses find -printf '%s|%T+|%p\n' format
         val sessionsOutput = "1048576|2025-03-01+14:30:00|/home/matt/.claude/projects/-home-matt-fleet/session-abc.jsonl\n" +
             "2048|2025-02-28+10:00:00|/home/matt/.claude/projects/-home-matt-web/session-xyz.jsonl"
         coEvery { sshRepository.executeCommand(match { it.contains("find ~/.claude/projects/") && it.contains(".jsonl") }) } returns
@@ -993,32 +1007,34 @@ class ClaudeCodeViewModelTest {
         assertThat(sessions).hasSize(2)
         // sorted by modified descending
         assertThat(sessions[0].project).isEqualTo("-home-matt-fleet")
-        assertThat(sessions[0].projectDisplay).isEqualTo("/home/matt/fleet")
+        assertThat(sessions[0].projectDisplay).isEqualTo("-home-matt-fleet")
         assertThat(sessions[0].filename).isEqualTo("session-abc.jsonl")
         assertThat(sessions[0].size).isEqualTo("1.0M")
         assertThat(sessions[1].size).isEqualTo("2K")
     }
 
     @Test
-    fun `ViewSession reads last 5 lines of session file`() = runTest {
+    fun `ViewSession reads full session file`() = runTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
         val session = SessionInfo(
             project = "-home-matt-fleet",
-            projectDisplay = "/home/matt/fleet",
+            projectDisplay = "-home-matt-fleet",
             filename = "session-abc.jsonl",
             size = "1.0M",
-            modified = "2025-03-01"
+            modified = "2025-03-01",
+            fullPath = "/home/matt/.claude/projects/-home-matt-fleet/session-abc.jsonl"
         )
-        coEvery { sshRepository.executeCommand(match { it.contains("tail -5") && it.contains("session-abc.jsonl") }) } returns
+        // VM now uses cat '${session.fullPath}' instead of tail
+        coEvery { sshRepository.executeCommand(match { it.contains("cat") && it.contains("session-abc.jsonl") }) } returns
             cmdResult("""{"role":"assistant","content":"Done!"}""")
 
         vm.onEvent(ClaudeCodeEvent.ViewSession(session))
         advanceUntilIdle()
 
         assertThat(vm.state.value.selectedSessionContent).contains("Done!")
-        assertThat(vm.state.value.selectedSessionName).isEqualTo("/home/matt/fleet / session-abc.jsonl")
+        assertThat(vm.state.value.selectedSessionName).isEqualTo("-home-matt-fleet / session-abc.jsonl")
     }
 
     @Test
@@ -1026,15 +1042,14 @@ class ClaudeCodeViewModelTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
-        val session1 = SessionInfo(project = "-home-matt-fleet", projectDisplay = "/home/matt/fleet", filename = "s1.jsonl", size = "1K", modified = "2025-03-01")
-        val session2 = SessionInfo(project = "-home-matt-fleet", projectDisplay = "/home/matt/fleet", filename = "s2.jsonl", size = "2K", modified = "2025-02-28")
-
-        // Load sessions
+        // Load sessions first
         coEvery { sshRepository.executeCommand(match { it.contains("find ~/.claude/projects/") && it.contains(".jsonl") }) } returns
             cmdResult("1024|2025-03-01+14:00:00|/home/matt/.claude/projects/-home-matt-fleet/s1.jsonl\n2048|2025-02-28+10:00:00|/home/matt/.claude/projects/-home-matt-fleet/s2.jsonl")
         vm.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.SESSIONS))
         advanceUntilIdle()
 
+        // Delete uses rm -f '${session.fullPath}'
+        val session1 = vm.state.value.sessionsList[0]
         coEvery { sshRepository.executeCommand(match { it.contains("rm -f") && it.contains("s1.jsonl") }) } returns cmdResult("")
         stubOverview()
 
@@ -1051,9 +1066,9 @@ class ClaudeCodeViewModelTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
-        // View a session first
-        val session = SessionInfo(project = "p", projectDisplay = "/p", filename = "s.jsonl", size = "1K", modified = "d")
-        coEvery { sshRepository.executeCommand(match { it.contains("tail -5") }) } returns cmdResult("content")
+        // View a session first - VM uses cat '${session.fullPath}'
+        val session = SessionInfo(project = "p", projectDisplay = "p", filename = "s.jsonl", size = "1K", modified = "d", fullPath = "/tmp/s.jsonl")
+        coEvery { sshRepository.executeCommand(match { it.contains("cat") && it.contains("s.jsonl") }) } returns cmdResult("content")
         vm.onEvent(ClaudeCodeEvent.ViewSession(session))
         advanceUntilIdle()
 
