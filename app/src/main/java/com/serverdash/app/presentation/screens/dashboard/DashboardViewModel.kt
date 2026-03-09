@@ -237,7 +237,7 @@ class DashboardViewModel @Inject constructor(
         if (currentState.metrics != null) {
             evaluateAlertRules(currentState.services, currentState.metrics!!, serverId)
         }
-        val history = metricsRepository.getMetricsHistory(60)
+        val history = metricsRepository.getMetricsHistory(60).reversed()
         _state.update { it.copy(metricsHistory = history) }
 
         // Update widget data

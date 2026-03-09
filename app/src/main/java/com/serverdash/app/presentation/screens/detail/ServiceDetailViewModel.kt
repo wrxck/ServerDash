@@ -81,7 +81,7 @@ class ServiceDetailViewModel @Inject constructor(
 
     private fun loadMetricsHistory() {
         viewModelScope.launch {
-            val history = metricsRepository.getMetricsHistory(60)
+            val history = metricsRepository.getMetricsHistory(60).reversed()
             _state.update { it.copy(metricsHistory = history) }
         }
     }
