@@ -27,6 +27,7 @@ import com.serverdash.app.presentation.screens.git.GitScreen
 import com.serverdash.app.presentation.screens.guardian.GuardianScreen
 import com.serverdash.app.presentation.screens.security.SecurityScreen
 import com.serverdash.app.presentation.screens.settings.SettingsScreen
+import com.serverdash.app.presentation.screens.server.ServerScreen
 import com.serverdash.app.presentation.screens.setup.SetupScreen
 import com.serverdash.app.presentation.screens.terminal.TerminalScreen
 import com.serverdash.app.presentation.screens.theme.ThemeScreen
@@ -52,6 +53,7 @@ sealed class Screen(val route: String) {
     data object Security : Screen("security")
     data object Git : Screen("git")
     data object Theme : Screen("theme")
+    data object Server : Screen("server")
     data object About : Screen("about")
     data object Privacy : Screen("privacy")
     data object ClaudeTerminal : Screen("claude_terminal")
@@ -138,6 +140,7 @@ fun ServerDashNavHost(widgetDeepLink: String? = null) {
                 onNavigateToFleet = { navController.navigate(Screen.Fleet.route) },
                 onNavigateToGuardian = { navController.navigate(Screen.Guardian.route) },
                 onNavigateToGit = { navController.navigate(Screen.Git.route) },
+                onNavigateToServer = { navController.navigate(Screen.Server.route) },
                 onNavigateToSecurity = { navController.navigate(Screen.Security.route) },
                 onNavigateToAbout = { navController.navigate(Screen.About.route) },
                 onDebugWithClaude = { serviceName, serviceType ->
@@ -227,6 +230,12 @@ fun ServerDashNavHost(widgetDeepLink: String? = null) {
 
         composable(Screen.Git.route) {
             GitScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Server.route) {
+            ServerScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

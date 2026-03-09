@@ -45,6 +45,7 @@ fun DashboardScreen(
     onNavigateToFleet: () -> Unit = {},
     onNavigateToGuardian: () -> Unit = {},
     onNavigateToGit: () -> Unit = {},
+    onNavigateToServer: () -> Unit = {},
     onNavigateToSecurity: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
     onDebugWithClaude: (String, String) -> Unit = { _, _ -> },
@@ -173,6 +174,9 @@ fun DashboardScreen(
                         }
                         IconButton(onClick = onNavigateToTerminal) {
                             Icon(Icons.Default.Terminal, "Terminal")
+                        }
+                        IconButton(onClick = onNavigateToServer) {
+                            Icon(Icons.Default.Storage, "Server")
                         }
                         IconButton(onClick = onNavigateToSettings) {
                             Icon(Icons.Default.Settings, "Settings")
@@ -446,6 +450,9 @@ fun DashboardScreen(
                     }
                     DrawerNavItem(Icons.Default.Terminal, "Terminal") {
                         scope.launch { drawerState.close() }; onNavigateToTerminal()
+                    }
+                    DrawerNavItem(Icons.Default.Storage, "Server") {
+                        scope.launch { drawerState.close() }; onNavigateToServer()
                     }
                     DrawerNavItem(Icons.Default.Settings, "Settings") {
                         scope.launch { drawerState.close() }; onNavigateToSettings()
