@@ -132,6 +132,9 @@ dependencies {
     // Serialization
     implementation(libs.kotlinx.serialization)
 
+    // IDE module
+    implementation(project(":ide"))
+
     // Glance (widgets)
     implementation(libs.glance.appwidget)
     implementation(libs.glance.material3)
