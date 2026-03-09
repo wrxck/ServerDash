@@ -26,3 +26,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "ServerDash"
 include(":app")
+include(":ide")
