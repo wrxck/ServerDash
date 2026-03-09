@@ -5,6 +5,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.serverdash.app.domain.model.*
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -88,9 +91,16 @@ class PreferencesManager @Inject constructor(
         val HEADER_FONT = stringPreferencesKey("header_font")
         val BODY_FONT = stringPreferencesKey("body_font")
         val CODE_FONT = stringPreferencesKey("code_font")
+        // Cache
+        val CACHE_TTL = intPreferencesKey("cache_ttl_seconds")
         // App Lock
         val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
         val APP_LOCK_TIMEOUT = stringPreferencesKey("app_lock_timeout")
+        val APP_LOCK_AUTH_METHOD = stringPreferencesKey("app_lock_auth_method")
+        // Settings UI
+        val SETTINGS_DENSITY = stringPreferencesKey("settings_density")
+        // Recent themes
+        val RECENT_THEME_USAGE = stringPreferencesKey("recent_theme_usage")
     }
 
     val preferences: Flow<AppPreferences> = context.dataStore.data.map { prefs -> readPrefs(prefs) }
@@ -175,9 +185,21 @@ class PreferencesManager @Inject constructor(
         headerFont = prefs[Keys.HEADER_FONT] ?: "JetBrains Mono",
         bodyFont = prefs[Keys.BODY_FONT] ?: "JetBrains Mono",
         codeFont = prefs[Keys.CODE_FONT] ?: "JetBrains Mono",
+        // Cache
+        cacheTtlSeconds = prefs[Keys.CACHE_TTL] ?: 300,
         // App Lock
         appLockEnabled = prefs[Keys.APP_LOCK_ENABLED] ?: false,
-        appLockTimeout = try { LockTimeout.valueOf(prefs[Keys.APP_LOCK_TIMEOUT] ?: LockTimeout.IMMEDIATE.name) } catch (e: Exception) { LockTimeout.IMMEDIATE }
+        appLockTimeout = try { LockTimeout.valueOf(prefs[Keys.APP_LOCK_TIMEOUT] ?: LockTimeout.IMMEDIATE.name) } catch (e: Exception) { LockTimeout.IMMEDIATE },
+        appLockAuthMethod = try { AppLockAuthMethod.valueOf(prefs[Keys.APP_LOCK_AUTH_METHOD] ?: AppLockAuthMethod.ANY.name) } catch (e: Exception) { AppLockAuthMethod.ANY },
+        // Settings UI
+        settingsDensity = try { SettingsDensity.valueOf(prefs[Keys.SETTINGS_DENSITY] ?: SettingsDensity.COMPACT.name) } catch (e: Exception) { SettingsDensity.COMPACT },
+        // Recent themes
+        recentThemeUsage = try {
+            val json = prefs[Keys.RECENT_THEME_USAGE] ?: "{}"
+            kotlinx.serialization.json.Json.parseToJsonElement(json).jsonObject.mapValues {
+                it.value.jsonPrimitive.long
+            }
+        } catch (e: Exception) { emptyMap() }
     )
 
     suspend fun updatePreferences(transform: (AppPreferences) -> AppPreferences) {
@@ -253,9 +275,21 @@ class PreferencesManager @Inject constructor(
             prefs[Keys.HEADER_FONT] = updated.headerFont
             prefs[Keys.BODY_FONT] = updated.bodyFont
             prefs[Keys.CODE_FONT] = updated.codeFont
+            // Cache
+            prefs[Keys.CACHE_TTL] = updated.cacheTtlSeconds
             // App Lock
             prefs[Keys.APP_LOCK_ENABLED] = updated.appLockEnabled
             prefs[Keys.APP_LOCK_TIMEOUT] = updated.appLockTimeout.name
+            prefs[Keys.APP_LOCK_AUTH_METHOD] = updated.appLockAuthMethod.name
+            // Settings UI
+            prefs[Keys.SETTINGS_DENSITY] = updated.settingsDensity.name
+            // Recent themes
+            val themeJson = buildString {
+                append("{")
+                updated.recentThemeUsage.entries.joinTo(this) { (k, v) -> "\"$k\":$v" }
+                append("}")
+            }
+            prefs[Keys.RECENT_THEME_USAGE] = themeJson
         }
     }
 }

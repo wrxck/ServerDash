@@ -23,6 +23,7 @@ class ClaudeCodeViewModelTest {
     private lateinit var sshRepository: SshRepository
     private lateinit var detectSystemUsers: DetectSystemUsersUseCase
     private lateinit var detectClaudeCodeUsers: DetectClaudeCodeUsersUseCase
+    private val cacheManager: com.serverdash.app.core.cache.ScreenCacheManager = mockk(relaxed = true)
 
     private val testUser = SystemUser(username = "matt", homeDirectory = "/home/matt", uid = 1000, hasClaudeCode = true)
     private val testUser2 = SystemUser(username = "alice", homeDirectory = "/home/alice", uid = 1001, hasClaudeCode = true)
@@ -57,14 +58,14 @@ class ClaudeCodeViewModelTest {
         stubUsers(listOf(testUser))
         stubOverview()
         stubMcpRead("{}")
-        return ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers)
+        return ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
     }
 
     /** Creates a VM that does NOT detect Claude Code. */
     private fun createNotDetectedViewModel(): ClaudeCodeViewModel {
         coEvery { sshRepository.executeCommand(match { it.contains("claude --version") }) } returns
             cmdResult("NOT_FOUND")
-        return ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers)
+        return ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
     }
 
     private fun stubDetected(version: String = "claude-code 1.0.23") {
@@ -102,7 +103,8 @@ class ClaudeCodeViewModelTest {
     }
 
     private fun stubMcpRead(json: String) {
-        coEvery { sshRepository.executeCommand(match { it.contains("cat ~/.mcp.json") }) } returns
+        // loadMcpServers now uses readFileForUser which constructs: cat '/home/matt/.mcp.json' 2>/dev/null
+        coEvery { sshRepository.executeCommand(match { it.contains(".mcp.json") }) } returns
             cmdResult(json)
     }
 
@@ -131,7 +133,7 @@ class ClaudeCodeViewModelTest {
     fun `init sets not detected when command fails`() = runTest {
         coEvery { sshRepository.executeCommand(match { it.contains("claude --version") }) } returns
             Result.failure(RuntimeException("SSH error"))
-        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers)
+        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
 
         assertThat(vm.state.value.isDetected).isFalse()
@@ -142,7 +144,7 @@ class ClaudeCodeViewModelTest {
     fun `init sets not detected when output is blank`() = runTest {
         coEvery { sshRepository.executeCommand(match { it.contains("claude --version") }) } returns
             cmdResult("")
-        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers)
+        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
 
         assertThat(vm.state.value.isDetected).isFalse()
@@ -228,7 +230,7 @@ class ClaudeCodeViewModelTest {
         stubOverview()
         stubMcpRead("""{"mcpServers":{"filesystem":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/tmp"],"env":{"DEBUG":"true"}},"memory":{"command":"npx","args":["-y","@modelcontextprotocol/server-memory"]}}}""")
 
-        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers)
+        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
 
         val servers = vm.state.value.mcpServers
@@ -551,7 +553,7 @@ class ClaudeCodeViewModelTest {
             hooks = "hook-1.sh"
         )
 
-        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers)
+        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
 
         val s = vm.state.value
@@ -572,7 +574,7 @@ class ClaudeCodeViewModelTest {
         stubMcpRead("{}")
         stubOverview(diskUsage = "", stats = "", projectCount = 0, planCount = 0, sessionCount = 0, plugins = "", skills = "", hooks = "")
 
-        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers)
+        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
 
         assertThat(vm.state.value.diskUsage).isEmpty()
@@ -587,7 +589,7 @@ class ClaudeCodeViewModelTest {
         stubMcpRead("{}")
         stubOverview(plugins = """[{"name":"obj-plugin","version":"1.0"}]""")
 
-        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers)
+        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
 
         assertThat(vm.state.value.installedPlugins).containsExactly("obj-plugin")
@@ -955,7 +957,7 @@ class ClaudeCodeViewModelTest {
         stubMcpRead("{}")
         stubOverview(plugins = """["plugin-keep","plugin-remove","plugin-also-keep"]""")
 
-        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers)
+        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
 
         assertThat(vm.state.value.installedPlugins).hasSize(3)
@@ -1147,7 +1149,7 @@ class ClaudeCodeViewModelTest {
         coEvery { detectSystemUsers() } returns Result.success(users.map { it.copy(hasClaudeCode = false) })
         coEvery { detectClaudeCodeUsers(any()) } returns Result.success(users)
 
-        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers)
+        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
 
         assertThat(vm.state.value.claudeCodeUsers).hasSize(2)
@@ -1167,7 +1169,7 @@ class ClaudeCodeViewModelTest {
         coEvery { detectSystemUsers() } returns Result.success(users.map { it.copy(hasClaudeCode = false) })
         coEvery { detectClaudeCodeUsers(any()) } returns Result.success(users)
 
-        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers)
+        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
 
         // "root" not in list, should pick first Claude user
@@ -1294,7 +1296,7 @@ class ClaudeCodeViewModelTest {
         stubOverview()
         stubMcpRead("not json at all {{{")
 
-        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers)
+        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
 
         assertThat(vm.state.value.mcpServers).isEmpty()
@@ -1308,7 +1310,7 @@ class ClaudeCodeViewModelTest {
         stubOverview()
         stubMcpRead("")
 
-        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers)
+        val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
 
         assertThat(vm.state.value.mcpServers).isEmpty()

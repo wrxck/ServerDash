@@ -114,6 +114,7 @@ sealed interface DashboardEvent {
     data class SortProcesses(val by: String) : DashboardEvent
     data object RefreshProcesses : DashboardEvent
     data class KillProcess(val pid: Int) : DashboardEvent
+    data object LockApp : DashboardEvent
 }
 
 @HiltViewModel
@@ -129,7 +130,8 @@ class DashboardViewModel @Inject constructor(
     private val fetchMetrics: FetchSystemMetricsUseCase,
     private val evaluateAlertRules: EvaluateAlertRulesUseCase,
     private val pluginRegistry: PluginRegistry,
-    private val fleetDiscoverServices: FleetDiscoverServicesUseCase
+    private val fleetDiscoverServices: FleetDiscoverServicesUseCase,
+    private val appLockManager: com.serverdash.app.core.security.AppLockManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DashboardUiState())
@@ -235,7 +237,7 @@ class DashboardViewModel @Inject constructor(
         if (currentState.metrics != null) {
             evaluateAlertRules(currentState.services, currentState.metrics!!, serverId)
         }
-        val history = metricsRepository.getMetricsHistory(60)
+        val history = metricsRepository.getMetricsHistory(60).reversed()
         _state.update { it.copy(metricsHistory = history) }
 
         // Update widget data
@@ -317,6 +319,7 @@ class DashboardViewModel @Inject constructor(
             }
             is DashboardEvent.RefreshProcesses -> loadProcesses()
             is DashboardEvent.KillProcess -> killProcess(event.pid)
+            is DashboardEvent.LockApp -> appLockManager.lock()
         }
     }
 

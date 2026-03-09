@@ -15,43 +15,52 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class AlertNotificationManager @Inject constructor(
-    @ApplicationContext private val context: Context
-) {
-    private val notificationManager = context.getSystemService(NotificationManager::class.java)
+class AlertNotificationManager
+    @Inject
+    constructor(
+        @ApplicationContext private val context: Context,
+    ) {
+        private val notificationManager =
+            context.getSystemService(NotificationManager::class.java)
 
-    fun showAlertNotification(alert: Alert) {
-        val channel = when (alert.rule.condition) {
-            is AlertCondition.ServiceDown -> ServerDashApp.CHANNEL_CRITICAL
-            is AlertCondition.CpuAbove -> ServerDashApp.CHANNEL_WARNING
-            is AlertCondition.MemoryAbove -> ServerDashApp.CHANNEL_WARNING
-            is AlertCondition.DiskAbove -> ServerDashApp.CHANNEL_WARNING
+        fun showAlertNotification(alert: Alert) {
+            val channel =
+                when (alert.rule.condition) {
+                    is AlertCondition.ServiceDown -> ServerDashApp.CHANNEL_CRITICAL
+                    is AlertCondition.CpuAbove -> ServerDashApp.CHANNEL_WARNING
+                    is AlertCondition.MemoryAbove -> ServerDashApp.CHANNEL_WARNING
+                    is AlertCondition.DiskAbove -> ServerDashApp.CHANNEL_WARNING
+                }
+
+            val priority =
+                when (alert.rule.condition) {
+                    is AlertCondition.ServiceDown -> NotificationCompat.PRIORITY_HIGH
+                    else -> NotificationCompat.PRIORITY_DEFAULT
+                }
+
+            val pendingIntent =
+                PendingIntent.getActivity(
+                    context,
+                    0,
+                    Intent(context, MainActivity::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+
+            val notification =
+                NotificationCompat
+                    .Builder(context, channel)
+                    .setContentTitle("ServerDash Alert")
+                    .setContentText(alert.message)
+                    .setSmallIcon(R.drawable.ic_launcher_foreground)
+                    .setPriority(priority)
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(true)
+                    .build()
+
+            notificationManager.notify(alert.id.toInt(), notification)
         }
 
-        val priority = when (alert.rule.condition) {
-            is AlertCondition.ServiceDown -> NotificationCompat.PRIORITY_HIGH
-            else -> NotificationCompat.PRIORITY_DEFAULT
+        fun cancelAll() {
+            notificationManager.cancelAll()
         }
-
-        val pendingIntent = PendingIntent.getActivity(
-            context, 0,
-            Intent(context, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(context, channel)
-            .setContentTitle("ServerDash Alert")
-            .setContentText(alert.message)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setPriority(priority)
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
-            .build()
-
-        notificationManager.notify(alert.id.toInt(), notification)
     }
-
-    fun cancelAll() {
-        notificationManager.cancelAll()
-    }
-}

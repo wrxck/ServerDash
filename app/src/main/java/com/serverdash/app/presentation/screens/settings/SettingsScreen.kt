@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.serverdash.app.core.privacy.redact
@@ -79,18 +80,44 @@ fun SettingsScreen(
             )
         }
     ) { padding ->
+        val density = state.preferences.settingsDensity
+        val itemSpacing = density.itemSpacing.dp
+        val sectionSpacing = density.sectionSpacing.dp
+
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(itemSpacing)
         ) {
+            // ── Settings Density ──
+            item {
+                SectionHeader("Appearance")
+                Spacer(Modifier.height(4.dp))
+                Text("Settings Density", style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SettingsDensity.entries.forEach { d ->
+                        FilterChip(
+                            selected = density == d,
+                            onClick = { viewModel.onEvent(SettingsEvent.UpdateSettingsDensity(d)) },
+                            label = { Text(d.label) }
+                        )
+                    }
+                }
+            }
+
             // ── Server ──
             item {
+                SectionDivider(sectionSpacing)
                 SectionHeader("Server")
                 state.serverConfig?.let { config ->
+                    val streamingOn = state.preferences.streamingModeEnabled
                     ListItem(
-                        headlineContent = { Text(redact(config.label.ifBlank { config.host })) },
-                        supportingContent = { Text(redact("${config.username}@${config.host}:${config.port}")) },
+                        headlineContent = {
+                            Text(if (streamingOn) "[Server]" else redact(config.label.ifBlank { config.host }))
+                        },
+                        supportingContent = {
+                            Text(if (streamingOn) "[Connection Hidden]" else redact("${config.username}@${config.host}:${config.port}"))
+                        },
                         leadingContent = { Icon(Icons.Default.Dns, null) }
                     )
                 }
@@ -98,7 +125,7 @@ fun SettingsScreen(
 
             // ── Security ──
             item {
-                SectionDivider()
+                SectionDivider(sectionSpacing)
                 SectionHeader("Security")
                 ListItem(
                     headlineContent = { Text("Your Data") },
@@ -118,56 +145,76 @@ fun SettingsScreen(
 
             // ── App Lock ──
             item {
-                SectionDivider()
+                SectionDivider(sectionSpacing)
                 SectionHeader("App Lock")
             }
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                SwitchSetting("Require App Lock", state.preferences.appLockEnabled,
+                    subtitle = "Require authentication to open the app"
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("App Lock", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            "Require authentication to open",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = state.preferences.appLockEnabled,
-                        onCheckedChange = { viewModel.onEvent(SettingsEvent.UpdateAppLockEnabled(it)) }
-                    )
+                    viewModel.onEvent(SettingsEvent.UpdateAppLockEnabled(it))
                 }
             }
             if (state.preferences.appLockEnabled) {
                 item {
-                    var expanded by remember { mutableStateOf(false) }
+                    var timeoutExpanded by remember { mutableStateOf(false) }
                     Column {
                         Text("Lock Timeout", style = MaterialTheme.typography.bodyMedium)
                         Spacer(Modifier.height(4.dp))
                         ExposedDropdownMenuBox(
-                            expanded = expanded,
-                            onExpandedChange = { expanded = it }
+                            expanded = timeoutExpanded,
+                            onExpandedChange = { timeoutExpanded = it }
                         ) {
                             OutlinedTextField(
                                 value = state.preferences.appLockTimeout.label,
                                 onValueChange = {},
                                 readOnly = true,
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = timeoutExpanded) },
                                 modifier = Modifier.menuAnchor().fillMaxWidth()
                             )
                             ExposedDropdownMenu(
-                                expanded = expanded,
-                                onDismissRequest = { expanded = false }
+                                expanded = timeoutExpanded,
+                                onDismissRequest = { timeoutExpanded = false }
                             ) {
                                 LockTimeout.entries.forEach { timeout ->
                                     DropdownMenuItem(
                                         text = { Text(timeout.label) },
                                         onClick = {
                                             viewModel.onEvent(SettingsEvent.UpdateAppLockTimeout(timeout))
-                                            expanded = false
+                                            timeoutExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    var authExpanded by remember { mutableStateOf(false) }
+                    Column {
+                        Text("Authentication Method", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(4.dp))
+                        ExposedDropdownMenuBox(
+                            expanded = authExpanded,
+                            onExpandedChange = { authExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = state.preferences.appLockAuthMethod.label,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = authExpanded) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = authExpanded,
+                                onDismissRequest = { authExpanded = false }
+                            ) {
+                                AppLockAuthMethod.entries.forEach { method ->
+                                    DropdownMenuItem(
+                                        text = { Text(method.label) },
+                                        onClick = {
+                                            viewModel.onEvent(SettingsEvent.UpdateAppLockAuthMethod(method))
+                                            authExpanded = false
                                         }
                                     )
                                 }
@@ -178,7 +225,7 @@ fun SettingsScreen(
             }
 
             // ── Display ──
-            item { SectionDivider(); SectionHeader("Display") }
+            item { SectionDivider(sectionSpacing); SectionHeader("Display") }
             item {
                 ListItem(
                     headlineContent = { Text("Theme Studio") },
@@ -203,14 +250,37 @@ fun SettingsScreen(
             }
             if (state.availableThemes.isNotEmpty()) {
                 item {
-                    Text("Theme", style = MaterialTheme.typography.bodyMedium)
-                    @OptIn(ExperimentalLayoutApi::class)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        state.availableThemes.forEach { theme ->
-                            FilterChip(
-                                selected = state.preferences.selectedThemeId == theme.id,
-                                onClick = { viewModel.onEvent(SettingsEvent.SelectTheme(theme.id)) },
-                                label = { Text(theme.name) }
+                    val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
+                    val recentThemes = state.availableThemes.filter { theme ->
+                        // Always include the currently selected theme
+                        theme.id == state.preferences.selectedThemeId ||
+                        // Include themes used in the last 30 days
+                        (state.preferences.recentThemeUsage[theme.id] ?: 0L) > thirtyDaysAgo
+                    }
+                    Column {
+                        Text("Recent Themes", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Showing themes used in the last 30 days. Visit Theme Studio for all themes.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        if (recentThemes.isNotEmpty()) {
+                            @OptIn(ExperimentalLayoutApi::class)
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                recentThemes.forEach { theme ->
+                                    FilterChip(
+                                        selected = state.preferences.selectedThemeId == theme.id,
+                                        onClick = { viewModel.onEvent(SettingsEvent.SelectTheme(theme.id)) },
+                                        label = { Text(theme.name) }
+                                    )
+                                }
+                            }
+                        } else {
+                            Text(
+                                "No recently used themes. Select a theme from Theme Studio to see it here.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -247,7 +317,7 @@ fun SettingsScreen(
             }
 
             // ── Dashboard Layout ──
-            item { SectionDivider(); SectionHeader("Dashboard Layout") }
+            item { SectionDivider(sectionSpacing); SectionHeader("Dashboard Layout") }
             item {
                 Text("Layout Style", style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -311,7 +381,7 @@ fun SettingsScreen(
             }
 
             // ── Metrics ──
-            item { SectionDivider(); SectionHeader("Metrics") }
+            item { SectionDivider(sectionSpacing); SectionHeader("Metrics") }
             item {
                 Text("Metrics Display", style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -361,7 +431,7 @@ fun SettingsScreen(
             }
 
             // ── Monitoring ──
-            item { SectionDivider(); SectionHeader("Monitoring") }
+            item { SectionDivider(sectionSpacing); SectionHeader("Monitoring") }
             item {
                 SliderSetting(
                     title = "Polling Interval",
@@ -392,9 +462,19 @@ fun SettingsScreen(
                     onValueChange = { viewModel.onEvent(SettingsEvent.UpdateMetricsRetention(it.toInt())) }
                 )
             }
+            item {
+                SliderSetting(
+                    title = "Screen Cache TTL",
+                    value = state.preferences.cacheTtlSeconds.toFloat(),
+                    range = 0f..600f,
+                    steps = 11,
+                    formatValue = { val s = it.toInt(); if (s == 0) "Disabled" else if (s < 60) "${s}s" else "${s / 60}m" },
+                    onValueChange = { viewModel.onEvent(SettingsEvent.UpdateCacheTtl(it.toInt())) }
+                )
+            }
 
             // ── Notifications ──
-            item { SectionDivider(); SectionHeader("Notifications") }
+            item { SectionDivider(sectionSpacing); SectionHeader("Notifications") }
             item {
                 SwitchSetting("Notifications Enabled", state.preferences.notificationsEnabled) {
                     viewModel.onEvent(SettingsEvent.UpdateNotificationsEnabled(it))
@@ -434,7 +514,7 @@ fun SettingsScreen(
             }
 
             // ── Logs ──
-            item { SectionDivider(); SectionHeader("Logs") }
+            item { SectionDivider(sectionSpacing); SectionHeader("Logs") }
             item {
                 Text("Font Size", style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -481,7 +561,7 @@ fun SettingsScreen(
             }
 
             // ── Terminal ──
-            item { SectionDivider(); SectionHeader("Terminal") }
+            item { SectionDivider(sectionSpacing); SectionHeader("Terminal") }
             item {
                 SliderSetting(
                     title = "Terminal Font Size",
@@ -509,7 +589,7 @@ fun SettingsScreen(
             }
 
             // ── Connection ──
-            item { SectionDivider(); SectionHeader("Connection") }
+            item { SectionDivider(sectionSpacing); SectionHeader("Connection") }
             item {
                 SliderSetting(
                     title = "Connection Timeout",
@@ -549,7 +629,7 @@ fun SettingsScreen(
             }
 
             // plugins
-            item { SectionDivider(); SectionHeader("Plugins") }
+            item { SectionDivider(sectionSpacing); SectionHeader("Plugins") }
             item {
                 Column {
                     viewModel.pluginRegistry.getAll().forEach { plugin ->
@@ -590,7 +670,7 @@ fun SettingsScreen(
             }
 
             // kiosk mode
-            item { SectionDivider(); SectionHeader("Kiosk Mode") }
+            item { SectionDivider(sectionSpacing); SectionHeader("Kiosk Mode") }
             item {
                 SwitchSetting("Enable Kiosk Mode", state.preferences.kioskMode) {
                     viewModel.onEvent(SettingsEvent.UpdateKioskMode(it))
@@ -603,7 +683,7 @@ fun SettingsScreen(
             }
 
             // ── About & Updates ──
-            item { SectionDivider(); SectionHeader("About & Updates") }
+            item { SectionDivider(sectionSpacing); SectionHeader("About & Updates") }
             item {
                 val uriHandler = LocalUriHandler.current
                 val updateState = state.updateState
@@ -799,7 +879,7 @@ fun SettingsScreen(
             }
 
             // ── Danger Zone ──
-            item { SectionDivider(); SectionHeader("Danger Zone", isError = true) }
+            item { SectionDivider(sectionSpacing); SectionHeader("Danger Zone", isError = true) }
             item {
                 OutlinedButton(
                     onClick = { viewModel.onEvent(SettingsEvent.Disconnect) },
@@ -830,19 +910,33 @@ private fun SectionHeader(title: String, isError: Boolean = false) {
 }
 
 @Composable
-private fun SectionDivider() {
+private fun SectionDivider(spacing: Dp = 8.dp) {
     HorizontalDivider()
-    Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(spacing))
 }
 
 @Composable
-private fun SwitchSetting(title: String, checked: Boolean, onChanged: (Boolean) -> Unit) {
+private fun SwitchSetting(
+    title: String,
+    checked: Boolean,
+    subtitle: String? = null,
+    onChanged: (Boolean) -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, style = MaterialTheme.typography.bodyLarge)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         Switch(checked = checked, onCheckedChange = onChanged)
     }
 }

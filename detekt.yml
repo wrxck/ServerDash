@@ -1,0 +1,17 @@
+complexity:
+  LongMethod:
+    threshold: 900
+  LongParameterList:
+    functionThreshold: 15
+    constructorThreshold: 15
+  CyclomaticComplexMethod:
+    threshold: 80
+  TooManyFunctions:
+    thresholdInFiles: 30
+    thresholdInClasses: 50
+  ComplexCondition:
+    threshold: 8
+  NestedBlockDepth:
+    threshold: 6
+  LargeClass:
+    threshold: 1200

@@ -41,18 +41,41 @@ private val colorGreen = Color(0xFF66BB6A)
 private val colorGray = Color(0xFF9E9E9E)
 private val colorPrimary = Color(0xFF5CCFE6)
 
-private val ansiEscapeRegex = Regex("""\x1B\[([0-9;]*)m""")
+private val ansiSgrRegex = Regex("""\x1B\[([0-9;]*)m""")
+
+// Matches all non-SGR ANSI escape sequences: cursor movement, screen clear,
+// scroll, mode set/reset, OSC sequences, etc. These can't be rendered in a
+// static Text composable so we strip them to preserve layout.
+private val ansiNonSgrRegex = Regex(
+    """\x1B\[[0-9;]*[A-HJKSTfhln]""" +    // CSI sequences (cursor, erase, scroll)
+    """|\x1B\[\?[0-9;]*[hl]""" +           // DEC private mode set/reset
+    """|\x1B[()][AB012]""" +                // Character set selection
+    """|\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)""" + // OSC sequences (title bar, etc.)
+    """|\x1B[78DMEHc=>]""" +                // Single-character escape codes
+    """|\x1B\[[0-9]*[XPML@]""" +            // Insert/delete char/line
+    """|\r"""                                // Carriage returns (TUIs use \r\n or \r for redraws)
+)
 
 private val errorKeywords = setOf("error", "fail", "failed", "denied", "refused", "fatal", "panic", "critical")
 private val successKeywords = setOf("ok", "success", "active", "running", "enabled", "started", "passed", "done")
 private val warningKeywords = setOf("warn", "warning", "deprecated", "timeout", "slow", "retry")
 
+/**
+ * Pre-process terminal output: strip non-SGR escape sequences that can't be
+ * rendered in a static text view, while preserving color/style codes and all whitespace.
+ */
+fun stripNonSgrEscapes(text: String): String {
+    return ansiNonSgrRegex.replace(text, "")
+}
+
 fun highlightTerminalOutput(text: String): AnnotatedString {
-    // Check if text contains ANSI escape codes
-    if (ansiEscapeRegex.containsMatchIn(text)) {
-        return parseAnsiCodes(text)
+    // Strip non-renderable escape sequences first (cursor movement, screen clear, etc.)
+    val cleaned = stripNonSgrEscapes(text)
+    // Check if text contains ANSI SGR (color/style) codes
+    if (ansiSgrRegex.containsMatchIn(cleaned)) {
+        return parseAnsiCodes(cleaned)
     }
-    return applyHeuristicHighlighting(text)
+    return applyHeuristicHighlighting(cleaned)
 }
 
 private fun parseAnsiCodes(text: String): AnnotatedString = buildAnnotatedString {
@@ -63,7 +86,7 @@ private fun parseAnsiCodes(text: String): AnnotatedString = buildAnnotatedString
     var currentUnderline = false
     var lastEnd = 0
 
-    for (match in ansiEscapeRegex.findAll(text)) {
+    for (match in ansiSgrRegex.findAll(text)) {
         // Append text before this escape sequence with current style
         val segment = text.substring(lastEnd, match.range.first)
         if (segment.isNotEmpty()) {

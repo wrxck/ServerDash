@@ -21,6 +21,7 @@ class SettingsViewModelTest {
     private lateinit var preferencesRepository: PreferencesRepository
     private lateinit var serverRepository: ServerRepository
     private lateinit var sshRepository: SshRepository
+    private val preferencesManager: com.serverdash.app.data.preferences.PreferencesManager = mockk(relaxed = true)
     private lateinit var pluginRegistry: com.serverdash.app.domain.plugin.PluginRegistry
 
     @Before
@@ -40,7 +41,7 @@ class SettingsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel() = SettingsViewModel(preferencesRepository, serverRepository, sshRepository, pluginRegistry)
+    private fun createViewModel() = SettingsViewModel(preferencesRepository, serverRepository, sshRepository, preferencesManager, pluginRegistry)
 
     @Test
     fun `initial state has default preferences`() = runTest {

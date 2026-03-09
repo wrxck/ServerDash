@@ -10,30 +10,59 @@ import com.serverdash.app.MainActivity
 import com.serverdash.app.R
 import com.serverdash.app.ServerDashApp
 import com.serverdash.app.domain.model.SystemMetrics
-import com.serverdash.app.domain.repository.*
-import com.serverdash.app.domain.usecase.*
+import com.serverdash.app.domain.repository.PreferencesRepository
+import com.serverdash.app.domain.repository.ServiceRepository
+import com.serverdash.app.domain.repository.SshRepository
+import com.serverdash.app.domain.usecase.EvaluateAlertRulesUseCase
+import com.serverdash.app.domain.usecase.FetchSystemMetricsUseCase
+import com.serverdash.app.domain.usecase.RefreshServiceStatusUseCase
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.*
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MonitoringService : Service() {
+    @Inject
+    lateinit var preferencesRepository: PreferencesRepository
 
-    @Inject lateinit var preferencesRepository: PreferencesRepository
-    @Inject lateinit var refreshServiceStatus: RefreshServiceStatusUseCase
-    @Inject lateinit var fetchMetrics: FetchSystemMetricsUseCase
-    @Inject lateinit var evaluateAlertRules: EvaluateAlertRulesUseCase
-    @Inject lateinit var serviceRepository: ServiceRepository
-    @Inject lateinit var sshRepository: SshRepository
-    @Inject lateinit var alertNotificationManager: AlertNotificationManager
-    @Inject lateinit var webhookDispatcher: WebhookDispatcher
+    @Inject
+    lateinit var refreshServiceStatus: RefreshServiceStatusUseCase
+
+    @Inject
+    lateinit var fetchMetrics: FetchSystemMetricsUseCase
+
+    @Inject
+    lateinit var evaluateAlertRules: EvaluateAlertRulesUseCase
+
+    @Inject
+    lateinit var serviceRepository: ServiceRepository
+
+    @Inject
+    lateinit var sshRepository: SshRepository
+
+    @Inject
+    lateinit var alertNotificationManager: AlertNotificationManager
+
+    @Inject
+    lateinit var webhookDispatcher: WebhookDispatcher
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var pollingJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         startForeground(NOTIFICATION_ID, createNotification("Monitoring active"))
         startPolling()
         return START_STICKY
@@ -41,42 +70,53 @@ class MonitoringService : Service() {
 
     private fun startPolling() {
         pollingJob?.cancel()
-        pollingJob = scope.launch {
-            val prefs = preferencesRepository.getPreferences()
-            while (isActive) {
-                if (sshRepository.isConnected()) {
-                    try {
-                        val servicesResult = refreshServiceStatus(1L)
-                        val metricsResult = fetchMetrics()
+        pollingJob =
+            scope.launch {
+                val prefs = preferencesRepository.getPreferences()
+                while (isActive) {
+                    if (sshRepository.isConnected()) {
+                        try {
+                            val servicesResult = refreshServiceStatus(1L)
+                            val metricsResult = fetchMetrics()
 
-                        val services = servicesResult.getOrNull() ?: emptyList()
-                        val metrics = metricsResult.getOrNull() ?: SystemMetrics()
+                            val services = servicesResult.getOrNull() ?: emptyList()
+                            val metrics = metricsResult.getOrNull() ?: SystemMetrics()
 
-                        val alerts = evaluateAlertRules(services, metrics, 1L)
-                        alerts.forEach { alert ->
-                            alertNotificationManager.showAlertNotification(alert)
-                            if (alert.rule.webhookUrl.isNotBlank()) {
-                                webhookDispatcher.dispatch(alert)
+                            val alerts = evaluateAlertRules(services, metrics, 1L)
+                            alerts.forEach { alert ->
+                                alertNotificationManager.showAlertNotification(alert)
+                                if (alert.rule.webhookUrl.isNotBlank()) {
+                                    webhookDispatcher.dispatch(alert)
+                                }
                             }
-                        }
 
-                        updateNotification("Last check: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}")
-                    } catch (e: Exception) {
-                        updateNotification("Error: ${e.message}")
+                            updateNotification(
+                                "Last check: ${
+                                    java.text.SimpleDateFormat(
+                                        "HH:mm:ss",
+                                        java.util.Locale.getDefault(),
+                                    ).format(java.util.Date())
+                                }",
+                            )
+                        } catch (e: Exception) {
+                            updateNotification("Error: ${e.message}")
+                        }
                     }
+                    delay(prefs.pollingIntervalSeconds * 1000L)
                 }
-                delay(prefs.pollingIntervalSeconds * 1000L)
             }
-        }
     }
 
     private fun createNotification(text: String): Notification {
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        return NotificationCompat.Builder(this, ServerDashApp.CHANNEL_MONITORING)
+        val pendingIntent =
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        return NotificationCompat
+            .Builder(this, ServerDashApp.CHANNEL_MONITORING)
             .setContentTitle("ServerDash")
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_launcher_foreground)

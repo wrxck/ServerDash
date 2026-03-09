@@ -244,7 +244,8 @@ sealed interface ClaudeCodeEvent {
 class ClaudeCodeViewModel @Inject constructor(
     private val sshRepository: SshRepository,
     private val detectSystemUsers: DetectSystemUsersUseCase,
-    private val detectClaudeCodeUsers: DetectClaudeCodeUsersUseCase
+    private val detectClaudeCodeUsers: DetectClaudeCodeUsersUseCase,
+    private val cacheManager: com.serverdash.app.core.cache.ScreenCacheManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ClaudeCodeUiState())
@@ -254,6 +255,15 @@ class ClaudeCodeViewModel @Inject constructor(
 
     init {
         detectClaude()
+    }
+
+    private fun invalidateCurrentTabCache() {
+        when (_state.value.selectedTab) {
+            0 -> cacheManager.invalidate(com.serverdash.app.core.cache.ScreenCacheManager.CLAUDE_CODE_OVERVIEW)
+            1 -> cacheManager.invalidate(com.serverdash.app.core.cache.ScreenCacheManager.CLAUDE_CODE_MCP)
+            2 -> cacheManager.invalidate(com.serverdash.app.core.cache.ScreenCacheManager.CLAUDE_CODE_SETTINGS)
+            3 -> cacheManager.invalidate(com.serverdash.app.core.cache.ScreenCacheManager.CLAUDE_CODE_CLAUDE_MD)
+        }
     }
 
     private fun detectClaude() {
@@ -288,19 +298,20 @@ class ClaudeCodeViewModel @Inject constructor(
             is ClaudeCodeEvent.SelectTab -> {
                 _state.update { it.copy(selectedTab = event.index, activeDetail = null) }
                 when (event.index) {
-                    0 -> loadOverview()
-                    1 -> loadMcpServers()
-                    2 -> loadSettings()
-                    3 -> loadClaudeMd()
+                    0 -> loadOverview(useCache = true)
+                    1 -> loadMcpServers(useCache = true)
+                    2 -> loadSettings(useCache = true)
+                    3 -> loadClaudeMd(useCache = true)
                     4 -> loadProjects()
                 }
             }
             is ClaudeCodeEvent.Refresh -> {
+                invalidateCurrentTabCache()
                 when (_state.value.selectedTab) {
-                    0 -> loadOverview()
-                    1 -> loadMcpServers()
-                    2 -> loadSettings()
-                    3 -> loadClaudeMd()
+                    0 -> loadOverview(useCache = false)
+                    1 -> loadMcpServers(useCache = false)
+                    2 -> loadSettings(useCache = false)
+                    3 -> loadClaudeMd(useCache = false)
                     4 -> loadProjects()
                 }
             }
@@ -486,8 +497,15 @@ class ClaudeCodeViewModel @Inject constructor(
         loadClaudeMd()
     }
 
-    private fun loadMcpServers() {
+    private fun loadMcpServers(useCache: Boolean = false) {
         viewModelScope.launch {
+            if (useCache) {
+                val cached: List<McpServer>? = cacheManager.get(com.serverdash.app.core.cache.ScreenCacheManager.CLAUDE_CODE_MCP)
+                if (cached != null) {
+                    _state.update { it.copy(mcpServers = cached, isLoadingMcp = false) }
+                    return@launch
+                }
+            }
             _state.update { it.copy(isLoadingMcp = true) }
             try {
                 val allServers = mutableMapOf<String, McpServer>()
@@ -546,7 +564,9 @@ class ClaudeCodeViewModel @Inject constructor(
                     } catch (_: Exception) { }
                 }
 
-                _state.update { it.copy(mcpServers = allServers.values.toList(), isLoadingMcp = false) }
+                val serverList = allServers.values.toList()
+                cacheManager.put(com.serverdash.app.core.cache.ScreenCacheManager.CLAUDE_CODE_MCP, serverList)
+                _state.update { it.copy(mcpServers = serverList, isLoadingMcp = false) }
             } catch (e: Exception) {
                 _state.update { it.copy(isLoadingMcp = false, error = e.message) }
             }
@@ -555,11 +575,12 @@ class ClaudeCodeViewModel @Inject constructor(
 
     /** Read a file from a specific user's home directory */
     private suspend fun readFileForUser(user: SystemUser, relativePath: String): String? {
-        return if (user.username != connectedUsername) {
-            val fullPath = "${user.homeDirectory}/$relativePath"
-            sshRepository.readFileAsUser(fullPath, user.username).getOrNull()
+        val fullPath = "${user.homeDirectory}/$relativePath"
+        return if (user.username == connectedUsername) {
+            sshRepository.executeCommand("cat '$fullPath' 2>/dev/null").getOrNull()?.output?.takeIf { it.isNotBlank() }
         } else {
-            sshRepository.executeCommand("cat ~/$relativePath 2>/dev/null").getOrNull()?.output?.takeIf { it.isNotBlank() }
+            // Use sudo cat directly for other users' files
+            sshRepository.executeSudoCommand("cat '$fullPath' 2>/dev/null").getOrNull()?.output?.takeIf { it.isNotBlank() }
         }
     }
 
@@ -641,8 +662,15 @@ class ClaudeCodeViewModel @Inject constructor(
         }
     }
 
-    private fun loadSettings() {
+    private fun loadSettings(useCache: Boolean = false) {
         viewModelScope.launch {
+            if (useCache) {
+                val cached: String? = cacheManager.get(com.serverdash.app.core.cache.ScreenCacheManager.CLAUDE_CODE_SETTINGS)
+                if (cached != null) {
+                    _state.update { it.copy(settingsJson = cached, originalSettingsJson = cached, isLoadingSettings = false, editingSettings = false) }
+                    return@launch
+                }
+            }
             _state.update { it.copy(isLoadingSettings = true) }
             try {
                 val result = readClaudeFile(".claude/settings.json")
@@ -653,6 +681,7 @@ class ClaudeCodeViewModel @Inject constructor(
                             val parsed = Json.parseToJsonElement(raw)
                             json.encodeToString(JsonElement.serializer(), parsed)
                         } catch (e: Exception) { raw }
+                        cacheManager.put(com.serverdash.app.core.cache.ScreenCacheManager.CLAUDE_CODE_SETTINGS, formatted)
                         _state.update { it.copy(settingsJson = formatted, originalSettingsJson = formatted, isLoadingSettings = false, editingSettings = false) }
                     },
                     onFailure = { e ->
@@ -695,13 +724,21 @@ class ClaudeCodeViewModel @Inject constructor(
         }
     }
 
-    private fun loadClaudeMd() {
+    private fun loadClaudeMd(useCache: Boolean = false) {
         viewModelScope.launch {
+            if (useCache) {
+                val cached: String? = cacheManager.get(com.serverdash.app.core.cache.ScreenCacheManager.CLAUDE_CODE_CLAUDE_MD)
+                if (cached != null) {
+                    _state.update { it.copy(claudeMdContent = cached, isLoadingClaudeMd = false, editingClaudeMd = false) }
+                    return@launch
+                }
+            }
             _state.update { it.copy(isLoadingClaudeMd = true) }
             try {
                 val result = readClaudeFile(".claude/CLAUDE.md")
                 result.fold(
                     onSuccess = { content ->
+                        cacheManager.put(com.serverdash.app.core.cache.ScreenCacheManager.CLAUDE_CODE_CLAUDE_MD, content)
                         _state.update { it.copy(claudeMdContent = content, isLoadingClaudeMd = false, editingClaudeMd = false) }
                     },
                     onFailure = {
@@ -759,8 +796,13 @@ class ClaudeCodeViewModel @Inject constructor(
         } catch (e: Exception) { null }
     }
 
-    private fun loadOverview() {
+    private fun loadOverview(useCache: Boolean = false) {
         viewModelScope.launch {
+            if (useCache && !_state.value.isLoadingOverview && _state.value.diskUsage.isNotBlank()) {
+                // Overview data already in state from a recent load, check if cache is valid
+                val cached: Boolean? = cacheManager.get(com.serverdash.app.core.cache.ScreenCacheManager.CLAUDE_CODE_OVERVIEW)
+                if (cached == true) return@launch
+            }
             _state.update { it.copy(isLoadingOverview = true) }
             try {
                 val cmd = buildString {
@@ -814,6 +856,7 @@ class ClaudeCodeViewModel @Inject constructor(
                             .filter { it.sessionCount > 0 }
                             .sortedByDescending { it.lastModifiedEpoch }
 
+                        cacheManager.put(com.serverdash.app.core.cache.ScreenCacheManager.CLAUDE_CODE_OVERVIEW, true)
                         _state.update { it.copy(
                             diskUsage = diskUsage,
                             usageStats = stats,

@@ -22,13 +22,16 @@ import com.serverdash.app.presentation.screens.dashboard.DashboardScreen
 import com.serverdash.app.presentation.screens.detail.ServiceDetailScreen
 import com.serverdash.app.data.encryption.EncryptionManager
 import com.serverdash.app.presentation.screens.fleet.FleetScreen
+import com.serverdash.app.presentation.screens.editor.EditorWrapperViewModel
 import com.serverdash.app.presentation.screens.privacy.PrivacyScreen
 import com.serverdash.app.presentation.screens.git.GitScreen
 import com.serverdash.app.presentation.screens.guardian.GuardianScreen
 import com.serverdash.app.presentation.screens.security.SecurityScreen
 import com.serverdash.app.presentation.screens.settings.SettingsScreen
+import com.serverdash.app.presentation.screens.server.ServerScreen
 import com.serverdash.app.presentation.screens.setup.SetupScreen
 import com.serverdash.app.presentation.screens.terminal.TerminalScreen
+import com.serverdash.ide.ui.EditorScreen
 import com.serverdash.app.presentation.screens.theme.ThemeScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.lifecycle.ViewModel
@@ -52,9 +55,13 @@ sealed class Screen(val route: String) {
     data object Security : Screen("security")
     data object Git : Screen("git")
     data object Theme : Screen("theme")
+    data object Server : Screen("server")
     data object About : Screen("about")
     data object Privacy : Screen("privacy")
     data object ClaudeTerminal : Screen("claude_terminal")
+    data object Editor : Screen("editor?path={path}") {
+        fun createRoute(path: String = "/") = "editor?path=$path"
+    }
     data object ClaudeTerminalImmersive : Screen("claude_terminal_immersive?contextType={contextType}&param1={param1}&param2={param2}&param3={param3}") {
         fun createRoute(
             contextType: String = "",
@@ -138,6 +145,7 @@ fun ServerDashNavHost(widgetDeepLink: String? = null) {
                 onNavigateToFleet = { navController.navigate(Screen.Fleet.route) },
                 onNavigateToGuardian = { navController.navigate(Screen.Guardian.route) },
                 onNavigateToGit = { navController.navigate(Screen.Git.route) },
+                onNavigateToServer = { navController.navigate(Screen.Server.route) },
                 onNavigateToSecurity = { navController.navigate(Screen.Security.route) },
                 onNavigateToAbout = { navController.navigate(Screen.About.route) },
                 onDebugWithClaude = { serviceName, serviceType ->
@@ -231,6 +239,12 @@ fun ServerDashNavHost(widgetDeepLink: String? = null) {
             )
         }
 
+        composable(Screen.Server.route) {
+            ServerScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Screen.Theme.route) {
             ThemeScreen(
                 onNavigateBack = { navController.popBackStack() }
@@ -246,6 +260,19 @@ fun ServerDashNavHost(widgetDeepLink: String? = null) {
         composable(Screen.Privacy.route) {
             PrivacyScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.Editor.route,
+            arguments = listOf(
+                navArgument("path") { type = NavType.StringType; defaultValue = "/" },
+            ),
+        ) {
+            val wrapperViewModel: EditorWrapperViewModel = hiltViewModel()
+            EditorScreen(
+                viewModel = wrapperViewModel.editorViewModel,
+                initialPath = wrapperViewModel.initialPath,
             )
         }
 

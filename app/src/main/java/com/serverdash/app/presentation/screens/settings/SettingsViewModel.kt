@@ -101,6 +101,11 @@ sealed interface SettingsEvent {
     // App Lock
     data class UpdateAppLockEnabled(val enabled: Boolean) : SettingsEvent
     data class UpdateAppLockTimeout(val timeout: com.serverdash.app.domain.model.LockTimeout) : SettingsEvent
+    data class UpdateAppLockAuthMethod(val method: com.serverdash.app.domain.model.AppLockAuthMethod) : SettingsEvent
+    // Settings UI
+    data class UpdateSettingsDensity(val density: com.serverdash.app.domain.model.SettingsDensity) : SettingsEvent
+    // Cache
+    data class UpdateCacheTtl(val seconds: Int) : SettingsEvent
     // Kiosk
     data class UpdateKioskMode(val enabled: Boolean) : SettingsEvent
     data class UpdateAutoStart(val enabled: Boolean) : SettingsEvent
@@ -157,7 +162,11 @@ class SettingsViewModel @Inject constructor(
         when (event) {
             // Display
             is SettingsEvent.UpdateThemeMode -> updatePref { it.copy(themeMode = event.mode) }
-            is SettingsEvent.SelectTheme -> updatePref { it.copy(selectedThemeId = event.themeId) }
+            is SettingsEvent.SelectTheme -> updatePref {
+                val updatedUsage = it.recentThemeUsage.toMutableMap()
+                updatedUsage[event.themeId] = System.currentTimeMillis()
+                it.copy(selectedThemeId = event.themeId, recentThemeUsage = updatedUsage)
+            }
             is SettingsEvent.UpdateBrightness -> updatePref { it.copy(brightnessOverride = event.brightness) }
             is SettingsEvent.UpdateKeepScreenOn -> updatePref { it.copy(keepScreenOn = event.enabled) }
             is SettingsEvent.UpdatePixelShift -> updatePref { it.copy(pixelShiftEnabled = event.enabled) }
@@ -207,6 +216,11 @@ class SettingsViewModel @Inject constructor(
             // App Lock
             is SettingsEvent.UpdateAppLockEnabled -> updatePref { it.copy(appLockEnabled = event.enabled) }
             is SettingsEvent.UpdateAppLockTimeout -> updatePref { it.copy(appLockTimeout = event.timeout) }
+            is SettingsEvent.UpdateAppLockAuthMethod -> updatePref { it.copy(appLockAuthMethod = event.method) }
+            // Settings UI
+            is SettingsEvent.UpdateSettingsDensity -> updatePref { it.copy(settingsDensity = event.density) }
+            // Cache
+            is SettingsEvent.UpdateCacheTtl -> updatePref { it.copy(cacheTtlSeconds = event.seconds) }
             // Kiosk
             is SettingsEvent.UpdateKioskMode -> updatePref { it.copy(kioskMode = event.enabled) }
             is SettingsEvent.UpdateAutoStart -> updatePref { it.copy(autoStartOnBoot = event.enabled) }

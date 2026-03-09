@@ -22,6 +22,7 @@ class DashboardViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
 
+    private val appContext: android.content.Context = mockk(relaxed = true)
     private lateinit var serviceRepository: ServiceRepository
     private lateinit var serverRepository: ServerRepository
     private lateinit var sshRepository: SshRepository
@@ -33,6 +34,7 @@ class DashboardViewModelTest {
     private lateinit var evaluateAlertRules: EvaluateAlertRulesUseCase
     private lateinit var pluginRegistry: PluginRegistry
     private lateinit var fleetDiscoverServices: FleetDiscoverServicesUseCase
+    private val appLockManager: com.serverdash.app.core.security.AppLockManager = mockk(relaxed = true)
 
     @Before
     fun setup() {
@@ -68,9 +70,9 @@ class DashboardViewModelTest {
     }
 
     private fun createViewModel() = DashboardViewModel(
-        serviceRepository, serverRepository, sshRepository, metricsRepository, alertRepository,
+        appContext, serviceRepository, serverRepository, sshRepository, metricsRepository, alertRepository,
         preferencesRepository, refreshServiceStatus, fetchMetrics, evaluateAlertRules,
-        pluginRegistry, fleetDiscoverServices
+        pluginRegistry, fleetDiscoverServices, appLockManager
     )
 
     // -----------------------------------------------------------------------
@@ -103,6 +105,10 @@ class DashboardViewModelTest {
     fun `connection state is observed`() = runTest {
         val connState = ConnectionState(isConnected = true, lastConnected = 123)
         every { sshRepository.observeConnectionState() } returns flowOf(connState)
+        // Connected state triggers polling which calls refreshData
+        coEvery { refreshServiceStatus(any()) } returns Result.success(emptyList())
+        coEvery { fetchMetrics() } returns Result.success(SystemMetrics())
+        coEvery { evaluateAlertRules(any(), any(), any()) } returns emptyList()
 
         val vm = createViewModel()
         advanceUntilIdle()

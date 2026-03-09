@@ -15,10 +15,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import com.serverdash.app.core.security.AppLockManager
+import com.serverdash.app.domain.model.AppLockAuthMethod
 
 @Composable
 fun LockScreen(
     appLockManager: AppLockManager,
+    authMethod: AppLockAuthMethod = AppLockAuthMethod.ANY,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -28,6 +30,7 @@ fun LockScreen(
         activity?.let {
             appLockManager.authenticate(
                 activity = it,
+                authMethod = authMethod,
                 onSuccess = { /* isLocked state will update automatically */ },
                 onError = { msg ->
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
