@@ -22,10 +22,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import com.serverdash.app.presentation.screens.terminal.UnifiedTerminalScreen
 
 @Composable
 fun ImmersiveTerminalContainer(
-    initialPrompt: String? = null,
+    contextType: String = "",
+    contextParams: String = "",
     onNavigateToDashboard: () -> Unit,
     onNavigateToTerminal: () -> Unit,
     onNavigateToSettings: () -> Unit,
@@ -69,12 +71,12 @@ fun ImmersiveTerminalContainer(
     }
 
     Box(Modifier.fillMaxSize()) {
-        // Main terminal content
-        ClaudeTerminalScreen(
+        UnifiedTerminalScreen(
             onNavigateBack = onNavigateBack,
             isImmersive = true,
-            initialPrompt = initialPrompt,
-            onShowOverlay = { showOverlay = true }
+            isClaudeMode = true,
+            contextType = contextType,
+            contextParams = contextParams,
         )
 
         // Floating pill/chevron at the right edge

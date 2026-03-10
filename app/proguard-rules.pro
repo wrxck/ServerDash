@@ -25,6 +25,9 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
+# termlib (JNI native methods)
+-keep class org.connectbot.terminal.** { *; }
+
 # OkHttp
 -dontwarn okhttp3.internal.platform.**
 -dontwarn org.conscrypt.**
