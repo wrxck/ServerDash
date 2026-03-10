@@ -16,8 +16,8 @@ import androidx.navigation.navArgument
 import com.serverdash.app.domain.repository.ServerRepository
 import com.serverdash.app.presentation.screens.about.AboutScreen
 import com.serverdash.app.presentation.screens.claudecode.ClaudeCodeScreen
-import com.serverdash.app.presentation.screens.claudeterminal.ClaudeTerminalScreen
 import com.serverdash.app.presentation.screens.claudeterminal.ImmersiveTerminalContainer
+import com.serverdash.app.presentation.screens.terminal.UnifiedTerminalScreen
 import com.serverdash.app.presentation.screens.dashboard.DashboardScreen
 import com.serverdash.app.presentation.screens.detail.ServiceDetailScreen
 import com.serverdash.app.data.encryption.EncryptionManager
@@ -30,7 +30,6 @@ import com.serverdash.app.presentation.screens.security.SecurityScreen
 import com.serverdash.app.presentation.screens.settings.SettingsScreen
 import com.serverdash.app.presentation.screens.server.ServerScreen
 import com.serverdash.app.presentation.screens.setup.SetupScreen
-import com.serverdash.app.presentation.screens.terminal.TerminalScreen
 import com.serverdash.ide.ui.EditorScreen
 import com.serverdash.app.presentation.screens.theme.ThemeScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -183,8 +182,8 @@ fun ServerDashNavHost(widgetDeepLink: String? = null) {
         }
 
         composable(Screen.Terminal.route) {
-            TerminalScreen(
-                onNavigateBack = { navController.popBackStack() }
+            UnifiedTerminalScreen(
+                onNavigateBack = { navController.popBackStack() },
             )
         }
 
@@ -210,8 +209,9 @@ fun ServerDashNavHost(widgetDeepLink: String? = null) {
         }
 
         composable(Screen.ClaudeTerminal.route) {
-            ClaudeTerminalScreen(
-                onNavigateBack = { navController.popBackStack() }
+            UnifiedTerminalScreen(
+                onNavigateBack = { navController.popBackStack() },
+                isClaudeMode = true,
             )
         }
 
@@ -290,22 +290,13 @@ fun ServerDashNavHost(widgetDeepLink: String? = null) {
             val param2 = backStackEntry.arguments?.getString("param2") ?: ""
             val param3 = backStackEntry.arguments?.getString("param3") ?: ""
 
-            // Build initial prompt from context args
-            val initialPrompt = when (contextType) {
-                "service_debug" -> if (param1.isNotBlank()) {
-                    "Debug the $param2 service '$param1'. Check its status and recent logs, then diagnose the issue."
-                } else null
-                "metric_alert" -> if (param1.isNotBlank()) {
-                    "Analyze $param1 usage at $param2 (threshold: $param3). Find what's causing high usage."
-                } else null
-                "custom_error" -> if (param1.isNotBlank()) {
-                    "Help debug this error from $param2: $param1"
-                } else null
-                else -> null
-            }
+            val contextParams = listOf(param1, param2, param3)
+                .filter { it.isNotBlank() }
+                .joinToString("|")
 
             ImmersiveTerminalContainer(
-                initialPrompt = initialPrompt,
+                contextType = contextType,
+                contextParams = contextParams,
                 onNavigateToDashboard = {
                     navController.navigate(Screen.Dashboard.route) {
                         popUpTo(Screen.Dashboard.route) { inclusive = true }

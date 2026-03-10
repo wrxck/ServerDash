@@ -5,18 +5,19 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    kotlin("kapt")
 }
 
 android {
     namespace = "com.serverdash.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.serverdash.app"
         minSdk = 28
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.4.0"
+        versionCode = 6
+        versionName = "0.5.0"
 
         testInstrumentationRunner = "com.serverdash.app.HiltTestRunner"
     }
@@ -70,6 +71,10 @@ android {
     }
 }
 
+kapt {
+    correctErrorTypes = true
+}
+
 dependencies {
     // Compose BOM
     val composeBom = platform(libs.compose.bom)
@@ -95,7 +100,7 @@ dependencies {
 
     // Hilt
     implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
+    kapt(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
     // Room
@@ -115,6 +120,9 @@ dependencies {
 
     // SSH
     implementation(libs.sshj)
+
+    // Terminal emulator
+    implementation("org.connectbot:termlib:0.0.13")
 
     // Charts
     implementation(libs.vico.compose.m3)
@@ -158,7 +166,7 @@ dependencies {
     androidTestImplementation(libs.test.runner)
     androidTestImplementation(libs.test.rules)
     androidTestImplementation(libs.hilt.android.testing)
-    kspAndroidTest(libs.hilt.compiler)
+    kaptAndroidTest(libs.hilt.compiler)
     androidTestImplementation(libs.mockk.android)
     androidTestImplementation(libs.truth)
 }
