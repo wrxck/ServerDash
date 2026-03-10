@@ -227,6 +227,44 @@ fun ServerDashTheme(
     )
 }
 
+fun resolveEditorThemeColors(selectedThemeId: String, customThemes: List<AppTheme>): com.serverdash.ide.model.EditorThemeColors {
+    if (selectedThemeId != "default_dark" && selectedThemeId != "default_light" && selectedThemeId != "true_black") {
+        val theme = BuiltInThemes.findById(selectedThemeId)
+            ?: customThemes.find { it.id == selectedThemeId }
+        if (theme != null) {
+            val tc = theme.colors
+            return com.serverdash.ide.model.EditorThemeColors(
+                editorBackground = tc.editorBackground,
+                editorForeground = tc.editorForeground,
+                editorLineHighlight = tc.editorLineHighlight,
+                editorSelection = tc.editorSelection,
+                editorLineNumber = tc.editorLineNumber,
+                editorGutter = tc.editorGutter,
+                editorCursor = tc.editorCursor,
+                editorWhitespace = tc.editorWhitespace,
+                editorIndentGuide = tc.editorIndentGuide,
+                editorBracketMatch = tc.editorBracketMatch,
+                syntaxKeyword = tc.syntaxKeyword,
+                syntaxString = tc.syntaxString,
+                syntaxComment = tc.syntaxComment,
+                syntaxFunction = tc.syntaxFunction,
+                syntaxNumber = tc.syntaxNumber,
+                syntaxType = tc.syntaxType,
+                syntaxOperator = tc.syntaxOperator,
+                syntaxVariable = tc.syntaxVariable,
+                syntaxConstant = tc.syntaxConstant,
+                syntaxTag = tc.syntaxTag,
+                syntaxAttribute = tc.syntaxAttribute,
+                syntaxProperty = tc.syntaxProperty,
+                syntaxRegex = tc.syntaxRegex,
+                syntaxPunctuation = tc.syntaxPunctuation,
+            )
+        }
+    }
+    // Default themes: return empty (SyncThemeToMonaco falls back to MaterialTheme)
+    return com.serverdash.ide.model.EditorThemeColors()
+}
+
 fun resolveColorScheme(themeMode: ThemeMode, selectedThemeId: String, customThemes: List<AppTheme>, isDarkSystem: Boolean): Pair<ColorScheme, Boolean> {
     // Check if using a non-default theme
     if (selectedThemeId != "default_dark" && selectedThemeId != "default_light" && selectedThemeId != "true_black") {

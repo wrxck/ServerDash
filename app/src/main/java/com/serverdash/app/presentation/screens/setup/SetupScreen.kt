@@ -250,24 +250,75 @@ internal fun ConnectionStep(state: SetupUiState, onEvent: (SetupEvent) -> Unit) 
             }
         }
         item {
-            OutlinedTextField(
-                value = state.sudoPassword,
-                onValueChange = { onEvent(SetupEvent.UpdateSudoPassword(it)) },
-                label = { Text("Sudo Password") },
-                leadingIcon = { Icon(Icons.Default.AdminPanelSettings, null) },
-                trailingIcon = {
-                    IconButton(onClick = { sudoPasswordVisible = !sudoPasswordVisible }) {
-                        Icon(
-                            if (sudoPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            null
-                        )
-                    }
-                },
-                visualTransformation = if (sudoPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                supportingText = { Text("Leave blank for passwordless sudo") },
-                modifier = Modifier.fillMaxWidth().scrollOnFocus(sudoBiv),
-                singleLine = true
+            Text("Privileged Access", style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Required for reading root files, managing services, and system operations.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Spacer(Modifier.height(8.dp))
+
+            val rootOptions = listOf(
+                "none" to "None",
+                "same_key" to "Root SSH (same key as user)",
+                "separate_key" to "Root SSH (separate key)",
+                "sudo" to "Sudo password"
+            )
+            rootOptions.forEach { (value, label) ->
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = state.rootAccessType == value,
+                        onClick = { onEvent(SetupEvent.UpdateRootAccessType(value)) }
+                    )
+                    Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+
+            // Show sudo password field when "sudo" is selected
+            if (state.rootAccessType == "sudo") {
+                Spacer(Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = state.sudoPassword,
+                    onValueChange = { onEvent(SetupEvent.UpdateSudoPassword(it)) },
+                    label = { Text("Sudo Password") },
+                    leadingIcon = { Icon(Icons.Default.AdminPanelSettings, null) },
+                    trailingIcon = {
+                        IconButton(onClick = { sudoPasswordVisible = !sudoPasswordVisible }) {
+                            Icon(if (sudoPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
+                        }
+                    },
+                    visualTransformation = if (sudoPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth().scrollOnFocus(sudoBiv),
+                    singleLine = true
+                )
+            }
+
+            // Show separate key fields when "separate_key" is selected
+            if (state.rootAccessType == "separate_key") {
+                Spacer(Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = state.rootPrivateKey,
+                    onValueChange = { onEvent(SetupEvent.UpdateRootPrivateKey(it)) },
+                    label = { Text("Root Private Key") },
+                    leadingIcon = { Icon(Icons.Default.Key, null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 6
+                )
+                Spacer(Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = state.rootPassphrase,
+                    onValueChange = { onEvent(SetupEvent.UpdateRootPassphrase(it)) },
+                    label = { Text("Root Key Passphrase (optional)") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
         }
         item {
             state.connectionError?.let { error ->

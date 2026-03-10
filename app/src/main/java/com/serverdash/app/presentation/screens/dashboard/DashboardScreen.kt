@@ -56,7 +56,6 @@ fun DashboardScreen(
     val preferences by viewModel.preferences.collectAsState()
     val landscape = isLandscape()
     val configuration = LocalConfiguration.current
-    val isCompactScreen = configuration.screenWidthDp < 600
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val columns = when {
@@ -83,6 +82,44 @@ fun DashboardScreen(
             result = result.take(preferences.maxServicesDisplayed)
         }
         result
+    }
+
+    // Root SSH migration prompt
+    if (state.showRootSshMigration) {
+        AlertDialog(
+            onDismissRequest = { viewModel.onEvent(DashboardEvent.DismissRootSshMigration) },
+            icon = { Icon(Icons.Default.Key, null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("Switch to Root SSH") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "You're using key-based SSH authentication with a sudo password for privileged operations.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "If root SSH login is enabled on your server with the same key, you can switch to direct root SSH access. This is faster and more reliable than sudo password piping.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "To enable root SSH:\nsudo cp ~/.ssh/authorized_keys /root/.ssh/\nsudo sed -i 's/.*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config\nsudo systemctl reload ssh",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { viewModel.onEvent(DashboardEvent.MigrateToRootSsh) }) {
+                    Text("Use Root SSH")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.onEvent(DashboardEvent.DismissRootSshMigration) }) {
+                    Text("Keep Sudo")
+                }
+            }
+        )
     }
 
     // Encryption prompt for existing users
@@ -146,7 +183,7 @@ fun DashboardScreen(
                         IconButton(onClick = { viewModel.onEvent(DashboardEvent.ToggleSearchVisibility) }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close search")
                         }
-                    } else if (isCompactScreen) {
+                    } else {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, "Menu")
                         }
@@ -161,30 +198,6 @@ fun DashboardScreen(
                     if (state.isFiltered && !state.isSearchVisible) {
                         IconButton(onClick = { viewModel.onEvent(DashboardEvent.ClearFilters) }) {
                             Icon(Icons.Default.FilterListOff, "Clear filters")
-                        }
-                    }
-                    if (!isCompactScreen) {
-                        if (claudeCodeAvailable) {
-                            IconButton(onClick = onNavigateToClaudeCode) {
-                                Icon(Icons.Default.SmartToy, "Claude Code")
-                            }
-                        }
-                        IconButton(onClick = onNavigateToGit) {
-                            Icon(Icons.Default.Code, "Git")
-                        }
-                        IconButton(onClick = onNavigateToTerminal) {
-                            Icon(Icons.Default.Terminal, "Terminal")
-                        }
-                        IconButton(onClick = onNavigateToServer) {
-                            Icon(Icons.Default.Storage, "Server")
-                        }
-                        IconButton(onClick = onNavigateToSettings) {
-                            Icon(Icons.Default.Settings, "Settings")
-                        }
-                        if (preferences.appLockEnabled) {
-                            IconButton(onClick = { viewModel.onEvent(DashboardEvent.LockApp) }) {
-                                Icon(Icons.Default.Lock, "Lock", tint = MaterialTheme.colorScheme.error)
-                            }
                         }
                     }
                     Box {
@@ -428,54 +441,61 @@ fun DashboardScreen(
     }
     } // end scaffoldContent
 
-    if (isCompactScreen) {
-        ModalNavigationDrawer(
-            drawerState = drawerState,
-            drawerContent = {
-                ModalDrawerSheet(modifier = Modifier.width(280.dp)) {
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        "ServerDash",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(
+                modifier = Modifier.width(280.dp),
+                drawerContainerColor = MaterialTheme.colorScheme.surface,
+                drawerContentColor = MaterialTheme.colorScheme.onSurface,
+            ) {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "ServerDash",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+                if (claudeCodeAvailable) {
+                    DrawerNavItem(Icons.Default.SmartToy, "Claude Code") {
+                        scope.launch { drawerState.close() }; onNavigateToClaudeCode()
+                    }
+                }
+                DrawerNavItem(Icons.Default.Code, "Git") {
+                    scope.launch { drawerState.close() }; onNavigateToGit()
+                }
+                DrawerNavItem(Icons.Default.Terminal, "Terminal") {
+                    scope.launch { drawerState.close() }; onNavigateToTerminal()
+                }
+                DrawerNavItem(Icons.Default.Storage, "Server") {
+                    scope.launch { drawerState.close() }; onNavigateToServer()
+                }
+                DrawerNavItem(Icons.Default.Settings, "Settings") {
+                    scope.launch { drawerState.close() }; onNavigateToSettings()
+                }
+                DrawerNavItem(Icons.Default.Shield, "Security") {
+                    scope.launch { drawerState.close() }; onNavigateToSecurity()
+                }
+                DrawerNavItem(Icons.Default.Info, "About") {
+                    scope.launch { drawerState.close() }; onNavigateToAbout()
+                }
+                if (preferences.appLockEnabled) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant,
                     )
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    if (claudeCodeAvailable) {
-                        DrawerNavItem(Icons.Default.SmartToy, "Claude Code") {
-                            scope.launch { drawerState.close() }; onNavigateToClaudeCode()
-                        }
-                    }
-                    DrawerNavItem(Icons.Default.Code, "Git") {
-                        scope.launch { drawerState.close() }; onNavigateToGit()
-                    }
-                    DrawerNavItem(Icons.Default.Terminal, "Terminal") {
-                        scope.launch { drawerState.close() }; onNavigateToTerminal()
-                    }
-                    DrawerNavItem(Icons.Default.Storage, "Server") {
-                        scope.launch { drawerState.close() }; onNavigateToServer()
-                    }
-                    DrawerNavItem(Icons.Default.Settings, "Settings") {
-                        scope.launch { drawerState.close() }; onNavigateToSettings()
-                    }
-                    DrawerNavItem(Icons.Default.Shield, "Security") {
-                        scope.launch { drawerState.close() }; onNavigateToSecurity()
-                    }
-                    DrawerNavItem(Icons.Default.Info, "About") {
-                        scope.launch { drawerState.close() }; onNavigateToAbout()
-                    }
-                    if (preferences.appLockEnabled) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        DrawerNavItem(Icons.Default.Lock, "Lock App", tint = MaterialTheme.colorScheme.error) {
-                            scope.launch { drawerState.close() }
-                            viewModel.onEvent(DashboardEvent.LockApp)
-                        }
+                    DrawerNavItem(Icons.Default.Lock, "Lock App", tint = MaterialTheme.colorScheme.error) {
+                        scope.launch { drawerState.close() }
+                        viewModel.onEvent(DashboardEvent.LockApp)
                     }
                 }
             }
-        ) {
-            scaffoldContent()
         }
-    } else {
+    ) {
         scaffoldContent()
     }
 }

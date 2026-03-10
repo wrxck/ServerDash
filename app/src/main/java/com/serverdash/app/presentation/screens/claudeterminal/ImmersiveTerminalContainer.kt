@@ -87,7 +87,7 @@ fun ImmersiveTerminalContainer(
                     .width(4.dp)
                     .height(48.dp)
                     .clip(RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp))
-                    .background(Color.White.copy(alpha = 0.3f))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
                     .clickable { showOverlay = true }
             )
         }

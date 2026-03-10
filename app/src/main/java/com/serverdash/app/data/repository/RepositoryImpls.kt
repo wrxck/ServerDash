@@ -90,11 +90,11 @@ class SshRepositoryImpl @Inject constructor(
     override suspend fun writeFile(path: String, content: String) = sshManager.writeFile(path, content)
     override fun observeConnectionState(): Flow<ConnectionState> = sshManager.connectionState
     override suspend fun isConnected(): Boolean = sshManager.isConnected()
-    override fun wrapWithSudo(command: String): String = sshManager.wrapWithSudo(command)
     override suspend fun executeAsUser(command: String, username: String) = sshManager.executeAsUser(command, username)
     override suspend fun readFileAsUser(path: String, username: String) = sshManager.readFileAsUser(path, username)
     override suspend fun writeFileAsUser(path: String, content: String, username: String) = sshManager.writeFileAsUser(path, content, username)
     override fun getConnectedUsername(): String? = sshManager.getConnectedUsername()
+    override fun hasRootAccess(): Boolean = sshManager.hasRootAccess()
 }
 
 @Singleton

@@ -30,6 +30,8 @@ import com.serverdash.app.core.theme.BuiltInThemes
 import com.serverdash.app.core.theme.ServerDashTheme
 import com.serverdash.app.core.theme.loadGoogleFont
 import com.serverdash.app.core.theme.resolveColorScheme
+import com.serverdash.app.core.theme.resolveEditorThemeColors
+import com.serverdash.ide.model.LocalEditorThemeColors
 import com.serverdash.app.data.preferences.PreferencesManager
 import com.serverdash.app.domain.model.ThemeMode
 import com.serverdash.app.presentation.navigation.ServerDashNavHost
@@ -73,6 +75,9 @@ class MainActivity : FragmentActivity() {
             val (colorScheme, isDark) = remember(preferences.themeMode, preferences.selectedThemeId, customThemes, isDarkSystem) {
                 resolveColorScheme(preferences.themeMode, preferences.selectedThemeId, customThemes, isDarkSystem)
             }
+            val editorThemeColors = remember(preferences.selectedThemeId, customThemes) {
+                resolveEditorThemeColors(preferences.selectedThemeId, customThemes)
+            }
 
             // Apply display settings
             if (preferences.keepScreenOn) {
@@ -90,7 +95,10 @@ class MainActivity : FragmentActivity() {
             val headerFontFamily = remember(preferences.headerFont) { loadGoogleFont(preferences.headerFont) }
             val bodyFontFamily = remember(preferences.bodyFont) { loadGoogleFont(preferences.bodyFont) }
 
-            CompositionLocalProvider(LocalPrivacyFilter provides privacyFilter) {
+            CompositionLocalProvider(
+                LocalPrivacyFilter provides privacyFilter,
+                LocalEditorThemeColors provides editorThemeColors,
+            ) {
                 ServerDashTheme(
                     themeMode = preferences.themeMode,
                     customColorScheme = colorScheme,

@@ -32,11 +32,11 @@ interface SshRepository {
     suspend fun writeFile(path: String, content: String): Result<Unit>
     fun observeConnectionState(): Flow<ConnectionState>
     suspend fun isConnected(): Boolean
-    fun wrapWithSudo(command: String): String
     suspend fun executeAsUser(command: String, username: String): Result<CommandResult>
     suspend fun readFileAsUser(path: String, username: String): Result<String>
     suspend fun writeFileAsUser(path: String, content: String, username: String): Result<Unit>
     fun getConnectedUsername(): String?
+    fun hasRootAccess(): Boolean
 }
 
 interface MetricsRepository {

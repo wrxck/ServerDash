@@ -97,6 +97,7 @@ class PreferencesManager @Inject constructor(
         val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
         val APP_LOCK_TIMEOUT = stringPreferencesKey("app_lock_timeout")
         val APP_LOCK_AUTH_METHOD = stringPreferencesKey("app_lock_auth_method")
+        val LOCK_ON_DEVICE_LOCK = booleanPreferencesKey("lock_on_device_lock")
         // Settings UI
         val SETTINGS_DENSITY = stringPreferencesKey("settings_density")
         // Recent themes
@@ -191,6 +192,7 @@ class PreferencesManager @Inject constructor(
         appLockEnabled = prefs[Keys.APP_LOCK_ENABLED] ?: false,
         appLockTimeout = try { LockTimeout.valueOf(prefs[Keys.APP_LOCK_TIMEOUT] ?: LockTimeout.IMMEDIATE.name) } catch (e: Exception) { LockTimeout.IMMEDIATE },
         appLockAuthMethod = try { AppLockAuthMethod.valueOf(prefs[Keys.APP_LOCK_AUTH_METHOD] ?: AppLockAuthMethod.ANY.name) } catch (e: Exception) { AppLockAuthMethod.ANY },
+        lockOnDeviceLock = prefs[Keys.LOCK_ON_DEVICE_LOCK] ?: true,
         // Settings UI
         settingsDensity = try { SettingsDensity.valueOf(prefs[Keys.SETTINGS_DENSITY] ?: SettingsDensity.COMPACT.name) } catch (e: Exception) { SettingsDensity.COMPACT },
         // Recent themes
@@ -281,6 +283,7 @@ class PreferencesManager @Inject constructor(
             prefs[Keys.APP_LOCK_ENABLED] = updated.appLockEnabled
             prefs[Keys.APP_LOCK_TIMEOUT] = updated.appLockTimeout.name
             prefs[Keys.APP_LOCK_AUTH_METHOD] = updated.appLockAuthMethod.name
+            prefs[Keys.LOCK_ON_DEVICE_LOCK] = updated.lockOnDeviceLock
             // Settings UI
             prefs[Keys.SETTINGS_DENSITY] = updated.settingsDensity.name
             // Recent themes

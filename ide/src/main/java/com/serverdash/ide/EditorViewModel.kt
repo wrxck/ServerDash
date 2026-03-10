@@ -17,6 +17,12 @@ class EditorViewModel(
     private val _state = MutableStateFlow(EditorState())
     val state: StateFlow<EditorState> = _state.asStateFlow()
 
+    /** Open a file by its absolute path (derives name from path) */
+    fun openFileByPath(path: String) {
+        val name = path.substringAfterLast('/')
+        openFile(RemoteFile(name = name, path = path, isDirectory = false))
+    }
+
     fun openFile(remoteFile: RemoteFile) {
         val existingIndex = _state.value.openFiles.indexOfFirst { it.path == remoteFile.path }
         if (existingIndex >= 0) {

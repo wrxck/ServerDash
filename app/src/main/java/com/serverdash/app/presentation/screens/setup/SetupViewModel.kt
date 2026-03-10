@@ -24,6 +24,9 @@ data class SetupUiState(
     val discoveredServices: List<Service> = emptyList(),
     val selectedServices: Set<String> = emptySet(),
     val sudoPassword: String = "",
+    val rootAccessType: String = "none", // "none", "sudo", "same_key", "separate_key"
+    val rootPrivateKey: String = "",
+    val rootPassphrase: String = "",
     val isComplete: Boolean = false,
     val serverId: Long = 1L
 )
@@ -37,6 +40,9 @@ sealed interface SetupEvent {
     data class UpdatePrivateKey(val key: String) : SetupEvent
     data class UpdatePassphrase(val passphrase: String) : SetupEvent
     data class UpdateSudoPassword(val password: String) : SetupEvent
+    data class UpdateRootAccessType(val type: String) : SetupEvent
+    data class UpdateRootPrivateKey(val key: String) : SetupEvent
+    data class UpdateRootPassphrase(val passphrase: String) : SetupEvent
     data object Connect : SetupEvent
     data object DiscoverServices : SetupEvent
     data class ToggleService(val serviceName: String) : SetupEvent
@@ -66,6 +72,9 @@ class SetupViewModel @Inject constructor(
             is SetupEvent.UpdatePrivateKey -> _state.update { it.copy(privateKey = event.key) }
             is SetupEvent.UpdatePassphrase -> _state.update { it.copy(passphrase = event.passphrase) }
             is SetupEvent.UpdateSudoPassword -> _state.update { it.copy(sudoPassword = event.password) }
+            is SetupEvent.UpdateRootAccessType -> _state.update { it.copy(rootAccessType = event.type) }
+            is SetupEvent.UpdateRootPrivateKey -> _state.update { it.copy(rootPrivateKey = event.key) }
+            is SetupEvent.UpdateRootPassphrase -> _state.update { it.copy(rootPassphrase = event.passphrase) }
             is SetupEvent.Connect -> connect()
             is SetupEvent.DiscoverServices -> discover()
             is SetupEvent.ToggleService -> toggleService(event.serviceName)
@@ -89,12 +98,19 @@ class SetupViewModel @Inject constructor(
             } else {
                 AuthMethod.Password(s.password)
             }
+            val rootAccess = when (s.rootAccessType) {
+                "sudo" -> RootAccess.SudoPassword
+                "same_key" -> RootAccess.SameKeyAsUser
+                "separate_key" -> RootAccess.SeparateKey(s.rootPrivateKey, s.rootPassphrase)
+                else -> RootAccess.None
+            }
             val config = ServerConfig(
                 host = s.host,
                 port = s.port.toIntOrNull() ?: 22,
                 username = s.username,
                 authMethod = authMethod,
-                sudoPassword = s.sudoPassword
+                sudoPassword = if (s.rootAccessType == "sudo") s.sudoPassword else "",
+                rootAccess = rootAccess
             )
             connectToServer(config).fold(
                 onSuccess = { id -> _state.update { it.copy(isConnecting = false, currentStep = 1, serverId = id) } },

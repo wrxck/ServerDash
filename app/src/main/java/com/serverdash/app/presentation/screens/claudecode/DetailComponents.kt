@@ -30,7 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.serverdash.app.core.util.MarkdownView
+import com.serverdash.app.core.util.CodeEditorField
 import kotlinx.serialization.json.*
 
 @Composable
@@ -119,9 +119,9 @@ private val jsonFormatter = Json { prettyPrint = true; ignoreUnknownKeys = true 
 @Composable
 private fun syntaxHighlight(jsonStr: String): AnnotatedString {
     val keyColor = MaterialTheme.colorScheme.primary
-    val stringColor = Color(0xFF66BB6A)
-    val numberColor = Color(0xFFF0B866)
-    val boolNullColor = Color(0xFFCBB2F0)
+    val stringColor = MaterialTheme.colorScheme.tertiary
+    val numberColor = MaterialTheme.colorScheme.secondary
+    val boolNullColor = MaterialTheme.colorScheme.tertiaryContainer
     val braceColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     return remember(jsonStr) {
@@ -169,10 +169,10 @@ private fun getRoleFromLine(line: String): String? {
 @Composable
 private fun roleColor(role: String?): Color {
     return when (role) {
-        "user" -> Color(0xFF5CCFE6)
-        "assistant" -> Color(0xFF66BB6A)
-        "system" -> Color(0xFFF0B866)
-        "tool_use", "tool_result", "tool" -> Color(0xFFCBB2F0)
+        "user" -> MaterialTheme.colorScheme.primary
+        "assistant" -> MaterialTheme.colorScheme.tertiary
+        "system" -> MaterialTheme.colorScheme.secondary
+        "tool_use", "tool_result", "tool" -> MaterialTheme.colorScheme.tertiaryContainer
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 }
@@ -492,31 +492,13 @@ private fun JsonlEntryCard(
 // ── Plans Detail ───────────────────────────────────────────────────
 
 @Composable
-internal fun PlansDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
-    if (state.selectedPlanContent != null) {
-        AlertDialog(
-            onDismissRequest = { viewModel.onEvent(ClaudeCodeEvent.DismissPlanContent) },
-            title = { Text(state.selectedPlanName ?: "Plan") },
-            text = {
-                val isPlanMd = state.selectedPlanName?.endsWith(".md") == true
-                if (isPlanMd) {
-                    MarkdownView(
-                        markdown = state.selectedPlanContent,
-                        modifier = Modifier.heightIn(max = 500.dp)
-                    )
-                } else {
-                    Text(
-                        state.selectedPlanContent,
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.DismissPlanContent) }) { Text("Close") }
-            }
-        )
-    }
-
+internal fun PlansDetailView(
+    state: ClaudeCodeUiState,
+    viewModel: ClaudeCodeViewModel,
+    onOpenInEditor: (String, String) -> Unit = { _, _ -> },
+    selectedHome: String = "",
+    selectedUsername: String = ""
+) {
     Column(Modifier.fillMaxSize()) {
         DetailHeader(
             "Plans (${state.plansList.size})",
@@ -556,7 +538,7 @@ internal fun PlansDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeView
 
                     Card(
                         Modifier.fillMaxWidth().clickable {
-                            viewModel.onEvent(ClaudeCodeEvent.ViewPlan(plan))
+                            onOpenInEditor("$selectedHome/.claude/plans/${plan.path}", selectedUsername)
                         }
                     ) {
                         Row(
@@ -656,22 +638,13 @@ internal fun PluginsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeVi
 // ── Hooks Detail (CRUD) ────────────────────────────────────────────
 
 @Composable
-internal fun HooksDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
-    // Edit/Add dialog
-    if (state.editingHook != null) {
-        ScriptEditorDialog(
-            title = if (state.isAddingHook) "New Hook Script" else "Edit Hook",
-            filename = state.editingHook.filename,
-            content = state.editingHook.content,
-            onDismiss = { viewModel.onEvent(ClaudeCodeEvent.DismissHookDialog) },
-            onSave = { name, content ->
-                viewModel.onEvent(ClaudeCodeEvent.SaveHook(
-                    originalName = if (state.isAddingHook) null else state.editingHook.filename,
-                    hook = HookScript(filename = name, content = content)
-                ))
-            }
-        )
-    }
+internal fun HooksDetailView(
+    state: ClaudeCodeUiState,
+    viewModel: ClaudeCodeViewModel,
+    onOpenInEditor: (String, String) -> Unit = { _, _ -> },
+    selectedHome: String = "",
+    selectedUsername: String = ""
+) {
 
     Column(Modifier.fillMaxSize()) {
         DetailHeader(
@@ -727,7 +700,7 @@ internal fun HooksDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeView
                     Card(Modifier.fillMaxWidth()) {
                         Row(
                             Modifier.padding(16.dp).clickable {
-                                viewModel.onEvent(ClaudeCodeEvent.EditHook(hook))
+                                onOpenInEditor("$selectedHome/.claude/hooks/${hook.filename}", selectedUsername)
                             },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -739,7 +712,9 @@ internal fun HooksDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeView
                                 fontFamily = FontFamily.Monospace,
                                 modifier = Modifier.weight(1f)
                             )
-                            IconButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.EditHook(hook)) }) {
+                            IconButton(onClick = {
+                                onOpenInEditor("$selectedHome/.claude/hooks/${hook.filename}", selectedUsername)
+                            }) {
                                 Icon(Icons.Default.Edit, "Edit", Modifier.size(20.dp))
                             }
                             IconButton(onClick = { showDeleteConfirm = true }) {
@@ -756,21 +731,13 @@ internal fun HooksDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeView
 // ── Skills Detail (CRUD) ───────────────────────────────────────────
 
 @Composable
-internal fun SkillsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
-    if (state.editingSkill != null) {
-        ScriptEditorDialog(
-            title = if (state.isAddingSkill) "New Custom Skill" else "Edit Skill",
-            filename = state.editingSkill.filename,
-            content = state.editingSkill.content,
-            onDismiss = { viewModel.onEvent(ClaudeCodeEvent.DismissSkillDialog) },
-            onSave = { name, content ->
-                viewModel.onEvent(ClaudeCodeEvent.SaveSkill(
-                    originalName = if (state.isAddingSkill) null else state.editingSkill.filename,
-                    skill = SkillScript(filename = name, content = content)
-                ))
-            }
-        )
-    }
+internal fun SkillsDetailView(
+    state: ClaudeCodeUiState,
+    viewModel: ClaudeCodeViewModel,
+    onOpenInEditor: (String, String) -> Unit = { _, _ -> },
+    selectedHome: String = "",
+    selectedUsername: String = ""
+) {
 
     Column(Modifier.fillMaxSize()) {
         DetailHeader(
@@ -826,7 +793,7 @@ internal fun SkillsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeVie
                     Card(Modifier.fillMaxWidth()) {
                         Row(
                             Modifier.padding(16.dp).clickable {
-                                viewModel.onEvent(ClaudeCodeEvent.EditSkill(skill))
+                                onOpenInEditor("$selectedHome/.claude/skills/${skill.filename}", selectedUsername)
                             },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -838,7 +805,9 @@ internal fun SkillsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeVie
                                 fontFamily = FontFamily.Monospace,
                                 modifier = Modifier.weight(1f)
                             )
-                            IconButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.EditSkill(skill)) }) {
+                            IconButton(onClick = {
+                                onOpenInEditor("$selectedHome/.claude/skills/${skill.filename}", selectedUsername)
+                            }) {
                                 Icon(Icons.Default.Edit, "Edit", Modifier.size(20.dp))
                             }
                             IconButton(onClick = { showDeleteConfirm = true }) {
@@ -852,73 +821,16 @@ internal fun SkillsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeVie
     }
 }
 
-// ── Shared Script Editor Dialog ────────────────────────────────────
-
-@Composable
-private fun ScriptEditorDialog(
-    title: String,
-    filename: String,
-    content: String,
-    onDismiss: () -> Unit,
-    onSave: (name: String, content: String) -> Unit
-) {
-    var editName by remember { mutableStateOf(filename) }
-    var editContent by remember { mutableStateOf(content) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = editName,
-                    onValueChange = { editName = it },
-                    label = { Text("Filename") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
-                )
-                OutlinedTextField(
-                    value = editContent,
-                    onValueChange = { editContent = it },
-                    label = { Text("Content") },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp),
-                    textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    minLines = 8
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onSave(editName.trim(), editContent) },
-                enabled = editName.isNotBlank()
-            ) { Text("Save") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
-    )
-}
-
 // ── Projects Detail (reuses existing tab but with detail header) ───
 
 @Composable
-internal fun ProjectsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
-    if (state.selectedProjectMemory != null) {
-        AlertDialog(
-            onDismissRequest = { viewModel.onEvent(ClaudeCodeEvent.DismissProjectMemory) },
-            title = { Text(state.selectedProjectName ?: "Memory") },
-            text = {
-                Text(
-                    state.selectedProjectMemory,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.DismissProjectMemory) }) { Text("Close") }
-            }
-        )
-    }
+internal fun ProjectsDetailView(
+    state: ClaudeCodeUiState,
+    viewModel: ClaudeCodeViewModel,
+    onOpenInEditor: (String, String) -> Unit = { _, _ -> },
+    selectedHome: String = "",
+    selectedUsername: String = ""
+) {
 
     Column(Modifier.fillMaxSize()) {
         DetailHeader(
@@ -938,11 +850,7 @@ internal fun ProjectsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeV
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(state.projects) { project ->
-                    Card(
-                        Modifier.fillMaxWidth().clickable {
-                            if (project.hasMemory) viewModel.onEvent(ClaudeCodeEvent.ViewProjectMemory(project))
-                        }
-                    ) {
+                    Card(Modifier.fillMaxWidth()) {
                         Row(
                             Modifier.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -957,8 +865,16 @@ internal fun ProjectsDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeV
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            // CLAUDE.md — open in IDE
+                            IconButton(onClick = {
+                                onOpenInEditor("${project.displayName}/CLAUDE.md", selectedUsername)
+                            }) {
+                                Icon(Icons.Default.Description, "CLAUDE.md", tint = MaterialTheme.colorScheme.primary)
+                            }
                             if (project.hasMemory) {
-                                IconButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.ViewProjectMemory(project)) }) {
+                                IconButton(onClick = {
+                                    onOpenInEditor("$selectedHome/.claude/projects/${project.path}/memory/MEMORY.md", selectedUsername)
+                                }) {
                                     Icon(Icons.Default.Psychology, "View Memory", tint = MaterialTheme.colorScheme.tertiary)
                                 }
                             }
@@ -1142,7 +1058,12 @@ internal fun UsageDetailView(state: ClaudeCodeUiState, viewModel: ClaudeCodeView
                         Column(Modifier.padding(16.dp)) {
                             Text("Raw Usage Data", style = MaterialTheme.typography.titleMedium)
                             Spacer(Modifier.height(8.dp))
-                            Text(state.usageStats, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                            CodeEditorField(
+                                content = state.usageStats,
+                                language = "json",
+                                modifier = Modifier.fillMaxWidth(),
+                                showLineNumbers = false
+                            )
                         }
                     }
                 }

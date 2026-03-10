@@ -1,11 +1,14 @@
 package com.serverdash.app.core.security
 
+import android.app.KeyguardManager
+import android.content.Context
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.serverdash.app.data.preferences.PreferencesManager
 import com.serverdash.app.domain.model.AppLockAuthMethod
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,12 +18,14 @@ import javax.inject.Singleton
 
 @Singleton
 class AppLockManager @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val preferencesManager: PreferencesManager
 ) {
     private val _isLocked = MutableStateFlow(false)
     val isLocked: StateFlow<Boolean> = _isLocked.asStateFlow()
 
     private var lastAuthenticatedTime: Long = 0L
+    private var wasDeviceLocked: Boolean = false
 
     /**
      * Called when the app resumes. Checks if the app should be locked
@@ -32,6 +37,18 @@ class AppLockManager @Inject constructor(
             _isLocked.value = false
             return
         }
+
+        // If device is currently locked or was locked while we were in background,
+        // force re-authentication regardless of timeout
+        if (prefs.lockOnDeviceLock) {
+            val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+            if (keyguardManager?.isDeviceLocked == true || wasDeviceLocked) {
+                wasDeviceLocked = false
+                _isLocked.value = true
+                return
+            }
+        }
+
         val elapsed = System.currentTimeMillis() - lastAuthenticatedTime
         val timeoutMs = prefs.appLockTimeout.seconds * 1000L
         if (lastAuthenticatedTime == 0L || elapsed > timeoutMs) {
@@ -40,10 +57,11 @@ class AppLockManager @Inject constructor(
     }
 
     /**
-     * Called when the app goes to background. Records the time for timeout calculation.
+     * Called when the app goes to background. Checks if device screen is locked.
      */
     fun onAppPaused() {
-        // Time is already tracked via lastAuthenticatedTime
+        val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        wasDeviceLocked = keyguardManager?.isKeyguardLocked == true
     }
 
     private fun getAuthenticators(authMethod: AppLockAuthMethod): Int = when (authMethod) {

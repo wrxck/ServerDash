@@ -13,7 +13,12 @@ class FleetPlugin : ServerPlugin {
 
     override suspend fun detect(sshRepository: SshRepository): Boolean {
         return try {
-            val result = sshRepository.executeCommand("which fleet 2>/dev/null")
+            // Fleet is typically installed as root — try root first, then user
+            val result = if (sshRepository.hasRootAccess()) {
+                sshRepository.executeSudoCommand("which fleet 2>/dev/null")
+            } else {
+                sshRepository.executeCommand("which fleet 2>/dev/null")
+            }
             result.getOrNull()?.exitCode == 0 &&
                 result.getOrNull()?.output?.trim()?.isNotBlank() == true
         } catch (e: Exception) { false }

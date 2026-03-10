@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.serverdash.app.core.util.CodeEditorField
 import com.serverdash.app.domain.model.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,7 +47,14 @@ fun GitScreen(
         AlertDialog(
             onDismissRequest = { viewModel.onEvent(GitEvent.DismissOperationOutput) },
             title = { Text("Output") },
-            text = { Text(state.operationOutput!!, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)) },
+            text = {
+                CodeEditorField(
+                    content = state.operationOutput!!,
+                    language = "sh",
+                    modifier = Modifier.fillMaxWidth(),
+                    maxHeight = 400.dp
+                )
+            },
             confirmButton = { TextButton(onClick = { viewModel.onEvent(GitEvent.DismissOperationOutput) }) { Text("OK") } }
         )
     }

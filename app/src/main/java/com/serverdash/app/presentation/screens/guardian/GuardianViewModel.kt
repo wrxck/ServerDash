@@ -45,8 +45,8 @@ class GuardianViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             try {
-                // Get guardian version
-                val versionResult = sshRepository.executeCommand("guardiand --version 2>/dev/null")
+                // Get guardian version (guardiand is typically root-only)
+                val versionResult = sshRepository.executeSudoCommand("guardiand --version 2>/dev/null")
                 val version = versionResult.getOrNull()?.output?.trim() ?: ""
 
                 // Get guardian status

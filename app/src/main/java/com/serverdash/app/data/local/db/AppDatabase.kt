@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Database(
     entities = [ServerConfigEntity::class, ServiceEntity::class, MetricsEntity::class, AlertRuleEntity::class, AlertEntity::class, TerminalHistoryEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -42,7 +42,10 @@ data class ServerConfigEntity(
     val privateKey: String = "",
     val passphrase: String = "",
     val label: String = "",
-    val sudoPassword: String = ""
+    val sudoPassword: String = "",
+    @ColumnInfo(defaultValue = "") val rootAuthType: String = "",  // "", "sudo", "same_key", "separate_key"
+    @ColumnInfo(defaultValue = "") val rootPrivateKey: String = "",
+    @ColumnInfo(defaultValue = "") val rootPassphrase: String = ""
 )
 
 @Entity(

@@ -17,6 +17,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.serverdash.app.core.bugreport.BugReportDialog
+import com.serverdash.app.core.bugreport.BugReportManager
 import com.serverdash.app.core.privacy.redact
 import com.serverdash.app.domain.model.*
 
@@ -47,6 +49,16 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { viewModel.onEvent(SettingsEvent.DismissDisconnect) }) { Text("Cancel") }
             }
+        )
+    }
+
+    // Bug report dialog
+    var showBugReport by remember { mutableStateOf(false) }
+    if (showBugReport) {
+        val bugReportManager = remember { BugReportManager() }
+        BugReportDialog(
+            bugReportManager = bugReportManager,
+            onDismiss = { showBugReport = false }
         )
     }
 
@@ -220,6 +232,15 @@ fun SettingsScreen(
                                 }
                             }
                         }
+                    }
+                }
+                item {
+                    SwitchSetting(
+                        "Lock after device lock",
+                        state.preferences.lockOnDeviceLock,
+                        subtitle = "Re-authenticate if the screen was locked"
+                    ) {
+                        viewModel.onEvent(SettingsEvent.UpdateLockOnDeviceLock(it))
                     }
                 }
             }
@@ -875,6 +896,18 @@ fun SettingsScreen(
                             }
                         }
                     }
+                }
+            }
+
+            // ── Report Bug ──
+            item {
+                OutlinedButton(
+                    onClick = { showBugReport = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.BugReport, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Report a Bug")
                 }
             }
 

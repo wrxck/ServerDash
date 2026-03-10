@@ -114,6 +114,7 @@ dependencies {
     // WorkManager
     implementation(libs.workmanager)
     implementation(libs.workmanager.hilt)
+    ksp(libs.workmanager.hilt.compiler)
 
     // Navigation
     implementation(libs.navigation.compose)

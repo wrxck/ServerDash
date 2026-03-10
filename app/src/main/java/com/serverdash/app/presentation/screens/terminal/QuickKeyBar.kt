@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,7 +20,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,12 +45,6 @@ private object VTermKey {
 private const val VTERM_MOD_SHIFT = 1
 private const val VTERM_MOD_ALT = 2
 private const val VTERM_MOD_CTRL = 4
-
-private val BarBackground = Color(0xFF16161E)
-private val KeyBackground = Color(0xFF292E42)
-private val KeyForeground = Color(0xFF7AA2F7)
-private val ActiveToggleBackground = Color(0xFF7AA2F7)
-private val ActiveToggleForeground = Color(0xFF16161E)
 
 @Composable
 fun QuickKeyBar(
@@ -88,7 +82,7 @@ fun QuickKeyBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(BarBackground)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
             .horizontalScroll(rememberScrollState())
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -125,8 +119,8 @@ private fun QuickKey(
     isActive: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val backgroundColor = if (isActive) ActiveToggleBackground else KeyBackground
-    val contentColor = if (isActive) ActiveToggleForeground else KeyForeground
+    val backgroundColor = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh
+    val contentColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
 
     Surface(
         onClick = onClick,

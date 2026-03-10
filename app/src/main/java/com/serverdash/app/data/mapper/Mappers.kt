@@ -13,7 +13,13 @@ fun ServerConfigEntity.toDomain(): ServerConfig = ServerConfig(
         else -> AuthMethod.Password(password)
     },
     label = label,
-    sudoPassword = sudoPassword
+    sudoPassword = sudoPassword,
+    rootAccess = when (rootAuthType) {
+        "sudo" -> RootAccess.SudoPassword
+        "same_key" -> RootAccess.SameKeyAsUser
+        "separate_key" -> RootAccess.SeparateKey(rootPrivateKey, rootPassphrase)
+        else -> if (sudoPassword.isNotBlank()) RootAccess.SudoPassword else RootAccess.None
+    }
 )
 
 fun ServerConfig.toEntity(): ServerConfigEntity = ServerConfigEntity(
@@ -29,7 +35,15 @@ fun ServerConfig.toEntity(): ServerConfigEntity = ServerConfigEntity(
     privateKey = (authMethod as? AuthMethod.KeyBased)?.privateKey ?: "",
     passphrase = (authMethod as? AuthMethod.KeyBased)?.passphrase ?: "",
     label = label,
-    sudoPassword = sudoPassword
+    sudoPassword = sudoPassword,
+    rootAuthType = when (rootAccess) {
+        is RootAccess.None -> ""
+        is RootAccess.SudoPassword -> "sudo"
+        is RootAccess.SameKeyAsUser -> "same_key"
+        is RootAccess.SeparateKey -> "separate_key"
+    },
+    rootPrivateKey = (rootAccess as? RootAccess.SeparateKey)?.privateKey ?: "",
+    rootPassphrase = (rootAccess as? RootAccess.SeparateKey)?.passphrase ?: ""
 )
 
 fun ServiceEntity.toDomain(): Service = Service(

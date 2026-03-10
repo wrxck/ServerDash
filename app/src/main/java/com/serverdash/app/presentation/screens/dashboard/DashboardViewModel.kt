@@ -56,7 +56,10 @@ data class DashboardUiState(
     val activeMetricDetail: MetricDetailType? = null,
     val processList: List<ProcessInfo> = emptyList(),
     val isLoadingProcesses: Boolean = false,
-    val processSortBy: String = "cpu" // cpu, mem, pid
+    val processSortBy: String = "cpu", // cpu, mem, pid
+    // Root SSH migration
+    val showRootSshMigration: Boolean = false,
+    val currentAuthMethod: String = "" // "key" or "password"
 ) {
     val filteredServices: List<Service> get() {
         var result = services
@@ -115,6 +118,8 @@ sealed interface DashboardEvent {
     data object RefreshProcesses : DashboardEvent
     data class KillProcess(val pid: Int) : DashboardEvent
     data object LockApp : DashboardEvent
+    data object MigrateToRootSsh : DashboardEvent
+    data object DismissRootSshMigration : DashboardEvent
 }
 
 @HiltViewModel
@@ -157,6 +162,21 @@ class DashboardViewModel @Inject constructor(
             if (config != null && !sshRepository.isConnected()) {
                 sshRepository.connect(config)
             }
+
+            // Detect if user has key-based auth with sudo password but no root SSH
+            // Offer migration to root SSH (same key) for a cleaner setup
+            if (config != null) {
+                val isKeyAuth = config.authMethod is AuthMethod.KeyBased
+                val hasSudoPassword = config.sudoPassword.isNotBlank()
+                val noRootSsh = config.rootAccess is RootAccess.SudoPassword || config.rootAccess is RootAccess.None
+                if (isKeyAuth && hasSudoPassword && noRootSsh) {
+                    _state.update { it.copy(
+                        showRootSshMigration = true,
+                        currentAuthMethod = "key"
+                    )}
+                }
+            }
+
             observeData()
             startPolling()
         }
@@ -320,6 +340,22 @@ class DashboardViewModel @Inject constructor(
             is DashboardEvent.RefreshProcesses -> loadProcesses()
             is DashboardEvent.KillProcess -> killProcess(event.pid)
             is DashboardEvent.LockApp -> appLockManager.lock()
+            is DashboardEvent.DismissRootSshMigration -> {
+                _state.update { it.copy(showRootSshMigration = false) }
+            }
+            is DashboardEvent.MigrateToRootSsh -> {
+                viewModelScope.launch {
+                    val config = serverRepository.getServerConfig() ?: return@launch
+                    val updated = config.copy(
+                        rootAccess = RootAccess.SameKeyAsUser,
+                        sudoPassword = "" // Clear sudo password — no longer needed
+                    )
+                    serverRepository.saveServerConfig(updated)
+                    // Reconnect with updated config so root SSH is used
+                    sshRepository.connect(updated)
+                    _state.update { it.copy(showRootSshMigration = false) }
+                }
+            }
         }
     }
 
@@ -357,7 +393,11 @@ class DashboardViewModel @Inject constructor(
     private fun killProcess(pid: Int) {
         viewModelScope.launch {
             try {
-                sshRepository.executeCommand("kill $pid 2>/dev/null || sudo kill $pid 2>/dev/null")
+                // Try as current user first, then use root if available
+                val userResult = sshRepository.executeCommand("kill $pid 2>/dev/null")
+                if (userResult.getOrNull()?.exitCode != 0 && sshRepository.hasRootAccess()) {
+                    sshRepository.executeSudoCommand("kill $pid 2>/dev/null")
+                }
                 delay(500)
                 loadProcesses()
             } catch (_: Exception) { }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -22,7 +23,11 @@ import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -322,15 +327,17 @@ private fun renderInlineMarkdown(
 // ── Code block syntax highlighting (reuses codebase patterns) ─────
 
 @Composable
-private fun syntaxHighlightCode(code: String, language: String): AnnotatedString {
-    val keyColor = MaterialTheme.colorScheme.primary
-    val stringColor = Color(0xFF66BB6A)
-    val numberColor = Color(0xFFF0B866)
-    val commentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-    val keywordColor = Color(0xFFCBB2F0)
-    val defaultColor = MaterialTheme.colorScheme.onSurface
+fun syntaxHighlightCode(code: String, language: String): AnnotatedString {
+    // Derive all syntax colors from the active theme — each theme gets unique highlighting
+    val colorScheme = MaterialTheme.colorScheme
+    val keyColor = colorScheme.primary                                    // JSON keys, YAML keys
+    val stringColor = colorScheme.tertiary                                // string literals
+    val numberColor = colorScheme.secondary                               // numeric literals
+    val commentColor = colorScheme.onSurfaceVariant.copy(alpha = 0.55f)   // comments
+    val keywordColor = colorScheme.onSecondaryContainer                    // language keywords
+    val defaultColor = colorScheme.onSurface                              // everything else
 
-    return remember(code, language) {
+    return remember(code, language, keyColor, stringColor, numberColor, commentColor, keywordColor, defaultColor) {
         buildAnnotatedString {
             // Simple keyword-based highlighting
             val keywords = when (language.lowercase()) {
@@ -338,8 +345,12 @@ private fun syntaxHighlightCode(code: String, language: String): AnnotatedString
                 "java" -> setOf("class", "interface", "public", "private", "protected", "static", "final", "void", "int", "long", "double", "float", "boolean", "String", "if", "else", "for", "while", "return", "import", "package", "new", "try", "catch", "finally", "throw", "null", "true", "false", "this", "super", "extends", "implements")
                 "python", "py" -> setOf("def", "class", "if", "elif", "else", "for", "while", "return", "import", "from", "as", "try", "except", "finally", "raise", "None", "True", "False", "self", "with", "yield", "lambda", "and", "or", "not", "in", "is", "pass", "break", "continue")
                 "javascript", "js", "typescript", "ts" -> setOf("function", "const", "let", "var", "class", "if", "else", "for", "while", "return", "import", "export", "from", "default", "new", "try", "catch", "finally", "throw", "null", "undefined", "true", "false", "this", "async", "await", "of", "in", "typeof", "instanceof")
-                "bash", "sh", "shell" -> setOf("if", "then", "else", "fi", "for", "do", "done", "while", "case", "esac", "function", "return", "exit", "echo", "export", "local", "readonly", "true", "false")
-                "json" -> emptySet()
+                "bash", "sh", "shell", "zsh" -> setOf("if", "then", "else", "fi", "for", "do", "done", "while", "case", "esac", "function", "return", "exit", "echo", "export", "local", "readonly", "true", "false", "source", "alias", "unset", "set", "shift", "eval", "exec", "trap", "wait", "cd", "pwd", "mkdir", "rm", "cp", "mv", "cat", "grep", "sed", "awk", "sudo", "chmod", "chown")
+                "go", "golang" -> setOf("func", "var", "const", "type", "struct", "interface", "map", "chan", "go", "select", "case", "default", "if", "else", "for", "range", "switch", "return", "break", "continue", "defer", "package", "import", "nil", "true", "false", "make", "new", "len", "cap", "append", "delete", "copy", "close", "panic", "recover")
+                "rust", "rs" -> setOf("fn", "let", "mut", "const", "static", "struct", "enum", "impl", "trait", "type", "mod", "use", "pub", "crate", "self", "super", "if", "else", "for", "while", "loop", "match", "return", "break", "continue", "move", "async", "await", "unsafe", "where", "true", "false", "Some", "None", "Ok", "Err")
+                "yaml", "yml" -> emptySet()
+                "toml" -> emptySet()
+                "json", "jsonl" -> emptySet()
                 else -> emptySet()
             }
 
@@ -347,8 +358,8 @@ private fun syntaxHighlightCode(code: String, language: String): AnnotatedString
             lines.forEachIndexed { lineIdx, line ->
                 if (lineIdx > 0) append("\n")
 
-                // JSON special handling
-                if (language.lowercase() == "json") {
+                // JSON/JSONL special handling
+                if (language.lowercase() in listOf("json", "jsonl")) {
                     var j = 0
                     while (j < line.length) {
                         when {
@@ -374,12 +385,48 @@ private fun syntaxHighlightCode(code: String, language: String): AnnotatedString
                     return@forEachIndexed
                 }
 
+                // YAML/TOML special handling
+                if (language.lowercase() in listOf("yaml", "yml", "toml")) {
+                    val trimmedLine = line.trimStart()
+                    when {
+                        trimmedLine.startsWith("#") -> {
+                            withStyle(SpanStyle(color = commentColor, fontStyle = FontStyle.Italic)) { append(line) }
+                        }
+                        trimmedLine.contains(":") || trimmedLine.contains("=") -> {
+                            val sep = if (trimmedLine.contains(":")) ":" else "="
+                            val sepIdx = line.indexOf(sep)
+                            withStyle(SpanStyle(color = keyColor)) { append(line.substring(0, sepIdx)) }
+                            withStyle(SpanStyle(color = defaultColor)) { append(sep) }
+                            val valueStr = line.substring(sepIdx + 1)
+                            val valueTrimmed = valueStr.trim()
+                            val valueColor = when {
+                                valueTrimmed == "true" || valueTrimmed == "false" -> keywordColor
+                                valueTrimmed == "null" || valueTrimmed == "~" -> keywordColor
+                                valueTrimmed.toDoubleOrNull() != null -> numberColor
+                                valueTrimmed.startsWith("\"") || valueTrimmed.startsWith("'") -> stringColor
+                                valueTrimmed.startsWith("[") || valueTrimmed.startsWith("{") -> defaultColor
+                                else -> stringColor
+                            }
+                            withStyle(SpanStyle(color = valueColor)) { append(valueStr) }
+                        }
+                        trimmedLine.startsWith("-") -> {
+                            val dashIdx = line.indexOf('-')
+                            withStyle(SpanStyle(color = defaultColor)) { append(line.substring(0, dashIdx + 1)) }
+                            withStyle(SpanStyle(color = stringColor)) { append(line.substring(dashIdx + 1)) }
+                        }
+                        else -> {
+                            withStyle(SpanStyle(color = defaultColor)) { append(line) }
+                        }
+                    }
+                    return@forEachIndexed
+                }
+
                 // Generic highlighting: comments, strings, numbers, keywords
                 var j = 0
                 while (j < line.length) {
                     when {
                         // Single-line comment
-                        (line.startsWith("//", j) || line.startsWith("#", j) && language.lowercase() in listOf("python", "py", "bash", "sh", "shell", "yaml", "yml")) -> {
+                        (line.startsWith("//", j) || (line.startsWith("#", j) && language.lowercase() in listOf("python", "py", "bash", "sh", "shell", "zsh", "yaml", "yml", "toml", "conf", "ini", ""))) -> {
                             withStyle(SpanStyle(color = commentColor, fontStyle = FontStyle.Italic)) {
                                 append(line.substring(j))
                             }
@@ -755,6 +802,157 @@ fun MarkdownEditorView(
                         lineHeight = 18.sp
                     ),
                     readOnly = readOnly
+                )
+            }
+        }
+    }
+}
+
+// ── Reusable Code Editor with Syntax Highlighting ─────────────────
+
+/**
+ * A syntax-highlighted code editor/viewer. Supports JSON, Markdown, Shell, Python, Kotlin, etc.
+ * Use this for ALL code/config editing and viewing across the app.
+ *
+ * @param content The text content to display/edit
+ * @param onContentChange Callback when content changes; null = read-only viewer
+ * @param language Language hint for syntax highlighting (json, md, sh, python, kotlin, etc.)
+ * @param modifier Modifier for the outer container
+ * @param label Optional label for the text field
+ * @param minLines Minimum number of visible lines
+ * @param showLineNumbers Whether to show line numbers in the gutter
+ * @param maxHeight Optional max height constraint
+ */
+@Composable
+fun CodeEditorField(
+    content: String,
+    onContentChange: ((String) -> Unit)? = null,
+    language: String = "",
+    modifier: Modifier = Modifier,
+    label: String? = null,
+    minLines: Int = 4,
+    showLineNumbers: Boolean = true,
+    maxHeight: Dp = Dp.Unspecified
+) {
+    val codeBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+    val lineNumColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+    val isReadOnly = onContentChange == null
+
+    Column(
+        modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(codeBg)
+    ) {
+        // Language label + optional label
+        if (!label.isNullOrBlank() || language.isNotBlank()) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                if (!label.isNullOrBlank()) {
+                    Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (language.isNotBlank()) {
+                    Text(
+                        language.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+
+        val heightMod = if (maxHeight != Dp.Unspecified) Modifier.heightIn(max = maxHeight) else Modifier
+
+        if (isReadOnly) {
+            // Read-only: render with full syntax highlighting
+            val highlighted = syntaxHighlightCode(content, language)
+            val scrollState = rememberScrollState()
+
+            Row(
+                heightMod
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(8.dp)
+            ) {
+                if (showLineNumbers) {
+                    val lineCount = content.lines().size
+                    Column(
+                        Modifier
+                            .width(36.dp)
+                            .padding(end = 8.dp),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        for (i in 1..lineCount.coerceAtLeast(1)) {
+                            Text(
+                                "$i",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp
+                                ),
+                                color = lineNumColor
+                            )
+                        }
+                    }
+                }
+                SelectionContainer {
+                    Text(
+                        text = highlighted,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp
+                        )
+                    )
+                }
+            }
+        } else {
+            // Editable with live syntax highlighting via VisualTransformation
+            val highlighted = syntaxHighlightCode(content, language)
+            val syntaxTransformation = remember(highlighted) {
+                VisualTransformation { text ->
+                    TransformedText(highlighted, OffsetMapping.Identity)
+                }
+            }
+
+            Row(heightMod.fillMaxWidth()) {
+                if (showLineNumbers) {
+                    val lineCount = content.lines().size.coerceAtLeast(minLines)
+                    Column(
+                        Modifier
+                            .width(36.dp)
+                            .fillMaxHeight()
+                            .padding(top = 16.dp, end = 4.dp),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        for (i in 1..lineCount) {
+                            Text(
+                                "$i",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp
+                                ),
+                                color = lineNumColor
+                            )
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = content,
+                    onValueChange = onContentChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp
+                    ),
+                    visualTransformation = syntaxTransformation,
+                    minLines = minLines
                 )
             }
         }

@@ -13,9 +13,12 @@ class GuardianPlugin : ServerPlugin {
 
     override suspend fun detect(sshRepository: SshRepository): Boolean {
         return try {
-            val result = sshRepository.executeCommand(
-                "test -f /usr/local/bin/guardiand && echo 'found'"
-            )
+            // Guardian is typically installed as root
+            val result = if (sshRepository.hasRootAccess()) {
+                sshRepository.executeSudoCommand("test -f /usr/local/bin/guardiand && echo 'found'")
+            } else {
+                sshRepository.executeCommand("test -f /usr/local/bin/guardiand && echo 'found'")
+            }
             result.getOrNull()?.output?.trim() == "found"
         } catch (e: Exception) { false }
     }

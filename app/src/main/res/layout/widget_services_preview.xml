@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/background_light"
+    android:background="#1C1B1F"
     android:orientation="vertical"
     android:padding="12dp">
 
@@ -10,7 +10,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Services"
-        android:textColor="#1C1B1F"
+        android:textColor="#E6E1E5"
         android:textSize="14sp"
         android:textStyle="bold" />
 
@@ -24,7 +24,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="8 running"
-            android:textColor="#2E7D32"
+            android:textColor="#66BB6A"
             android:textSize="12sp" />
 
         <TextView
@@ -32,7 +32,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:text="1 failed"
-            android:textColor="#C62828"
+            android:textColor="#EF5350"
             android:textSize="12sp" />
 
         <TextView
@@ -49,7 +49,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text="Failed:"
-        android:textColor="#C62828"
+        android:textColor="#EF5350"
         android:textSize="12sp"
         android:textStyle="bold" />
 
@@ -57,10 +57,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:background="#FFEBEE"
+        android:background="#3E1C1C"
         android:padding="4dp"
         android:text="nginx.service"
-        android:textColor="#C62828"
+        android:textColor="#EF5350"
         android:textSize="12sp" />
 
 </LinearLayout>

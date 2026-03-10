@@ -31,7 +31,7 @@ fun EncryptionPromptDialog(
         properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = false),
         icon = {
             val (icon, tint) = when (status) {
-                is EncryptionStatus.Success -> Icons.Default.CheckCircle to Color(0xFF66BB6A)
+                is EncryptionStatus.Success -> Icons.Default.CheckCircle to MaterialTheme.colorScheme.tertiary
                 is EncryptionStatus.Error -> Icons.Default.Error to MaterialTheme.colorScheme.error
                 else -> Icons.Default.Shield to MaterialTheme.colorScheme.primary
             }

@@ -287,7 +287,14 @@ class ThemeViewModel @Inject constructor(
             "onBackground", "onSurface", "onSurfaceVariant",
             "outline", "outlineVariant",
             "error", "onError", "errorContainer", "onErrorContainer",
-            "inverseSurface", "inverseOnSurface", "inversePrimary"
+            "inverseSurface", "inverseOnSurface", "inversePrimary",
+            "editorBackground", "editorForeground", "editorLineHighlight", "editorSelection",
+            "editorLineNumber", "editorGutter", "editorCursor", "editorWhitespace",
+            "editorIndentGuide", "editorBracketMatch",
+            "syntaxKeyword", "syntaxString", "syntaxComment", "syntaxFunction",
+            "syntaxNumber", "syntaxType", "syntaxOperator", "syntaxVariable",
+            "syntaxConstant", "syntaxTag", "syntaxAttribute", "syntaxProperty",
+            "syntaxRegex", "syntaxPunctuation"
         )
 
         fun slotDisplayName(slot: String): String = slot
@@ -308,7 +315,31 @@ class ThemeViewModel @Inject constructor(
             "error" to Color(tc.error), "onError" to Color(tc.onError),
             "errorContainer" to Color(tc.errorContainer), "onErrorContainer" to Color(tc.onErrorContainer),
             "inverseSurface" to Color(tc.inverseSurface), "inverseOnSurface" to Color(tc.inverseOnSurface),
-            "inversePrimary" to Color(tc.inversePrimary)
+            "inversePrimary" to Color(tc.inversePrimary),
+            "editorBackground" to Color(tc.editorBackground),
+            "editorForeground" to Color(tc.editorForeground),
+            "editorLineHighlight" to Color(tc.editorLineHighlight),
+            "editorSelection" to Color(tc.editorSelection),
+            "editorLineNumber" to Color(tc.editorLineNumber),
+            "editorGutter" to Color(tc.editorGutter),
+            "editorCursor" to Color(tc.editorCursor),
+            "editorWhitespace" to Color(tc.editorWhitespace),
+            "editorIndentGuide" to Color(tc.editorIndentGuide),
+            "editorBracketMatch" to Color(tc.editorBracketMatch),
+            "syntaxKeyword" to Color(tc.syntaxKeyword),
+            "syntaxString" to Color(tc.syntaxString),
+            "syntaxComment" to Color(tc.syntaxComment),
+            "syntaxFunction" to Color(tc.syntaxFunction),
+            "syntaxNumber" to Color(tc.syntaxNumber),
+            "syntaxType" to Color(tc.syntaxType),
+            "syntaxOperator" to Color(tc.syntaxOperator),
+            "syntaxVariable" to Color(tc.syntaxVariable),
+            "syntaxConstant" to Color(tc.syntaxConstant),
+            "syntaxTag" to Color(tc.syntaxTag),
+            "syntaxAttribute" to Color(tc.syntaxAttribute),
+            "syntaxProperty" to Color(tc.syntaxProperty),
+            "syntaxRegex" to Color(tc.syntaxRegex),
+            "syntaxPunctuation" to Color(tc.syntaxPunctuation)
         )
 
         fun themeColorsFromMap(map: Map<String, Color>): ThemeColors {
@@ -326,7 +357,31 @@ class ThemeViewModel @Inject constructor(
                 error = get("error"), onError = get("onError"),
                 errorContainer = get("errorContainer"), onErrorContainer = get("onErrorContainer"),
                 inverseSurface = get("inverseSurface"), inverseOnSurface = get("inverseOnSurface"),
-                inversePrimary = get("inversePrimary")
+                inversePrimary = get("inversePrimary"),
+                editorBackground = get("editorBackground"),
+                editorForeground = get("editorForeground"),
+                editorLineHighlight = get("editorLineHighlight"),
+                editorSelection = get("editorSelection"),
+                editorLineNumber = get("editorLineNumber"),
+                editorGutter = get("editorGutter"),
+                editorCursor = get("editorCursor"),
+                editorWhitespace = get("editorWhitespace"),
+                editorIndentGuide = get("editorIndentGuide"),
+                editorBracketMatch = get("editorBracketMatch"),
+                syntaxKeyword = get("syntaxKeyword"),
+                syntaxString = get("syntaxString"),
+                syntaxComment = get("syntaxComment"),
+                syntaxFunction = get("syntaxFunction"),
+                syntaxNumber = get("syntaxNumber"),
+                syntaxType = get("syntaxType"),
+                syntaxOperator = get("syntaxOperator"),
+                syntaxVariable = get("syntaxVariable"),
+                syntaxConstant = get("syntaxConstant"),
+                syntaxTag = get("syntaxTag"),
+                syntaxAttribute = get("syntaxAttribute"),
+                syntaxProperty = get("syntaxProperty"),
+                syntaxRegex = get("syntaxRegex"),
+                syntaxPunctuation = get("syntaxPunctuation")
             )
         }
     }

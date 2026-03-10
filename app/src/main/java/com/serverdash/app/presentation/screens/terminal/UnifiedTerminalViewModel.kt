@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.serverdash.app.data.remote.ssh.SshSessionManager
 import com.serverdash.app.domain.repository.SshRepository
 import com.serverdash.app.domain.usecase.BuildClaudeContextUseCase
+import androidx.compose.ui.graphics.Color
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -74,6 +75,13 @@ class UnifiedTerminalViewModel @Inject constructor(
 
     private val terminalSessions = mutableListOf<TerminalSession>()
     private var shellCount = 0
+    private var terminalForeground: Color = Color(0xFFC0CAF5)
+    private var terminalBackground: Color = Color(0xFF1A1B26)
+
+    fun setTerminalColors(foreground: Color, background: Color) {
+        terminalForeground = foreground
+        terminalBackground = background
+    }
 
     init {
         loadAvailableProjects()
@@ -128,6 +136,8 @@ class UnifiedTerminalViewModel @Inject constructor(
                             isTmux = false,
                             sshSession = sshSession,
                             scope = viewModelScope,
+                            defaultForeground = terminalForeground,
+                            defaultBackground = terminalBackground,
                         )
                         session.start()
                         terminalSessions.add(session)
@@ -232,6 +242,8 @@ class UnifiedTerminalViewModel @Inject constructor(
                         isTmux = true,
                         sshSession = sshSession,
                         scope = viewModelScope,
+                        defaultForeground = terminalForeground,
+                        defaultBackground = terminalBackground,
                     )
                     session.start()
                     terminalSessions.add(session)

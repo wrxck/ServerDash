@@ -102,6 +102,7 @@ sealed interface SettingsEvent {
     data class UpdateAppLockEnabled(val enabled: Boolean) : SettingsEvent
     data class UpdateAppLockTimeout(val timeout: com.serverdash.app.domain.model.LockTimeout) : SettingsEvent
     data class UpdateAppLockAuthMethod(val method: com.serverdash.app.domain.model.AppLockAuthMethod) : SettingsEvent
+    data class UpdateLockOnDeviceLock(val enabled: Boolean) : SettingsEvent
     // Settings UI
     data class UpdateSettingsDensity(val density: com.serverdash.app.domain.model.SettingsDensity) : SettingsEvent
     // Cache
@@ -217,6 +218,7 @@ class SettingsViewModel @Inject constructor(
             is SettingsEvent.UpdateAppLockEnabled -> updatePref { it.copy(appLockEnabled = event.enabled) }
             is SettingsEvent.UpdateAppLockTimeout -> updatePref { it.copy(appLockTimeout = event.timeout) }
             is SettingsEvent.UpdateAppLockAuthMethod -> updatePref { it.copy(appLockAuthMethod = event.method) }
+            is SettingsEvent.UpdateLockOnDeviceLock -> updatePref { it.copy(lockOnDeviceLock = event.enabled) }
             // Settings UI
             is SettingsEvent.UpdateSettingsDensity -> updatePref { it.copy(settingsDensity = event.density) }
             // Cache

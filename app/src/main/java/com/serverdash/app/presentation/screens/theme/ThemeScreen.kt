@@ -694,7 +694,14 @@ private fun ThemeEditorContent(state: ThemeUiState, viewModel: ThemeViewModel) {
             "Surface" to listOf("background", "surface", "surfaceVariant", "onBackground", "onSurface", "onSurfaceVariant"),
             "Outline" to listOf("outline", "outlineVariant"),
             "Error" to listOf("error", "onError", "errorContainer", "onErrorContainer"),
-            "Inverse" to listOf("inverseSurface", "inverseOnSurface", "inversePrimary")
+            "Inverse" to listOf("inverseSurface", "inverseOnSurface", "inversePrimary"),
+            "Editor Chrome" to listOf("editorBackground", "editorForeground", "editorLineHighlight", "editorSelection",
+                "editorLineNumber", "editorGutter", "editorCursor", "editorWhitespace",
+                "editorIndentGuide", "editorBracketMatch"),
+            "Syntax Highlighting" to listOf("syntaxKeyword", "syntaxString", "syntaxComment", "syntaxFunction",
+                "syntaxNumber", "syntaxType", "syntaxOperator", "syntaxVariable",
+                "syntaxConstant", "syntaxTag", "syntaxAttribute", "syntaxProperty",
+                "syntaxRegex", "syntaxPunctuation"),
         )
 
         groups.forEach { (groupName, slots) ->

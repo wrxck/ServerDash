@@ -26,6 +26,7 @@ import kotlinx.serialization.json.*
 fun ClaudeCodeScreen(
     onNavigateBack: () -> Unit,
     onNavigateToClaudeTerminal: () -> Unit = {},
+    onNavigateToEditor: (file: String, asUser: String) -> Unit = { _, _ -> },
     viewModel: ClaudeCodeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -127,26 +128,33 @@ fun ClaudeCodeScreen(
                     }
                 }
 
+                // Build editor navigation helper from current user context
+                val openInEditor: (String, String) -> Unit = { file, asUser ->
+                    onNavigateToEditor(file, asUser)
+                }
+                val selectedHome = state.selectedUser?.homeDirectory ?: ""
+                val selectedUsername = state.selectedUser?.username ?: ""
+
                 // Detail views overlay the tab content
                 val detail = state.activeDetail
                 if (detail != null) {
                     when (detail) {
                         DetailView.STORAGE -> StorageDetailView(state, viewModel)
-                        DetailView.PROJECTS -> ProjectsDetailView(state, viewModel)
+                        DetailView.PROJECTS -> ProjectsDetailView(state, viewModel, openInEditor, selectedHome, selectedUsername)
                         DetailView.SESSIONS -> SessionsDetailView(state, viewModel)
-                        DetailView.PLANS -> PlansDetailView(state, viewModel)
+                        DetailView.PLANS -> PlansDetailView(state, viewModel, openInEditor, selectedHome, selectedUsername)
                         DetailView.PLUGINS -> PluginsDetailView(state, viewModel)
-                        DetailView.HOOKS -> HooksDetailView(state, viewModel)
-                        DetailView.SKILLS -> SkillsDetailView(state, viewModel)
+                        DetailView.HOOKS -> HooksDetailView(state, viewModel, openInEditor, selectedHome, selectedUsername)
+                        DetailView.SKILLS -> SkillsDetailView(state, viewModel, openInEditor, selectedHome, selectedUsername)
                         DetailView.USAGE -> UsageDetailView(state, viewModel)
                     }
                 } else {
                     when (state.selectedTab) {
                         0 -> OverviewTab(state, viewModel)
                         1 -> McpServersTab(state, viewModel)
-                        2 -> SettingsTab(state, viewModel)
-                        3 -> ClaudeMdTab(state, viewModel)
-                        4 -> ProjectsTab(state, viewModel)
+                        2 -> SettingsTab(state, viewModel, openInEditor, selectedHome, selectedUsername)
+                        3 -> ClaudeMdTab(state, viewModel, openInEditor, selectedHome, selectedUsername)
+                        4 -> ProjectsTab(state, viewModel, openInEditor, selectedHome, selectedUsername)
                     }
                 }
             }
@@ -206,7 +214,13 @@ private fun UserSelector(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
+private fun SettingsTab(
+    state: ClaudeCodeUiState,
+    viewModel: ClaudeCodeViewModel,
+    onOpenInEditor: (String, String) -> Unit = { _, _ -> },
+    selectedHome: String = "",
+    selectedUsername: String = ""
+) {
     if (state.showDiffDialog) {
         DiffDialog(
             diffs = state.settingsDiff,
@@ -238,24 +252,12 @@ private fun SettingsTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel
                 }
 
                 if (state.settingsViewMode == SettingsViewMode.JSON) {
-                    Row {
-                        if (state.editingSettings) {
-                            TextButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.CancelEditSettings) }) { Text("Cancel") }
-                            Spacer(Modifier.width(8.dp))
-                            Button(
-                                onClick = { viewModel.onEvent(ClaudeCodeEvent.SaveSettings) },
-                                enabled = !state.isSavingSettings
-                            ) {
-                                if (state.isSavingSettings) CircularProgressIndicator(Modifier.size(16.dp))
-                                else Text("Save")
-                            }
-                        } else {
-                            OutlinedButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.StartEditSettings) }) {
-                                Icon(Icons.Default.Edit, null, Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Edit")
-                            }
-                        }
+                    OutlinedButton(
+                        onClick = { onOpenInEditor("$selectedHome/.claude/settings.json", selectedUsername) }
+                    ) {
+                        Icon(Icons.Default.Edit, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Open in Editor")
                     }
                 }
             }
@@ -263,13 +265,17 @@ private fun SettingsTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel
             when (state.settingsViewMode) {
                 SettingsViewMode.UI -> SettingsUiView(state, viewModel)
                 SettingsViewMode.JSON -> {
-                    OutlinedTextField(
-                        value = state.settingsJson,
-                        onValueChange = { viewModel.onEvent(ClaudeCodeEvent.UpdateSettingsJson(it)) },
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
-                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        readOnly = !state.editingSettings
-                    )
+                    Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
+                        FilledTonalButton(
+                            onClick = {
+                                onOpenInEditor("$selectedHome/.claude/settings.json", selectedUsername)
+                            }
+                        ) {
+                            Icon(Icons.Default.Edit, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Open in Editor")
+                        }
+                    }
                 }
             }
         }
@@ -423,35 +429,32 @@ private fun SettingsUiView(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewMo
 }
 
 @Composable
-private fun ClaudeMdTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
+private fun ClaudeMdTab(
+    state: ClaudeCodeUiState,
+    viewModel: ClaudeCodeViewModel,
+    onOpenInEditor: (String, String) -> Unit = { _, _ -> },
+    selectedHome: String = "",
+    selectedUsername: String = ""
+) {
     Column(Modifier.fillMaxSize()) {
         if (state.isLoadingClaudeMd) {
             ClaudeMdSkeleton()
         } else {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.End) {
-                if (state.editingClaudeMd) {
-                    TextButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.CancelEditClaudeMd) }) { Text("Cancel") }
-                    Spacer(Modifier.width(8.dp))
-                    Button(
-                        onClick = { viewModel.onEvent(ClaudeCodeEvent.SaveClaudeMd) },
-                        enabled = !state.isSavingClaudeMd
-                    ) {
-                        if (state.isSavingClaudeMd) CircularProgressIndicator(Modifier.size(16.dp))
-                        else Text("Save")
-                    }
-                } else {
-                    OutlinedButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.StartEditClaudeMd) }) {
-                        Icon(Icons.Default.Edit, null, Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Edit")
-                    }
+                FilledTonalButton(
+                    onClick = { onOpenInEditor("$selectedHome/.claude/CLAUDE.md", selectedUsername) }
+                ) {
+                    Icon(Icons.Default.Edit, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Open in Editor")
                 }
             }
+            // Read-only preview
             MarkdownEditorView(
                 content = state.claudeMdContent,
-                onContentChange = { viewModel.onEvent(ClaudeCodeEvent.UpdateClaudeMd(it)) },
+                onContentChange = {},
                 modifier = Modifier.fillMaxSize(),
-                readOnly = !state.editingClaudeMd
+                readOnly = true
             )
         }
     }
@@ -885,60 +888,13 @@ private fun OverviewStatCard(label: String, value: String, icon: ImageVector, mo
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun ProjectsTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel) {
-    // Full-screen memory viewer/editor
-    if (state.selectedProjectMemory != null) {
-        Column(Modifier.fillMaxSize()) {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Memory", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            state.selectedProjectName ?: "",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.DismissProjectMemory) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
-                actions = {
-                    if (state.editingProjectMemory) {
-                        TextButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.CancelEditProjectMemory) }) {
-                            Text("Cancel")
-                        }
-                        Button(
-                            onClick = { viewModel.onEvent(ClaudeCodeEvent.SaveProjectMemory) },
-                            enabled = !state.isSavingProjectMemory
-                        ) {
-                            if (state.isSavingProjectMemory) {
-                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                            } else {
-                                Text("Save")
-                            }
-                        }
-                    } else {
-                        OutlinedButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.StartEditProjectMemory) }) {
-                            Icon(Icons.Default.Edit, null, Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Edit")
-                        }
-                    }
-                }
-            )
-            MarkdownEditorView(
-                content = if (state.editingProjectMemory) state.editedProjectMemory else state.selectedProjectMemory,
-                onContentChange = { viewModel.onEvent(ClaudeCodeEvent.UpdateEditedProjectMemory(it)) },
-                modifier = Modifier.fillMaxSize(),
-                readOnly = !state.editingProjectMemory
-            )
-        }
-        return
-    }
+private fun ProjectsTab(
+    state: ClaudeCodeUiState,
+    viewModel: ClaudeCodeViewModel,
+    onOpenInEditor: (String, String) -> Unit = { _, _ -> },
+    selectedHome: String = "",
+    selectedUsername: String = ""
+) {
 
     Box(Modifier.fillMaxSize()) {
         if (state.isLoadingProjects) {
@@ -970,7 +926,9 @@ private fun ProjectsTab(state: ClaudeCodeUiState, viewModel: ClaudeCodeViewModel
                                 )
                             }
                             if (project.hasMemory) {
-                                IconButton(onClick = { viewModel.onEvent(ClaudeCodeEvent.ViewProjectMemory(project)) }) {
+                                IconButton(onClick = {
+                                    onOpenInEditor("$selectedHome/.claude/projects/${project.path}/memory/MEMORY.md", selectedUsername)
+                                }) {
                                     Icon(Icons.Default.Psychology, "View Memory", tint = MaterialTheme.colorScheme.tertiary)
                                 }
                             }

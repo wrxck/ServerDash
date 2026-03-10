@@ -13,8 +13,16 @@ data class ServerConfig(
     val username: String,
     val authMethod: AuthMethod,
     val label: String = host,
-    val sudoPassword: String = ""
+    val sudoPassword: String = "",
+    val rootAccess: RootAccess = if (sudoPassword.isNotBlank()) RootAccess.SudoPassword else RootAccess.None
 )
+
+sealed class RootAccess {
+    data object None : RootAccess()
+    data object SudoPassword : RootAccess()       // Use sudoPassword field with sudo -S
+    data object SameKeyAsUser : RootAccess()       // SSH as root with same key as user
+    data class SeparateKey(val privateKey: String, val passphrase: String = "") : RootAccess()
+}
 
 data class SystemUser(
     val username: String,
@@ -226,6 +234,7 @@ data class AppPreferences(
     val appLockEnabled: Boolean = false,
     val appLockTimeout: LockTimeout = LockTimeout.IMMEDIATE,
     val appLockAuthMethod: AppLockAuthMethod = AppLockAuthMethod.ANY,
+    val lockOnDeviceLock: Boolean = true,
     // Settings UI
     val settingsDensity: SettingsDensity = SettingsDensity.COMPACT,
     // Recent themes (JSON map of themeId -> lastUsedTimestamp)

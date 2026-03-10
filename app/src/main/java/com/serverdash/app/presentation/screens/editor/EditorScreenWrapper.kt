@@ -13,5 +13,14 @@ class EditorWrapperViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     val initialPath: String = savedStateHandle.get<String>("path") ?: "/"
+    val initialFile: String = savedStateHandle.get<String>("file") ?: ""
+
+    init {
+        val asUser = savedStateHandle.get<String>("asUser") ?: ""
+        if (asUser.isNotEmpty()) {
+            sshFileProvider.asUser = asUser
+        }
+    }
+
     val editorViewModel = EditorViewModel(sshFileProvider)
 }

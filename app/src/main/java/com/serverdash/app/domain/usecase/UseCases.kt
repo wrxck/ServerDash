@@ -268,15 +268,15 @@ class GetServiceLogsUseCase @Inject constructor(
             LogScope.KERNEL -> "journalctl -k"
             LogScope.USER_UNIT -> "journalctl --user-unit $safeName"
         }
-        // Try with sudo first to get full logs (all users + system)
-        val sudoResult = sshRepository.executeSudoCommand("$baseCmd -n $lines --no-pager -o short-iso 2>&1")
-        val sudoOutput = sudoResult.getOrNull()?.output ?: ""
-        val sudoLogs = parseJournalctlOutput(sudoOutput)
+        // Try with root first to get full logs (all users + system)
+        if (sshRepository.hasRootAccess()) {
+            val sudoResult = sshRepository.executeSudoCommand("$baseCmd -n $lines --no-pager -o short-iso 2>&1")
+            val sudoOutput = sudoResult.getOrNull()?.output ?: ""
+            val sudoLogs = parseJournalctlOutput(sudoOutput)
+            if (sudoLogs.isNotEmpty()) return Result.success(sudoLogs)
+        }
 
-        // If sudo worked, use those logs
-        if (sudoLogs.isNotEmpty()) return Result.success(sudoLogs)
-
-        // If sudo failed (no password, wrong password, etc.), fall back to non-sudo
+        // Fall back to non-root (limited to user's own logs)
         val command = "$baseCmd -n $lines --no-pager -o short-iso 2>&1"
         val result = sshRepository.executeCommand(command)
         return result.map { cmdResult ->
@@ -528,11 +528,17 @@ class DetectClaudeCodeUsersUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(users: List<SystemUser>): Result<List<SystemUser>> {
         if (users.isEmpty()) return Result.success(emptyList())
-        // check each user individually with sudo to handle restricted home dirs like /root
+        val connectedUser = sshRepository.getConnectedUsername()
         val results = mutableMapOf<String, Boolean>()
         for (user in users) {
-            val checkCmd = sshRepository.wrapWithSudo("test -d '${user.homeDirectory}/.claude'")
-            val result = sshRepository.executeCommand("$checkCmd && echo YES || echo NO")
+            val home = user.homeDirectory
+            // Check for .claude/ dir OR .claude.json file (either indicates Claude Code)
+            val checkCmd = "test -d \"$home/.claude\" -o -f \"$home/.claude.json\" && echo YES || echo NO"
+            val result = if (user.username == connectedUser) {
+                sshRepository.executeCommand(checkCmd)
+            } else {
+                sshRepository.executeSudoCommand(checkCmd)
+            }
             val output = result.getOrNull()?.output?.trim() ?: "NO"
             results[user.username] = output.lines().last().trim() == "YES"
         }

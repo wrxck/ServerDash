@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/background_light"
+    android:background="#1C1B1F"
     android:orientation="vertical"
     android:padding="12dp">
 
@@ -15,14 +15,14 @@
         <View
             android:layout_width="10dp"
             android:layout_height="10dp"
-            android:background="#2E7D32" />
+            android:background="#66BB6A" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:text="my-server"
-            android:textColor="#1C1B1F"
+            android:textColor="#E6E1E5"
             android:textSize="14sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -37,7 +37,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="CPU 12%"
-            android:textColor="#49454F"
+            android:textColor="#CAC4D0"
             android:textSize="13sp" />
 
         <TextView
@@ -45,7 +45,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:text="MEM 45%"
-            android:textColor="#49454F"
+            android:textColor="#CAC4D0"
             android:textSize="13sp" />
     </LinearLayout>
 

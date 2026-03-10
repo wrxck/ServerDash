@@ -38,16 +38,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import org.connectbot.terminal.Terminal
-
-private val TerminalBackground = Color(0xFF1A1B26)
-private val TerminalForeground = Color(0xFFC0CAF5)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,6 +57,16 @@ fun UnifiedTerminalScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val activeSession = viewModel.getActiveSession()
+
+    val terminalBackground = MaterialTheme.colorScheme.surface
+    val terminalForeground = MaterialTheme.colorScheme.onSurface
+
+    LaunchedEffect(terminalForeground, terminalBackground) {
+        viewModel.setTerminalColors(
+            foreground = terminalForeground,
+            background = terminalBackground,
+        )
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(state.error) {
@@ -103,7 +109,7 @@ fun UnifiedTerminalScreen(
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .background(TerminalBackground),
+                .background(terminalBackground),
         ) {
             if (state.sessions.isEmpty() && !state.isConnecting) {
                 StartScreen(
@@ -143,8 +149,8 @@ fun UnifiedTerminalScreen(
                             modifier = Modifier.fillMaxSize(),
                             typeface = android.graphics.Typeface.MONOSPACE,
                             initialFontSize = 13.sp,
-                            backgroundColor = TerminalBackground,
-                            foregroundColor = TerminalForeground,
+                            backgroundColor = terminalBackground,
+                            foregroundColor = terminalForeground,
                             keyboardEnabled = true,
                             showSoftKeyboard = true,
                         )
@@ -153,7 +159,7 @@ fun UnifiedTerminalScreen(
                     if (state.isConnecting) {
                         LinearProgressIndicator(
                             modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
-                            color = Color(0xFF7AA2F7),
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                 }
@@ -241,18 +247,18 @@ private fun StartScreen(
                 if (isClaudeMode) Icons.Default.SmartToy else Icons.Default.Terminal,
                 null,
                 Modifier.size(64.dp),
-                tint = Color(0xFF7AA2F7),
+                tint = MaterialTheme.colorScheme.primary,
             )
             Text(
                 if (isClaudeMode) "Claude Code" else "Terminal",
                 style = MaterialTheme.typography.headlineSmall,
-                color = Color(0xFFC0CAF5),
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 if (isClaudeMode) "Persistent tmux sessions on your server"
                 else "Interactive SSH shell",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF565F89),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
 
@@ -260,8 +266,8 @@ private fun StartScreen(
                 FilledTonalButton(
                     onClick = onNewClaude,
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color(0xFF292E42),
-                        contentColor = Color(0xFF7AA2F7),
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.primary,
                     ),
                 ) {
                     Icon(Icons.Default.Add, null, Modifier.size(18.dp))
@@ -272,8 +278,8 @@ private fun StartScreen(
                     FilledTonalButton(
                         onClick = onResumeSessions,
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = Color(0xFF292E42),
-                            contentColor = Color(0xFF9ECE6A),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.tertiary,
                         ),
                     ) {
                         Icon(Icons.AutoMirrored.Filled.List, null, Modifier.size(18.dp))
@@ -284,7 +290,7 @@ private fun StartScreen(
                 OutlinedButton(
                     onClick = onStartWithoutProject,
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFF565F89),
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     ),
                 ) {
                     Text("Start without project")
@@ -293,8 +299,8 @@ private fun StartScreen(
                 FilledTonalButton(
                     onClick = onNewShell,
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color(0xFF292E42),
-                        contentColor = Color(0xFF7AA2F7),
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.primary,
                     ),
                 ) {
                     Icon(Icons.Default.Terminal, null, Modifier.size(18.dp))

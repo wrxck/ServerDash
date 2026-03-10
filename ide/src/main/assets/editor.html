@@ -11,6 +11,31 @@
 </head>
 <body>
 <div id="editor"></div>
+<script>
+// Configure Monaco workers for Android WebView (file:// doesn't support importScripts)
+self.MonacoEnvironment = {
+  getWorker: function(moduleId, label) {
+    var workerPath = 'file:///android_asset/monaco/vs/assets/editor.worker-Be8ye1pW.js';
+    if (label === 'json') workerPath = 'file:///android_asset/monaco/vs/assets/json.worker-DKiEKt88.js';
+    else if (label === 'css' || label === 'scss' || label === 'less') workerPath = 'file:///android_asset/monaco/vs/assets/css.worker-HnVq6Ewq.js';
+    else if (label === 'html' || label === 'handlebars' || label === 'razor') workerPath = 'file:///android_asset/monaco/vs/assets/html.worker-B51mlPHg.js';
+    else if (label === 'typescript' || label === 'javascript') workerPath = 'file:///android_asset/monaco/vs/assets/ts.worker-CMbG-7ft.js';
+    // Use XHR + blob to avoid importScripts file:// restriction
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', workerPath, false);
+    try {
+      xhr.send();
+      if (xhr.status === 0 || xhr.status === 200) {
+        var blob = new Blob([xhr.responseText], { type: 'application/javascript' });
+        return new Worker(URL.createObjectURL(blob));
+      }
+    } catch(e) {}
+    // Fallback: empty worker (Monaco will use main thread)
+    var blob = new Blob([''], { type: 'application/javascript' });
+    return new Worker(URL.createObjectURL(blob));
+  }
+};
+</script>
 <script src="monaco/vs/loader.js"></script>
 <script src="bridge.js"></script>
 </body>

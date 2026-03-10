@@ -23,6 +23,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.serverdash.app.core.theme.StatusGreen
+import com.serverdash.app.core.theme.StatusRed
+import com.serverdash.app.core.theme.StatusYellow
 import com.serverdash.app.core.util.formatUptime
 import com.serverdash.app.domain.model.SystemMetrics
 
@@ -80,9 +83,9 @@ fun MetricsCardsRow(
             value = "%.0f%%".format(metrics.cpuUsage),
             chartValues = history.takeLast(30).map { it.cpuUsage },
             chartColor = when {
-                metrics.cpuUsage > 80 -> Color(0xFFEF5350)
-                metrics.cpuUsage > 50 -> Color(0xFFFFA726)
-                else -> Color(0xFF66BB6A)
+                metrics.cpuUsage > 80 -> StatusRed
+                metrics.cpuUsage > 50 -> StatusYellow
+                else -> StatusGreen
             },
             onClick = { viewModel.onEvent(DashboardEvent.OpenMetricDetail(MetricDetailType.CPU)) },
             modifier = Modifier.weight(1f)
@@ -92,9 +95,9 @@ fun MetricsCardsRow(
             value = "%.0f%%".format(metrics.memoryUsagePercent),
             chartValues = history.takeLast(30).map { it.memoryUsagePercent },
             chartColor = when {
-                metrics.memoryUsagePercent > 80 -> Color(0xFFEF5350)
-                metrics.memoryUsagePercent > 50 -> Color(0xFFFFA726)
-                else -> Color(0xFF5CCFE6)
+                metrics.memoryUsagePercent > 80 -> StatusRed
+                metrics.memoryUsagePercent > 50 -> StatusYellow
+                else -> MaterialTheme.colorScheme.primary
             },
             onClick = { viewModel.onEvent(DashboardEvent.OpenMetricDetail(MetricDetailType.MEMORY)) },
             modifier = Modifier.weight(1f)
@@ -104,9 +107,9 @@ fun MetricsCardsRow(
             value = "%.0f%%".format(metrics.diskUsagePercent),
             chartValues = history.takeLast(30).map { it.diskUsagePercent },
             chartColor = when {
-                metrics.diskUsagePercent > 80 -> Color(0xFFEF5350)
-                metrics.diskUsagePercent > 50 -> Color(0xFFFFA726)
-                else -> Color(0xFFCBB2F0)
+                metrics.diskUsagePercent > 80 -> StatusRed
+                metrics.diskUsagePercent > 50 -> StatusYellow
+                else -> MaterialTheme.colorScheme.tertiary
             },
             onClick = { viewModel.onEvent(DashboardEvent.OpenMetricDetail(MetricDetailType.DISK)) },
             modifier = Modifier.weight(1f)
@@ -233,7 +236,7 @@ private fun CpuDetailView(state: DashboardUiState, viewModel: DashboardViewModel
                     SparklineChart(
                         values = history.map { it.cpuUsage },
                         modifier = Modifier.fillMaxWidth().height(120.dp),
-                        lineColor = Color(0xFF66BB6A)
+                        lineColor = StatusGreen
                     )
                 }
             }
@@ -323,7 +326,7 @@ private fun MemoryDetailView(state: DashboardUiState, viewModel: DashboardViewMo
                     SparklineChart(
                         values = history.map { it.memoryUsagePercent },
                         modifier = Modifier.fillMaxWidth().height(120.dp),
-                        lineColor = Color(0xFF5CCFE6)
+                        lineColor = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -380,7 +383,7 @@ private fun DiskDetailView(state: DashboardUiState, viewModel: DashboardViewMode
                     SparklineChart(
                         values = history.map { it.diskUsagePercent },
                         modifier = Modifier.fillMaxWidth().height(120.dp),
-                        lineColor = Color(0xFFCBB2F0)
+                        lineColor = MaterialTheme.colorScheme.tertiary
                     )
                 }
             }

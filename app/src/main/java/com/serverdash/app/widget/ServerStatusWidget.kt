@@ -23,7 +23,7 @@ import com.serverdash.app.MainActivity
 
 /**
  * Small 2x1 widget showing server connection status, hostname,
- * and CPU/memory usage percentages.
+ * and CPU/memory/disk usage percentages.
  */
 class ServerStatusWidget : GlanceAppWidget() {
 
@@ -81,37 +81,33 @@ private fun ServerStatusContent(data: WidgetData) {
                 )
             }
 
-            Spacer(modifier = GlanceModifier.height(8.dp))
+            Spacer(modifier = GlanceModifier.height(6.dp))
 
-            // Bottom row: CPU and Memory
+            // Bottom row: CPU, Memory, Disk
             Row(
                 modifier = GlanceModifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.Start
             ) {
-                // CPU
-                Text(
-                    text = "CPU ${data.cpuUsage.toInt()}%",
-                    style = TextStyle(
-                        color = metricColor(data.cpuUsage),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-
-                Spacer(modifier = GlanceModifier.width(16.dp))
-
-                // Memory
-                Text(
-                    text = "MEM ${data.memoryUsage.toInt()}%",
-                    style = TextStyle(
-                        color = metricColor(data.memoryUsage),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
+                MetricText("CPU", data.cpuUsage)
+                Spacer(modifier = GlanceModifier.width(10.dp))
+                MetricText("MEM", data.memoryUsage)
+                Spacer(modifier = GlanceModifier.width(10.dp))
+                MetricText("DSK", data.diskUsage)
             }
         }
     }
+}
+
+@Composable
+private fun MetricText(label: String, value: Float) {
+    Text(
+        text = "$label ${value.toInt()}%",
+        style = TextStyle(
+            color = metricColor(value),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
+        )
+    )
 }
 
 private fun metricColor(value: Float): ColorProvider {

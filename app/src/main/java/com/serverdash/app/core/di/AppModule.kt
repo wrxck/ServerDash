@@ -3,6 +3,8 @@ package com.serverdash.app.core.di
 import android.content.Context
 import android.util.Log
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.serverdash.app.data.encryption.EncryptionManager
 import com.serverdash.app.data.local.db.*
 import com.serverdash.app.data.preferences.PreferencesManager
@@ -24,6 +26,16 @@ import javax.inject.Singleton
 object DatabaseModule {
     private const val DB_NAME = "serverdash.db"
 
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE server_config ADD COLUMN rootAuthType TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE server_config ADD COLUMN rootPrivateKey TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE server_config ADD COLUMN rootPassphrase TEXT NOT NULL DEFAULT ''")
+            // Migrate existing sudo password configs to rootAuthType="sudo"
+            db.execSQL("UPDATE server_config SET rootAuthType = 'sudo' WHERE sudoPassword != ''")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(
@@ -44,7 +56,8 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             DB_NAME
-        ).fallbackToDestructiveMigration()
+        ).addMigrations(MIGRATION_3_4)
+         .fallbackToDestructiveMigration()
 
         if (encryptionManager.isEncryptionEnabled) {
             val passphrase = encryptionManager.getDatabasePassphrase()

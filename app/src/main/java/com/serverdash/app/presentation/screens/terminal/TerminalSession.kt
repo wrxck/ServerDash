@@ -16,12 +16,14 @@ class TerminalSession(
     val isTmux: Boolean = false,
     private val sshSession: SshSessionManager.InteractiveSession,
     private val scope: CoroutineScope,
+    defaultForeground: Color = Color(0xFFC0CAF5),
+    defaultBackground: Color = Color(0xFF1A1B26),
 ) {
     val emulator: TerminalEmulator = TerminalEmulatorFactory.create(
         initialRows = 24,
         initialCols = 80,
-        defaultForeground = Color(0xFFC0CAF5),
-        defaultBackground = Color(0xFF1A1B26),
+        defaultForeground = defaultForeground,
+        defaultBackground = defaultBackground,
         onKeyboardInput = { data ->
             sshSession.write(data)
         },

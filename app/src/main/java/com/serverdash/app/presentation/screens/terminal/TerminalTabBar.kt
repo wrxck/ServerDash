@@ -16,26 +16,16 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-// tokyo night colour scheme
-private val BarBackground = Color(0xFF1A1B26)
-private val ActiveTabBackground = Color(0xFF292E42)
-private val ActiveTabText = Color(0xFF7AA2F7)
-private val InactiveTabBackground = Color(0xFF16161E)
-private val InactiveTabText = Color(0xFF565F89)
-private val CloseIconTint = Color(0xFF565F89)
-private val AddButtonTint = Color(0xFF565F89)
-private val TmuxIndicatorColor = Color(0xFF9ECE6A)
 
 @Composable
 fun TerminalTabBar(
@@ -47,7 +37,7 @@ fun TerminalTabBar(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        color = BarBackground,
+        color = MaterialTheme.colorScheme.surface,
         modifier = modifier,
     ) {
         Row(
@@ -71,7 +61,7 @@ fun TerminalTabBar(
             Surface(
                 onClick = onAddSession,
                 shape = RoundedCornerShape(8.dp),
-                color = InactiveTabBackground,
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
                 modifier = Modifier.height(32.dp),
             ) {
                 Row(
@@ -81,7 +71,7 @@ fun TerminalTabBar(
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = "Add session",
-                        tint = AddButtonTint,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -97,8 +87,8 @@ private fun TerminalTab(
     onSelect: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val backgroundColor = if (isActive) ActiveTabBackground else InactiveTabBackground
-    val textColor = if (isActive) ActiveTabText else InactiveTabText
+    val backgroundColor = if (isActive) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLowest
+    val textColor = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
 
     Surface(
         onClick = onSelect,
@@ -113,7 +103,7 @@ private fun TerminalTab(
             if (session.isTmux) {
                 Text(
                     text = "\u27F3",
-                    color = TmuxIndicatorColor,
+                    color = MaterialTheme.colorScheme.tertiary,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                 )
@@ -133,7 +123,7 @@ private fun TerminalTab(
                 onClick = onClose,
                 modifier = Modifier.size(20.dp),
                 colors = IconButtonDefaults.iconButtonColors(
-                    contentColor = CloseIconTint,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 ),
             ) {
                 Icon(

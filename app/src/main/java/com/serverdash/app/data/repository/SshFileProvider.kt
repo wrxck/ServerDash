@@ -1,42 +1,84 @@
 package com.serverdash.app.data.repository
 
+import android.util.Log
 import com.serverdash.app.domain.repository.SshRepository
 import com.serverdash.ide.FileProvider
 import com.serverdash.ide.model.RemoteFile
 import javax.inject.Inject
 
+private const val TAG = "SshFileProvider"
+
 class SshFileProvider @Inject constructor(
     private val sshRepository: SshRepository,
 ) : FileProvider {
 
+    /** Username to run file operations as (empty = connected user) */
+    var asUser: String = ""
+
+    /** True when asUser differs from the connected user (requires root SSH) */
+    private val needsUserSwitch: Boolean
+        get() = asUser.isNotEmpty() && asUser != sshRepository.getConnectedUsername()
+
     override suspend fun listFiles(path: String): Result<List<RemoteFile>> {
-        return sshRepository.executeCommand(
-            "ls -la --time-style=+%s '$path' | tail -n +2",
-        ).map { result ->
-            result.output.lines()
+        Log.d(TAG, "listFiles path=$path asUser=$asUser")
+        val cmd = "ls -la --time-style=+%s '$path' | tail -n +2"
+        val result = if (needsUserSwitch) {
+            sshRepository.executeAsUser(cmd, asUser)
+        } else {
+            sshRepository.executeCommand(cmd)
+        }
+        result.onFailure { Log.e(TAG, "listFiles FAILED: ${it.message}") }
+        return result.map { r ->
+            r.output.lines()
                 .filter { it.isNotBlank() }
                 .mapNotNull { parseLsLine(it, path) }
         }
     }
 
     override suspend fun readFile(path: String): Result<String> {
-        return sshRepository.readFile(path)
+        Log.d(TAG, "readFile path=$path asUser=$asUser")
+        val result = if (needsUserSwitch) {
+            sshRepository.readFileAsUser(path, asUser)
+        } else {
+            sshRepository.readFile(path)
+        }
+        result.onFailure { Log.e(TAG, "readFile FAILED: ${it.message}") }
+        return result
     }
 
     override suspend fun writeFile(path: String, content: String): Result<Unit> {
-        return sshRepository.writeFile(path, content)
+        return if (needsUserSwitch) {
+            sshRepository.writeFileAsUser(path, content, asUser)
+        } else {
+            sshRepository.writeFile(path, content)
+        }
     }
 
     override suspend fun deleteFile(path: String): Result<Unit> {
-        return sshRepository.executeCommand("rm -f '$path'").map { }
+        val cmd = "rm -f '$path'"
+        return if (needsUserSwitch) {
+            sshRepository.executeAsUser(cmd, asUser)
+        } else {
+            sshRepository.executeCommand(cmd)
+        }.map { }
     }
 
     override suspend fun createFile(path: String): Result<Unit> {
-        return sshRepository.executeCommand("touch '$path'").map { }
+        val cmd = "touch '$path'"
+        return if (needsUserSwitch) {
+            sshRepository.executeAsUser(cmd, asUser)
+        } else {
+            sshRepository.executeCommand(cmd)
+        }.map { }
     }
 
     override suspend fun createDirectory(path: String): Result<Unit> {
-        return sshRepository.executeCommand("mkdir -p '$path'").map { }
+        val cmd = "mkdir -p '$path'"
+        return if (needsUserSwitch) {
+            sshRepository.executeAsUser(cmd, asUser)
+        } else {
+            sshRepository.executeCommand(cmd)
+        }.map { }
     }
 
     private fun parseLsLine(line: String, parentPath: String): RemoteFile? {

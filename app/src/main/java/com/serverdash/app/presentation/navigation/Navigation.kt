@@ -12,6 +12,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import android.net.Uri
 import androidx.navigation.navArgument
 import com.serverdash.app.domain.repository.ServerRepository
 import com.serverdash.app.presentation.screens.about.AboutScreen
@@ -58,8 +59,9 @@ sealed class Screen(val route: String) {
     data object About : Screen("about")
     data object Privacy : Screen("privacy")
     data object ClaudeTerminal : Screen("claude_terminal")
-    data object Editor : Screen("editor?path={path}") {
-        fun createRoute(path: String = "/") = "editor?path=$path"
+    data object Editor : Screen("editor?path={path}&file={file}&asUser={asUser}") {
+        fun createRoute(path: String = "/", file: String = "", asUser: String = "") =
+            "editor?path=${Uri.encode(path)}&file=${Uri.encode(file)}&asUser=${Uri.encode(asUser)}"
     }
     data object ClaudeTerminalImmersive : Screen("claude_terminal_immersive?contextType={contextType}&param1={param1}&param2={param2}&param3={param3}") {
         fun createRoute(
@@ -204,7 +206,11 @@ fun ServerDashNavHost(widgetDeepLink: String? = null) {
         composable(Screen.ClaudeCode.route) {
             ClaudeCodeScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToClaudeTerminal = { navController.navigate(Screen.ClaudeTerminal.route) }
+                onNavigateToClaudeTerminal = { navController.navigate(Screen.ClaudeTerminal.route) },
+                onNavigateToEditor = { file, asUser ->
+                    val dir = file.substringBeforeLast('/').ifEmpty { "/" }
+                    navController.navigate(Screen.Editor.createRoute(path = dir, file = file, asUser = asUser))
+                }
             )
         }
 
@@ -267,12 +273,20 @@ fun ServerDashNavHost(widgetDeepLink: String? = null) {
             route = Screen.Editor.route,
             arguments = listOf(
                 navArgument("path") { type = NavType.StringType; defaultValue = "/" },
+                navArgument("file") { type = NavType.StringType; defaultValue = "" },
+                navArgument("asUser") { type = NavType.StringType; defaultValue = "" },
             ),
         ) {
             val wrapperViewModel: EditorWrapperViewModel = hiltViewModel()
+            LaunchedEffect(wrapperViewModel.initialFile) {
+                if (wrapperViewModel.initialFile.isNotEmpty()) {
+                    wrapperViewModel.editorViewModel.openFileByPath(wrapperViewModel.initialFile)
+                }
+            }
             EditorScreen(
                 viewModel = wrapperViewModel.editorViewModel,
                 initialPath = wrapperViewModel.initialPath,
+                onNavigateBack = { navController.popBackStack() },
             )
         }
 

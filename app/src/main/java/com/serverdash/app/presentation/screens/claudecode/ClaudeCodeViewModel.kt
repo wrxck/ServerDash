@@ -17,11 +17,14 @@ import javax.inject.Inject
 @Serializable
 data class McpServer(
     val name: String = "",
-    val command: String = "",
+    val type: String = "stdio", // stdio, http, sse
+    val command: String = "", // stdio servers
     val args: List<String> = emptyList(),
     val env: Map<String, String> = emptyMap(),
+    val url: String = "", // http/sse servers
+    val headers: Map<String, String> = emptyMap(), // http/sse auth headers
     val enabled: Boolean = true,
-    val source: String = "" // e.g. "~/.mcp.json", "~/.claude.json", "project:/path"
+    val source: String = "" // e.g. "~/.claude.json", "project:/path"
 )
 
 @Serializable
@@ -93,6 +96,8 @@ data class ClaudeCodeUiState(
     // mcp servers
     val mcpServers: List<McpServer> = emptyList(),
     val isLoadingMcp: Boolean = false,
+    val mcpScanProgress: String = "", // status message shown during MCP scan
+    val mcpDebugInfo: String = "", // diagnostic info for debugging MCP detection
     // settings
     val settingsJson: String = "",
     val originalSettingsJson: String = "",
@@ -167,7 +172,19 @@ data class ClaudeCodeUiState(
     val editingMcpServer: McpServer? = null,
     val isAddingMcpServer: Boolean = false,
     val editingSettings: Boolean = false,
-    val editingClaudeMd: Boolean = false
+    val editingClaudeMd: Boolean = false,
+    // ~/.mcp.json migration
+    val showMcpMigrationDialog: Boolean = false,
+    val mcpMigrationUser: String = "",
+    val mcpMigrationSystemUser: SystemUser? = null,
+    val mcpMigrationServers: List<McpServer> = emptyList(),
+    val isMigrating: Boolean = false,
+    // project claude.md CRUD
+    val editingProjectClaudeMd: Boolean = false,
+    val projectClaudeMdContent: String = "",
+    val projectClaudeMdProject: ClaudeProject? = null,
+    val isLoadingProjectClaudeMd: Boolean = false,
+    val isSavingProjectClaudeMd: Boolean = false
 )
 
 sealed interface ClaudeCodeEvent {
@@ -238,6 +255,17 @@ sealed interface ClaudeCodeEvent {
     data object SaveClaudeMd : ClaudeCodeEvent
     data object StartEditClaudeMd : ClaudeCodeEvent
     data object CancelEditClaudeMd : ClaudeCodeEvent
+    // ~/.mcp.json migration
+    data object DismissMcpMigration : ClaudeCodeEvent
+    data object ConfirmMcpMigration : ClaudeCodeEvent
+    // project claude.md CRUD
+    data class ViewProjectClaudeMd(val project: ClaudeProject) : ClaudeCodeEvent
+    data object DismissProjectClaudeMd : ClaudeCodeEvent
+    data object StartEditProjectClaudeMd : ClaudeCodeEvent
+    data class UpdateProjectClaudeMd(val content: String) : ClaudeCodeEvent
+    data object SaveProjectClaudeMd : ClaudeCodeEvent
+    data object CancelEditProjectClaudeMd : ClaudeCodeEvent
+    data class CreateProjectClaudeMd(val project: ClaudeProject) : ClaudeCodeEvent
 }
 
 @HiltViewModel
@@ -278,9 +306,11 @@ class ClaudeCodeViewModel @Inject constructor(
                             _state.update { it.copy(isDetected = false, isLoading = false) }
                         } else {
                             _state.update { it.copy(isDetected = true, claudeVersion = output, isLoading = false) }
-                            loadUsers()
+                            // Load users first, then MCP servers (which depend on user list)
+                            loadUsersAndThen {
+                                loadMcpServers()
+                            }
                             loadOverview()
-                            loadMcpServers()
                         }
                     },
                     onFailure = {
@@ -396,6 +426,28 @@ class ClaudeCodeViewModel @Inject constructor(
                 _state.update { it.copy(editingClaudeMd = false) }
                 loadClaudeMd()
             }
+            // ~/.mcp.json migration
+            is ClaudeCodeEvent.DismissMcpMigration -> _state.update { it.copy(showMcpMigrationDialog = false) }
+            is ClaudeCodeEvent.ConfirmMcpMigration -> migrateMcpJson()
+            // project claude.md CRUD
+            is ClaudeCodeEvent.ViewProjectClaudeMd -> loadProjectClaudeMd(event.project)
+            is ClaudeCodeEvent.DismissProjectClaudeMd -> _state.update { it.copy(
+                projectClaudeMdProject = null, projectClaudeMdContent = "", editingProjectClaudeMd = false
+            )}
+            is ClaudeCodeEvent.StartEditProjectClaudeMd -> _state.update { it.copy(editingProjectClaudeMd = true) }
+            is ClaudeCodeEvent.UpdateProjectClaudeMd -> _state.update { it.copy(projectClaudeMdContent = event.content) }
+            is ClaudeCodeEvent.SaveProjectClaudeMd -> saveProjectClaudeMd()
+            is ClaudeCodeEvent.CancelEditProjectClaudeMd -> {
+                _state.update { it.copy(editingProjectClaudeMd = false) }
+                _state.value.projectClaudeMdProject?.let { loadProjectClaudeMd(it) }
+            }
+            is ClaudeCodeEvent.CreateProjectClaudeMd -> {
+                _state.update { it.copy(
+                    projectClaudeMdProject = event.project,
+                    projectClaudeMdContent = "# ${event.project.displayName}\n\n",
+                    editingProjectClaudeMd = true
+                )}
+            }
         }
     }
 
@@ -461,6 +513,10 @@ class ClaudeCodeViewModel @Inject constructor(
     }
 
     private fun loadUsers() {
+        loadUsersAndThen { }
+    }
+
+    private fun loadUsersAndThen(onComplete: () -> Unit) {
         viewModelScope.launch {
             _state.update { it.copy(isLoadingUsers = true) }
             try {
@@ -485,6 +541,7 @@ class ClaudeCodeViewModel @Inject constructor(
             } catch (e: Exception) {
                 _state.update { it.copy(isLoadingUsers = false) }
             }
+            onComplete()
         }
     }
 
@@ -506,51 +563,77 @@ class ClaudeCodeViewModel @Inject constructor(
                     return@launch
                 }
             }
-            _state.update { it.copy(isLoadingMcp = true) }
+            _state.update { it.copy(isLoadingMcp = true, mcpDebugInfo = "", mcpScanProgress = "Preparing scan…") }
+            val debug = StringBuilder()
             try {
                 val allServers = mutableMapOf<String, McpServer>()
 
-                // Scan all Claude Code users — always include root even if not in detected list
+                debug.appendLine("connectedUsername=${connectedUsername}")
+                debug.appendLine("rootAccess=${sshRepository.hasRootAccess()}")
+                debug.appendLine("claudeCodeUsers=${_state.value.claudeCodeUsers.map { "${it.username}@${it.homeDirectory}" }}")
+                debug.appendLine("selectedUser=${_state.value.selectedUser?.username}")
+
+                // Scan all Claude Code users — always include root and connected user
                 val rootUser = SystemUser(username = "root", homeDirectory = "/root", uid = 0, hasClaudeCode = true)
                 val usersToScan = buildList {
                     addAll(_state.value.claudeCodeUsers)
-                    if (isEmpty()) {
-                        _state.value.selectedUser?.let { add(it) }
+                    // Always include the connected user even if Claude detection missed them
+                    val connected = connectedUsername
+                    if (connected != null && none { it.username == connected }) {
+                        val connUser = _state.value.systemUsers.find { it.username == connected }
+                            ?: SystemUser(username = connected, homeDirectory = "/home/$connected", uid = -1, hasClaudeCode = false)
+                        add(connUser)
+                    }
+                    _state.value.selectedUser?.let { sel ->
+                        if (none { it.username == sel.username }) add(sel)
                     }
                     // Always ensure root is scanned for MCP configs
                     if (none { it.username == "root" }) add(rootUser)
                 }.distinctBy { it.username }
 
-                for (user in usersToScan) {
-                    val homeDir = user.homeDirectory
+                debug.appendLine("usersToScan=${usersToScan.map { "${it.username}@${it.homeDirectory}" }}")
+
+                for ((idx, user) in usersToScan.withIndex()) {
                     val label = user.username
+                    _state.update { it.copy(mcpScanProgress = "Scanning $label (${idx + 1}/${usersToScan.size})…") }
 
-                    // 1. ~/.mcp.json (global MCP config)
-                    readFileForUser(user, ".mcp.json")?.let { content ->
-                        val jsonStr = content.trim().ifBlank { "{}" }
-                        parseMcpServersFromJson(jsonStr).forEach { server ->
-                            val key = "${label}:${server.name}"
-                            allServers[key] = server.copy(source = "$label:~/.mcp.json")
-                        }
-                    }
+                    // Per official docs, MCP configs live in:
+                    // 1. ~/.claude.json → top-level "mcpServers" (user-scoped)
+                    // 2. ~/.claude.json → projects.<path>.mcpServers (local/project-scoped)
+                    // 3. <project-dir>/.mcp.json → "mcpServers" (project-scoped, committed to VCS)
 
-                    // 2. ~/.claude.json global mcpServers
-                    val claudeJsonContent = readFileForUser(user, ".claude.json")?.trim()?.ifBlank { "{}" } ?: "{}"
+                    val rawClaudeJson = readFileForUser(user, ".claude.json")
+                    debug.appendLine("[$label] .claude.json read: ${if (rawClaudeJson != null) "${rawClaudeJson.length} chars" else "NULL"}")
+                    val claudeJsonContent = rawClaudeJson?.trim()?.ifBlank { "{}" } ?: "{}"
                     try {
                         val claudeRoot = Json.parseToJsonElement(claudeJsonContent).jsonObject
-                        claudeRoot["mcpServers"]?.jsonObject?.let { mcpObj ->
+                        val topKeys = claudeRoot.keys.take(10)
+                        debug.appendLine("[$label] .claude.json keys: $topKeys")
+
+                        // 1. User-scoped: ~/.claude.json top-level mcpServers
+                        val topMcp = claudeRoot["mcpServers"]?.jsonObject
+                        debug.appendLine("[$label] top-level mcpServers: ${topMcp?.keys?.toList() ?: "null"}")
+                        topMcp?.let { mcpObj ->
                             parseMcpObject(mcpObj).forEach { server ->
                                 val key = "${label}:${server.name}"
-                                if (key !in allServers) {
-                                    allServers[key] = server.copy(source = "$label:~/.claude.json")
-                                }
+                                allServers[key] = server.copy(source = "$label:~/.claude.json")
                             }
                         }
 
-                        // 3. Per-project mcpServers from .claude.json projects map
+                        // 2. Local/project-scoped: ~/.claude.json projects.<path>.mcpServers
+                        // Also collect project paths for scanning project-dir .mcp.json
+                        val projectPaths = mutableListOf<String>()
                         claudeRoot["projects"]?.jsonObject?.entries?.forEach { (projectKey, projectVal) ->
                             try {
                                 val projectObj = projectVal.jsonObject
+
+                                // Collect enabled/disabled .mcp.json server toggles
+                                val enabledFromMcpJson = projectObj["enabledMcpjsonServers"]?.jsonArray
+                                    ?.mapNotNull { it.jsonPrimitive.contentOrNull } ?: emptyList()
+                                val disabledFromMcpJson = projectObj["disabledMcpjsonServers"]?.jsonArray
+                                    ?.mapNotNull { it.jsonPrimitive.contentOrNull } ?: emptyList()
+
+                                // Local-scoped MCP servers for this project
                                 projectObj["mcpServers"]?.jsonObject?.let { mcpObj ->
                                     parseMcpObject(mcpObj).forEach { server ->
                                         val key = "${label}:${server.name}:$projectKey"
@@ -559,16 +642,110 @@ class ClaudeCodeViewModel @Inject constructor(
                                         }
                                     }
                                 }
+
+                                // Decode project path from key (e.g. "-home-matt-fleet" → "/home/matt/fleet")
+                                val decodedPath = projectKey.replace("-", "/")
+                                    .replaceFirst("/", "") // remove leading empty segment
+                                    .let { "/$it" }
+                                projectPaths.add(decodedPath)
+
+                                // 3. Project-scoped: <project-dir>/.mcp.json
+                                readFileAbsolute(user, "$decodedPath/.mcp.json")?.let { content ->
+                                    val jsonStr = content.trim().ifBlank { "{}" }
+                                    val mcpRoot = try { Json.parseToJsonElement(jsonStr).jsonObject } catch (_: Exception) { null }
+                                    // .mcp.json can have mcpServers key OR be flat (server entries at root)
+                                    val mcpObj = mcpRoot?.get("mcpServers")?.jsonObject ?: mcpRoot
+                                    if (mcpObj != null) {
+                                        parseMcpObject(mcpObj).forEach { server ->
+                                            val key = "${label}:${server.name}:mcp:$projectKey"
+                                            if (key !in allServers) {
+                                                // Apply enabled/disabled toggles from ~/.claude.json
+                                                val isEnabled = when {
+                                                    server.name in disabledFromMcpJson -> false
+                                                    enabledFromMcpJson.isNotEmpty() -> server.name in enabledFromMcpJson
+                                                    else -> true
+                                                }
+                                                allServers[key] = server.copy(
+                                                    source = "$label:.mcp.json:$projectKey",
+                                                    enabled = isEnabled
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             } catch (_: Exception) { }
                         }
-                    } catch (_: Exception) { }
+                    } catch (e: Exception) {
+                        debug.appendLine("[$label] .claude.json parse error: ${e.message}")
+                    }
+
+                    // Also check ~/.mcp.json as a fallback (non-standard location)
+                    // If servers found here that aren't already in ~/.claude.json, show migration dialog
+                    readFileForUser(user, ".mcp.json")?.let { content ->
+                        val jsonStr = content.trim().ifBlank { "{}" }
+                        val homeMcpServers = parseMcpServersFromJson(jsonStr)
+                        // Only flag servers not already present in ~/.claude.json
+                        val newServers = homeMcpServers.filter { server ->
+                            val key = "${label}:${server.name}"
+                            key !in allServers
+                        }
+                        newServers.forEach { server ->
+                            val key = "${label}:${server.name}"
+                            allServers[key] = server.copy(source = "$label:~/.mcp.json")
+                        }
+                        if (newServers.isNotEmpty()) {
+                            _state.update { it.copy(
+                                showMcpMigrationDialog = true,
+                                mcpMigrationUser = label,
+                                mcpMigrationSystemUser = user,
+                                mcpMigrationServers = newServers
+                            )}
+                        }
+                    }
+
+                    // Emit servers incrementally as each user is scanned
+                    if (allServers.isNotEmpty()) {
+                        _state.update { it.copy(mcpServers = allServers.values.toList()) }
+                    }
                 }
 
+                // Fallback: single-command scan that finds AND reads all config files at once
+                if (allServers.isEmpty()) {
+                    _state.update { it.copy(mcpScanProgress = "Scanning for config files…") }
+                    debug.appendLine("No servers from user scan, running fast find+read...")
+                    // Single SSH call: find files (shallow, skip junk dirs) and cat them with delimiters
+                    val findReadCmd = """find /home /root -maxdepth 3 \( -name node_modules -o -name .git -o -name .npm -o -name .cache -o -name .local -o -name .nvm -o -name .cargo -o -name .rustup -o -name .gradle -o -name .m2 -o -name vendor -o -name dist -o -name build -o -name target -o -name __pycache__ -o -name venv -o -name .venv -o -name .next -o -name .nuxt -o -name log -o -name logs -o -name tmp \) -prune -o \( -name '.claude.json' -o -name '.mcp.json' \) -type f -exec sh -c 'for f; do echo "===FILE:${'$'}f==="; cat "${'$'}f" 2>/dev/null; done' _ {} + 2>/dev/null"""
+                    val output = sshRepository.executeSudoCommand(findReadCmd).getOrNull()?.output?.trim()
+                    debug.appendLine("find+read output: ${if (output != null) "${output.length} chars" else "NULL"}")
+                    if (!output.isNullOrBlank()) {
+                        // Parse delimited output: ===FILE:/path=== followed by file content
+                        val fileRegex = Regex("===FILE:(.+?)===")
+                        val sections = output.split(fileRegex)
+                        val paths = fileRegex.findAll(output).map { it.groupValues[1] }.toList()
+                        // sections[0] is before first match (empty), sections[1..] are file contents
+                        paths.forEachIndexed { i, filePath ->
+                            val content = sections.getOrNull(i + 1)?.trim()
+                            debug.appendLine("  $filePath: ${content?.length ?: 0} chars")
+                            if (!content.isNullOrBlank()) {
+                                val servers = parseMcpServersFromJson(content)
+                                servers.forEach { server ->
+                                    val key = "found:${server.name}:$filePath"
+                                    if (key !in allServers) {
+                                        allServers[key] = server.copy(source = filePath)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                debug.appendLine("Total servers found: ${allServers.size}")
                 val serverList = allServers.values.toList()
                 cacheManager.put(com.serverdash.app.core.cache.ScreenCacheManager.CLAUDE_CODE_MCP, serverList)
-                _state.update { it.copy(mcpServers = serverList, isLoadingMcp = false) }
+                _state.update { it.copy(mcpServers = serverList, isLoadingMcp = false, mcpScanProgress = "", mcpDebugInfo = debug.toString()) }
             } catch (e: Exception) {
-                _state.update { it.copy(isLoadingMcp = false, error = e.message) }
+                debug.appendLine("EXCEPTION: ${e.message}")
+                _state.update { it.copy(isLoadingMcp = false, mcpScanProgress = "", error = e.message, mcpDebugInfo = debug.toString()) }
             }
         }
     }
@@ -576,11 +753,25 @@ class ClaudeCodeViewModel @Inject constructor(
     /** Read a file from a specific user's home directory */
     private suspend fun readFileForUser(user: SystemUser, relativePath: String): String? {
         val fullPath = "${user.homeDirectory}/$relativePath"
+        return readFileWithSudoFallback(user, fullPath)
+    }
+
+    /** Read a file at an absolute path, using sudo if the user differs from connected user */
+    private suspend fun readFileAbsolute(user: SystemUser, absolutePath: String): String? {
+        return readFileWithSudoFallback(user, absolutePath)
+    }
+
+    /** Read a file, using sudo for other users' files. Tries sudo first, then direct read. */
+    private suspend fun readFileWithSudoFallback(user: SystemUser, path: String): String? {
         return if (user.username == connectedUsername) {
-            sshRepository.executeCommand("cat '$fullPath' 2>/dev/null").getOrNull()?.output?.takeIf { it.isNotBlank() }
+            // Direct read for connected user's own files
+            sshRepository.executeCommand("cat \"$path\" 2>/dev/null").getOrNull()?.output?.takeIf { it.isNotBlank() }
         } else {
-            // Use sudo cat directly for other users' files
-            sshRepository.executeSudoCommand("cat '$fullPath' 2>/dev/null").getOrNull()?.output?.takeIf { it.isNotBlank() }
+            // For other users: always use sudo to read (files may be 600 perms)
+            val result = sshRepository.executeSudoCommand("cat \"$path\"")
+            val output = result.getOrNull()?.output?.trim()
+            // If sudo failed or returned auth error, return null
+            if (output.isNullOrBlank() || output.contains("Permission denied") || output.contains("Sudo authentication failed")) null else output
         }
     }
 
@@ -595,22 +786,28 @@ class ClaudeCodeViewModel @Inject constructor(
     }
 
     private fun parseMcpObject(mcpObj: JsonObject): List<McpServer> {
-        return mcpObj.entries.map { (name, value) ->
-            val obj = value.jsonObject
-            McpServer(
-                name = name,
-                command = obj["command"]?.jsonPrimitive?.content ?: "",
-                args = obj["args"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
-                env = obj["env"]?.jsonObject?.entries?.associate { (k, v) -> k to v.jsonPrimitive.content } ?: emptyMap()
-            )
+        return mcpObj.entries.mapNotNull { (name, value) ->
+            try {
+                val obj = value.jsonObject
+                val serverType = obj["type"]?.jsonPrimitive?.content ?: "stdio"
+                McpServer(
+                    name = name,
+                    type = serverType,
+                    command = obj["command"]?.jsonPrimitive?.content ?: "",
+                    args = obj["args"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
+                    env = obj["env"]?.jsonObject?.entries?.associate { (k, v) -> k to v.jsonPrimitive.content } ?: emptyMap(),
+                    url = obj["url"]?.jsonPrimitive?.content ?: "",
+                    headers = obj["headers"]?.jsonObject?.entries?.associate { (k, v) -> k to v.jsonPrimitive.content } ?: emptyMap()
+                )
+            } catch (_: Exception) { null }
         }
     }
 
     private fun saveMcpServer(original: McpServer?, updated: McpServer) {
         viewModelScope.launch {
             try {
-                // read current mcp config
-                val currentJson = readClaudeFile(".mcp.json").getOrNull()?.trim()?.ifBlank { "{}" } ?: "{}"
+                // Per official docs, user-scoped MCP servers go in ~/.claude.json
+                val currentJson = readClaudeFile(".claude.json").getOrNull()?.trim()?.ifBlank { "{}" } ?: "{}"
                 val root = try { Json.parseToJsonElement(currentJson).jsonObject.toMutableMap() } catch (e: Exception) { mutableMapOf() }
 
                 val mcpObj = (root["mcpServers"]?.jsonObject?.toMutableMap() ?: mutableMapOf())
@@ -620,20 +817,21 @@ class ClaudeCodeViewModel @Inject constructor(
                     mcpObj.remove(original.name)
                 }
 
-                // add/update entry
+                // add/update entry — support both stdio and http/sse
                 val serverObj = buildJsonObject {
-                    put("command", updated.command)
-                    putJsonArray("args") { updated.args.forEach { add(it) } }
-                    if (updated.env.isNotEmpty()) {
-                        putJsonObject("env") { updated.env.forEach { (k, v) -> put(k, v) } }
-                    }
+                    if (updated.type != "stdio") put("type", updated.type)
+                    if (updated.command.isNotBlank()) put("command", updated.command)
+                    if (updated.args.isNotEmpty()) putJsonArray("args") { updated.args.forEach { add(it) } }
+                    if (updated.env.isNotEmpty()) putJsonObject("env") { updated.env.forEach { (k, v) -> put(k, v) } }
+                    if (updated.url.isNotBlank()) put("url", updated.url)
+                    if (updated.headers.isNotEmpty()) putJsonObject("headers") { updated.headers.forEach { (k, v) -> put(k, v) } }
                 }
                 mcpObj[updated.name] = serverObj
 
                 root["mcpServers"] = JsonObject(mcpObj)
                 val newJson = json.encodeToString(JsonObject.serializer(), JsonObject(root))
 
-                writeClaudeFile(".mcp.json", newJson)
+                writeClaudeFile(".claude.json", newJson)
                 _state.update { it.copy(editingMcpServer = null, isAddingMcpServer = false, successMessage = "MCP server saved") }
                 loadMcpServers()
             } catch (e: Exception) {
@@ -645,7 +843,11 @@ class ClaudeCodeViewModel @Inject constructor(
     private fun deleteMcpServer(server: McpServer) {
         viewModelScope.launch {
             try {
-                val currentJson = readClaudeFile(".mcp.json").getOrNull()?.trim()?.ifBlank { "{}" } ?: "{}"
+                // Determine which file the server is from based on source
+                val isFromHomeMcp = server.source.contains("~/.mcp.json")
+                val configFile = if (isFromHomeMcp) ".mcp.json" else ".claude.json"
+
+                val currentJson = readClaudeFile(configFile).getOrNull()?.trim()?.ifBlank { "{}" } ?: "{}"
                 val root = try { Json.parseToJsonElement(currentJson).jsonObject.toMutableMap() } catch (e: Exception) { mutableMapOf() }
 
                 val mcpObj = (root["mcpServers"]?.jsonObject?.toMutableMap() ?: mutableMapOf())
@@ -653,11 +855,146 @@ class ClaudeCodeViewModel @Inject constructor(
                 root["mcpServers"] = JsonObject(mcpObj)
 
                 val newJson = json.encodeToString(JsonObject.serializer(), JsonObject(root))
-                writeClaudeFile(".mcp.json", newJson)
+                writeClaudeFile(configFile, newJson)
                 _state.update { it.copy(successMessage = "MCP server '${server.name}' deleted") }
                 loadMcpServers()
             } catch (e: Exception) {
                 _state.update { it.copy(error = "Failed to delete: ${e.message}") }
+            }
+        }
+    }
+
+    /** Migrate servers from non-standard ~/.mcp.json into ~/.claude.json */
+    private fun migrateMcpJson() {
+        viewModelScope.launch {
+            _state.update { it.copy(isMigrating = true) }
+            try {
+                // Use the stored migration user — NOT selectedUser (they can differ)
+                val migrationUser = _state.value.mcpMigrationSystemUser
+                    ?: _state.value.selectedUser
+                    ?: return@launch
+
+                // Read ~/.mcp.json servers
+                val mcpJsonContent = readFileForUser(migrationUser, ".mcp.json")?.trim() ?: "{}"
+                val mcpServers = parseMcpServersFromJson(mcpJsonContent)
+
+                if (mcpServers.isEmpty()) {
+                    // File exists but empty — just delete it
+                    removeMcpJsonFile(migrationUser)
+                    _state.update { it.copy(showMcpMigrationDialog = false, isMigrating = false) }
+                    return@launch
+                }
+
+                // Read current ~/.claude.json for the migration user
+                val claudeJsonPath = "${migrationUser.homeDirectory}/.claude.json"
+                val claudeJsonContent = readFileWithSudoFallback(migrationUser, claudeJsonPath)?.trim()?.ifBlank { "{}" } ?: "{}"
+                val claudeRoot = try { Json.parseToJsonElement(claudeJsonContent).jsonObject.toMutableMap() } catch (_: Exception) { mutableMapOf() }
+                val existingMcp = claudeRoot["mcpServers"]?.jsonObject?.toMutableMap() ?: mutableMapOf()
+
+                // Merge servers into ~/.claude.json
+                mcpServers.forEach { server ->
+                    if (server.name !in existingMcp) {
+                        existingMcp[server.name] = buildJsonObject {
+                            if (server.type != "stdio") put("type", server.type)
+                            if (server.command.isNotBlank()) put("command", server.command)
+                            if (server.args.isNotEmpty()) putJsonArray("args") { server.args.forEach { add(it) } }
+                            if (server.env.isNotEmpty()) putJsonObject("env") { server.env.forEach { (k, v) -> put(k, v) } }
+                            if (server.url.isNotBlank()) put("url", server.url)
+                            if (server.headers.isNotEmpty()) putJsonObject("headers") { server.headers.forEach { (k, v) -> put(k, v) } }
+                        }
+                    }
+                }
+                claudeRoot["mcpServers"] = JsonObject(existingMcp)
+                val newClaudeJson = json.encodeToString(JsonObject.serializer(), JsonObject(claudeRoot))
+
+                // Write the merged file for the correct user
+                val writeCmd = "mkdir -p ${migrationUser.homeDirectory}/.claude && cat > '$claudeJsonPath' << 'SERVERDASH_EOF'\n$newClaudeJson\nSERVERDASH_EOF"
+                if (migrationUser.username == connectedUsername) {
+                    sshRepository.executeCommand(writeCmd)
+                } else {
+                    sshRepository.executeAsUser(writeCmd, migrationUser.username)
+                }
+
+                // Remove ~/.mcp.json and verify it's gone
+                removeMcpJsonFile(migrationUser)
+
+                _state.update { it.copy(
+                    showMcpMigrationDialog = false,
+                    isMigrating = false,
+                    mcpMigrationSystemUser = null,
+                    successMessage = "Migrated ${mcpServers.size} servers to ~/.claude.json"
+                )}
+                loadMcpServers()
+            } catch (e: Exception) {
+                _state.update { it.copy(isMigrating = false, error = "Migration failed: ${e.message}") }
+            }
+        }
+    }
+
+    /** Remove ~/.mcp.json for a specific user, with verification */
+    private suspend fun removeMcpJsonFile(user: SystemUser) {
+        val mcpPath = "${user.homeDirectory}/.mcp.json"
+        val rmCmd = "rm -f '$mcpPath'"
+        if (user.username == connectedUsername) {
+            sshRepository.executeCommand(rmCmd)
+        } else {
+            sshRepository.executeSudoCommand(rmCmd)
+        }
+    }
+
+    /** Load claude.md from a project directory */
+    private fun loadProjectClaudeMd(project: ClaudeProject) {
+        viewModelScope.launch {
+            _state.update { it.copy(
+                projectClaudeMdProject = project,
+                isLoadingProjectClaudeMd = true,
+                editingProjectClaudeMd = false
+            )}
+            try {
+                val user = _state.value.selectedUser ?: return@launch
+                val projectDir = project.displayName // decoded path like /home/matt/fleet
+                val content = readFileAbsolute(user, "$projectDir/CLAUDE.md") ?: ""
+                _state.update { it.copy(
+                    projectClaudeMdContent = content,
+                    isLoadingProjectClaudeMd = false
+                )}
+            } catch (e: Exception) {
+                _state.update { it.copy(
+                    isLoadingProjectClaudeMd = false,
+                    error = "Failed to load CLAUDE.md: ${e.message}"
+                )}
+            }
+        }
+    }
+
+    /** Save claude.md to a project directory */
+    private fun saveProjectClaudeMd() {
+        viewModelScope.launch {
+            val project = _state.value.projectClaudeMdProject ?: return@launch
+            _state.update { it.copy(isSavingProjectClaudeMd = true) }
+            try {
+                val user = _state.value.selectedUser ?: return@launch
+                val projectDir = project.displayName
+                val content = _state.value.projectClaudeMdContent
+                val fullPath = "$projectDir/CLAUDE.md"
+
+                if (user.username == connectedUsername) {
+                    sshRepository.executeCommand("cat > \"$fullPath\" << 'SERVERDASH_EOF'\n$content\nSERVERDASH_EOF")
+                } else {
+                    // Write via sudo for other users
+                    sshRepository.executeSudoCommand("tee \"$fullPath\" > /dev/null << 'SERVERDASH_EOF'\n$content\nSERVERDASH_EOF")
+                }
+
+                _state.update { it.copy(
+                    isSavingProjectClaudeMd = false,
+                    editingProjectClaudeMd = false,
+                    successMessage = "CLAUDE.md saved"
+                )}
+            } catch (e: Exception) {
+                _state.update { it.copy(
+                    isSavingProjectClaudeMd = false,
+                    error = "Failed to save CLAUDE.md: ${e.message}"
+                )}
             }
         }
     }
@@ -811,9 +1148,9 @@ class ClaudeCodeViewModel @Inject constructor(
                     append("echo '===PROJECTS==='; ls -1 ~/.claude/projects/ 2>/dev/null | wc -l; ")
                     append("echo '===PLANS==='; ls -1 ~/.claude/plans/ 2>/dev/null | wc -l; ")
                     append("echo '===SESSIONS==='; find ~/.claude/projects/ -name '*.jsonl' 2>/dev/null | wc -l; ")
-                    append("echo '===PLUGINS==='; cat ~/.claude/plugins/installed_plugins.json 2>/dev/null; ")
-                    append("echo '===SKILLS==='; ls -1 ~/.claude/skills/ 2>/dev/null; ")
-                    append("echo '===HOOKS==='; ls -1 ~/.claude/hooks/ 2>/dev/null; ")
+                    append("echo '===PLUGINS==='; cat ~/.claude/settings.json 2>/dev/null | grep -o '\"enabledPlugins\"[^}]*}' 2>/dev/null; ")
+                    append("echo '===SKILLS==='; ls -1d ~/.claude/skills/*/ 2>/dev/null | xargs -I{} basename {}; ")
+                    append("echo '===HOOKS==='; cat ~/.claude/settings.json 2>/dev/null | grep -c '\"hooks\"' 2>/dev/null; ")
                     append("echo '===ACTIVITY==='; for d in ~/.claude/projects/*/; do name=\$(basename \"\$d\"); count=\$(ls \"\$d\"/*.jsonl 2>/dev/null | wc -l); size=\$(du -sh \"\$d\" 2>/dev/null | awk '{print \$1}'); latest=\$(find \"\$d\" -name '*.jsonl' -printf '%T@\\n' 2>/dev/null | sort -rn | head -1); echo \"\$name|\$count|\$size|\${latest:-0}\"; done 2>/dev/null")
                 }
                 val result = executeForUser(cmd)
@@ -827,14 +1164,17 @@ class ClaudeCodeViewModel @Inject constructor(
                         val sessionCount = sections.getOrNull(5)?.trim()?.toIntOrNull() ?: 0
                         val pluginsJson = sections.getOrNull(6)?.trim() ?: ""
                         val skills = sections.getOrNull(7)?.trim()?.lines()?.filter { it.isNotBlank() } ?: emptyList()
-                        val hooks = sections.getOrNull(8)?.trim()?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+                        val hooksCount = sections.getOrNull(8)?.trim()?.toIntOrNull() ?: 0
+                        val hooks = if (hooksCount > 0) listOf("configured in settings.json") else emptyList()
                         val activityRaw = sections.getOrNull(9)?.trim() ?: ""
 
                         val plugins = try {
-                            Json.parseToJsonElement(pluginsJson).jsonArray.map { element ->
-                                if (element is JsonPrimitive) element.content
-                                else element.jsonObject["name"]?.jsonPrimitive?.content ?: element.toString()
-                            }
+                            // Parse enabledPlugins from settings.json grep output
+                            // Format: "enabledPlugins": {"name@marketplace": true, ...}
+                            val jsonStr = "{${pluginsJson}}"
+                            val obj = Json.parseToJsonElement(jsonStr).jsonObject
+                            val enabled = obj["enabledPlugins"]?.jsonObject ?: JsonObject(emptyMap())
+                            enabled.entries.filter { it.value.jsonPrimitive.boolean }.map { it.key }
                         } catch (e: Exception) { emptyList() }
 
                         val parsedUsage = parseUsageStats(stats)
@@ -993,7 +1333,7 @@ class ClaudeCodeViewModel @Inject constructor(
                             StorageItem("Total", sections.getOrNull(1)?.trim() ?: "?", "~/.claude"),
                             StorageItem("Projects & Sessions", sections.getOrNull(2)?.trim() ?: "0", "~/.claude/projects/"),
                             StorageItem("Plans", sections.getOrNull(3)?.trim() ?: "0", "~/.claude/plans/"),
-                            StorageItem("Hook Scripts", sections.getOrNull(4)?.trim() ?: "0", "~/.claude/hooks/"),
+                            StorageItem("Hooks (in settings.json)", sections.getOrNull(4)?.trim() ?: "0", "~/.claude/settings.json"),
                             StorageItem("Custom Skills", sections.getOrNull(5)?.trim() ?: "0", "~/.claude/skills/"),
                             StorageItem("Plugins", sections.getOrNull(6)?.trim() ?: "0", "~/.claude/plugins/"),
                             StorageItem("Usage Stats", sections.getOrNull(7)?.trim() ?: "0", "~/.claude/cc-counter/"),
@@ -1301,21 +1641,21 @@ class ClaudeCodeViewModel @Inject constructor(
     private fun uninstallPlugin(name: String) {
         viewModelScope.launch {
             try {
-                val currentJson = readClaudeFile(".claude/plugins/installed_plugins.json").getOrNull()?.trim() ?: "[]"
-                val arr = try { Json.parseToJsonElement(currentJson).jsonArray } catch (e: Exception) { JsonArray(emptyList()) }
-                val filtered = arr.filter { element ->
-                    val elementName = if (element is JsonPrimitive) element.content
-                    else try { element.jsonObject["name"]?.jsonPrimitive?.content } catch (e: Exception) { null }
-                    elementName != name
-                }
-                val newJson = json.encodeToString(JsonArray.serializer(), JsonArray(filtered))
-                writeClaudeFile(".claude/plugins/installed_plugins.json", newJson)
+                // Plugins are in ~/.claude/settings.json under "enabledPlugins"
+                val settingsContent = readClaudeFile(".claude/settings.json").getOrNull()?.trim() ?: "{}"
+                val settings = try { Json.parseToJsonElement(settingsContent).jsonObject } catch (_: Exception) { JsonObject(emptyMap()) }
+                val enabledPlugins = settings["enabledPlugins"]?.jsonObject?.toMutableMap() ?: mutableMapOf()
+                enabledPlugins.remove(name)
+                val updatedSettings = JsonObject(settings.toMutableMap().apply {
+                    put("enabledPlugins", JsonObject(enabledPlugins))
+                })
+                writeClaudeFile(".claude/settings.json", json.encodeToString(JsonObject.serializer(), updatedSettings))
                 _state.update { it.copy(
                     installedPlugins = it.installedPlugins.filter { p -> p != name },
-                    successMessage = "Plugin '$name' uninstalled"
+                    successMessage = "Plugin '$name' disabled"
                 )}
             } catch (e: Exception) {
-                _state.update { it.copy(error = "Failed to uninstall: ${e.message}") }
+                _state.update { it.copy(error = "Failed to disable plugin: ${e.message}") }
             }
         }
     }

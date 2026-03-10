@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private fun shellQuote(s: String): String = "'" + s.replace("'", "'\\''") + "'"
+
 data class ServerUiState(
     val selectedTab: Int = 0,
     val isLoading: Boolean = false,
@@ -244,10 +246,10 @@ class ServerViewModel @Inject constructor(
     private fun executeAction(action: ServerAction) {
         viewModelScope.launch {
             when (action) {
-                is ServerAction.InstallPackage -> runAptCommand("sudo apt-get install -y ${action.packageName}")
-                is ServerAction.RemovePackage -> runAptCommand("sudo apt-get remove -y ${action.packageName}")
-                is ServerAction.AptUpdate -> runAptCommand("sudo apt-get update")
-                is ServerAction.AptUpgrade -> runAptCommand("sudo apt-get upgrade -y")
+                is ServerAction.InstallPackage -> runAptCommand("apt-get install -y ${shellQuote(action.packageName)}")
+                is ServerAction.RemovePackage -> runAptCommand("apt-get remove -y ${shellQuote(action.packageName)}")
+                is ServerAction.AptUpdate -> runAptCommand("apt-get update")
+                is ServerAction.AptUpgrade -> runAptCommand("DEBIAN_FRONTEND=noninteractive apt-get upgrade -y")
                 is ServerAction.AddUfwRule -> executeUfwAction(action)
                 is ServerAction.DeleteUfwRule -> executeUfwAction(action)
                 is ServerAction.EnableFirewall -> executeUfwAction(action)
