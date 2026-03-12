@@ -1,5 +1,12 @@
 # ServerDash
 
+[![CI Build](https://github.com/wrxck/ServerDash/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/wrxck/ServerDash/actions/workflows/build.yml)
+[![GitHub release](https://img.shields.io/github/v/release/wrxck/ServerDash)](https://github.com/wrxck/ServerDash/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/wrxck/ServerDash)](LICENSE)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.2.21-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Android](https://img.shields.io/badge/Android-API%2028+-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
+[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-UI-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+
 A powerful Android app for remote Linux server management over SSH.
 
 ServerDash gives you full visibility and control over your Linux servers from your phone. Monitor system metrics, manage services, run commands, interact with Claude Code, browse Git repositories, and more -- all through a secure SSH connection.
