@@ -75,17 +75,19 @@ class UnifiedTerminalViewModel @Inject constructor(
 
     private val terminalSessions = mutableListOf<TerminalSession>()
     private var shellCount = 0
-    private var terminalForeground: Color = Color(0xFFC0CAF5)
-    private var terminalBackground: Color = Color(0xFF1A1B26)
+    private var terminalForeground: Color = Color.White
+    private var terminalBackground: Color = Color.Black
+    private var colorsReady = false
 
     fun setTerminalColors(foreground: Color, background: Color) {
         terminalForeground = foreground
         terminalBackground = background
-    }
-
-    init {
-        loadAvailableProjects()
-        refreshTmuxSessions()
+        if (!colorsReady) {
+            colorsReady = true
+            // Defer SSH-dependent init until colors are set (composable is ready)
+            loadAvailableProjects()
+            refreshTmuxSessions()
+        }
     }
 
     fun onEvent(event: UnifiedTerminalEvent) {

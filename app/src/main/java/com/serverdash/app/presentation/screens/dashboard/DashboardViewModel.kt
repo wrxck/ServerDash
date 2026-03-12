@@ -220,13 +220,18 @@ class DashboardViewModel @Inject constructor(
     private fun startPolling() {
         pollingJob?.cancel()
         pollingJob = viewModelScope.launch {
-            val prefs = preferencesRepository.getPreferences()
-            while (true) {
-                if (_state.value.connectionState.isConnected) {
-                    refreshData()
+            sshRepository.observeConnectionState()
+                .map { it.isConnected }
+                .distinctUntilChanged()
+                .collectLatest { connected ->
+                    if (!connected) return@collectLatest
+                    val prefs = preferencesRepository.getPreferences()
+                    val intervalMs = prefs.pollingIntervalSeconds * 1000L
+                    while (true) {
+                        refreshData()
+                        delay(intervalMs)
+                    }
                 }
-                delay(prefs.pollingIntervalSeconds * 1000L)
-            }
         }
     }
 

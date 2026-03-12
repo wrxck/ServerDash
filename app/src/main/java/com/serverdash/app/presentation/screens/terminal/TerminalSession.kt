@@ -9,6 +9,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.connectbot.terminal.TerminalEmulator
 import org.connectbot.terminal.TerminalEmulatorFactory
+import java.util.concurrent.Executors
 
 class TerminalSession(
     val id: String,
@@ -16,16 +17,24 @@ class TerminalSession(
     val isTmux: Boolean = false,
     private val sshSession: SshSessionManager.InteractiveSession,
     private val scope: CoroutineScope,
-    defaultForeground: Color = Color(0xFFC0CAF5),
-    defaultBackground: Color = Color(0xFF1A1B26),
+    defaultForeground: Color = Color.White,
+    defaultBackground: Color = Color.Black,
 ) {
+    // Dedicated single-thread executor for SSH writes to avoid
+    // NetworkOnMainThreadException (termlib fires onKeyboardInput on main thread)
+    private val writeExecutor = Executors.newSingleThreadExecutor()
+
     val emulator: TerminalEmulator = TerminalEmulatorFactory.create(
         initialRows = 24,
         initialCols = 80,
         defaultForeground = defaultForeground,
         defaultBackground = defaultBackground,
         onKeyboardInput = { data ->
-            sshSession.write(data)
+            writeExecutor.execute {
+                try {
+                    sshSession.write(data)
+                } catch (_: Exception) { }
+            }
         },
     )
 
@@ -55,11 +64,16 @@ class TerminalSession(
     fun close() {
         readJob?.cancel()
         readJob = null
+        writeExecutor.shutdown()
         sshSession.close()
     }
 
     fun writeToSsh(data: ByteArray) {
-        sshSession.write(data)
+        writeExecutor.execute {
+            try {
+                sshSession.write(data)
+            } catch (_: Exception) { }
+        }
     }
 
     val isOpen: Boolean get() = sshSession.isOpen()

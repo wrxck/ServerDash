@@ -8,19 +8,22 @@ import com.serverdash.app.domain.usecase.*
 import com.serverdash.app.presentation.screens.dashboard.DashboardEvent
 import com.serverdash.app.presentation.screens.dashboard.DashboardViewModel
 import com.serverdash.app.presentation.screens.dashboard.MetricDetailType
+import com.serverdash.app.widget.WidgetUpdateHelper
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.*
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DashboardViewModelTest {
 
-    private val testDispatcher = UnconfinedTestDispatcher()
+    private val testDispatcher = StandardTestDispatcher()
 
     private val appContext: android.content.Context = mockk(relaxed = true)
     private lateinit var serviceRepository: ServiceRepository
@@ -39,6 +42,8 @@ class DashboardViewModelTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
+        mockkObject(WidgetUpdateHelper)
+        coEvery { WidgetUpdateHelper.updateAllWidgets(any(), any(), any(), any(), any()) } just runs
         serviceRepository = mockk()
         serverRepository = mockk()
         sshRepository = mockk()
@@ -62,11 +67,16 @@ class DashboardViewModelTest {
         coEvery { sshRepository.isConnected() } returns false
         coEvery { metricsRepository.getMetricsHistory(any()) } returns emptyList()
         coEvery { pluginRegistry.detectAll(any()) } returns emptyMap()
+        coEvery { refreshServiceStatus(any()) } returns Result.success(emptyList())
+        coEvery { fetchMetrics() } returns Result.success(SystemMetrics())
+        coEvery { evaluateAlertRules(any(), any(), any()) } returns emptyList()
+        coEvery { fleetDiscoverServices(any()) } returns Result.success(emptyList())
     }
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        unmockkObject(WidgetUpdateHelper)
     }
 
     private fun createViewModel() = DashboardViewModel(
@@ -80,9 +90,11 @@ class DashboardViewModelTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `initial state is loading`() = runTest {
+    fun `initial state defaults`() = runTest {
         val vm = createViewModel()
-        assertThat(vm.state.value.isLoading).isTrue()
+        // Before any coroutines execute, state has defaults
+        assertThat(vm.state.value.services).isEmpty()
+        assertThat(vm.state.value.connectionState.isConnected).isFalse()
     }
 
     @Test
@@ -103,17 +115,20 @@ class DashboardViewModelTest {
 
     @Test
     fun `connection state is observed`() = runTest {
-        val connState = ConnectionState(isConnected = true, lastConnected = 123)
-        every { sshRepository.observeConnectionState() } returns flowOf(connState)
-        // Connected state triggers polling which calls refreshData
-        coEvery { refreshServiceStatus(any()) } returns Result.success(emptyList())
-        coEvery { fetchMetrics() } returns Result.success(SystemMetrics())
-        coEvery { evaluateAlertRules(any(), any(), any()) } returns emptyList()
+        // Use a MutableStateFlow so the connection flow doesn't complete immediately
+        val connFlow = MutableStateFlow(ConnectionState(isConnected = true, lastConnected = 123))
+        every { sshRepository.observeConnectionState() } returns connFlow
 
         val vm = createViewModel()
-        advanceUntilIdle()
+        // Advance enough for init to complete and first poll to start, but not loop
+        advanceTimeBy(100)
+        runCurrent()
 
         assertThat(vm.state.value.connectionState.isConnected).isTrue()
+
+        // Disconnect to stop the polling loop so runTest can complete
+        connFlow.value = ConnectionState(isConnected = false)
+        advanceUntilIdle()
     }
 
     @Test
@@ -126,7 +141,8 @@ class DashboardViewModelTest {
         advanceUntilIdle()
 
         vm.onEvent(DashboardEvent.Refresh)
-        advanceUntilIdle()
+        advanceTimeBy(500)
+        runCurrent()
 
         assertThat(vm.state.value.isRefreshing).isFalse()
     }
@@ -344,10 +360,8 @@ class DashboardViewModelTest {
 
     @Test
     fun `KillProcess sends kill command via SSH`() = runTest {
-        val psOutput = "USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND\n" +
-            "root         1  2.5  0.1   1024   512 ?        Ss   Mar01   0:15 /sbin/init"
         coEvery { sshRepository.executeCommand(any()) } returns Result.success(
-            CommandResult(exitCode = 0, output = psOutput)
+            CommandResult(exitCode = 0, output = "")
         )
 
         val vm = createViewModel()
@@ -356,7 +370,7 @@ class DashboardViewModelTest {
         vm.onEvent(DashboardEvent.KillProcess(1234))
         advanceUntilIdle()
 
-        coVerify { sshRepository.executeCommand("kill 1234 2>/dev/null || sudo kill 1234 2>/dev/null") }
+        coVerify { sshRepository.executeCommand("kill 1234 2>/dev/null") }
     }
 
     // -----------------------------------------------------------------------

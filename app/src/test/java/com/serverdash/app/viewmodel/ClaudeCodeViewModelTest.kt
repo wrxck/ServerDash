@@ -40,6 +40,9 @@ class ClaudeCodeViewModelTest {
 
         // Default: connected as "matt"
         every { sshRepository.getConnectedUsername() } returns "matt"
+
+        // Ensure cache always returns null (no caching in tests)
+        coEvery { cacheManager.get<Any>(any()) } returns null
     }
 
     @After
@@ -84,9 +87,10 @@ class ClaudeCodeViewModelTest {
         projectCount: Int = 3,
         planCount: Int = 2,
         sessionCount: Int = 7,
-        plugins: String = """["plugin-a","plugin-b"]""",
-        skills: String = "summarize.sh\ntranslate.py",
-        hooks: String = "pre-commit.sh\npost-push.sh"
+        plugins: String = "",
+        skills: String = "summarize\ntranslate",
+        hooks: String = "0",
+        activity: String = ""
     ) {
         val overviewOutput = buildString {
             append("===DU===\n$diskUsage\n")
@@ -96,16 +100,28 @@ class ClaudeCodeViewModelTest {
             append("===SESSIONS===\n$sessionCount\n")
             append("===PLUGINS===\n$plugins\n")
             append("===SKILLS===\n$skills\n")
-            append("===HOOKS===\n$hooks")
+            append("===HOOKS===\n$hooks\n")
+            append("===ACTIVITY===\n$activity")
         }
         coEvery { sshRepository.executeCommand(match { it.contains("===DU===") }) } returns
             cmdResult(overviewOutput)
     }
 
     private fun stubMcpRead(json: String) {
-        // loadMcpServers now uses readFileForUser which constructs: cat '/home/matt/.mcp.json' 2>/dev/null
-        coEvery { sshRepository.executeCommand(match { it.contains(".mcp.json") }) } returns
+        // loadMcpServers scans all users reading .claude.json and .mcp.json
+        // readFileForUser calls: cat "/home/matt/.claude.json" 2>/dev/null
+        coEvery { sshRepository.executeCommand(match { it.contains(".claude.json") && it.contains("cat") }) } returns
             cmdResult(json)
+        // Also stub .mcp.json reads (returns empty to avoid migration dialogs)
+        coEvery { sshRepository.executeCommand(match { it.contains(".mcp.json") && it.contains("cat") }) } returns
+            cmdResult("")
+        // Stub sudo fallback reads for root and other users
+        coEvery { sshRepository.executeSudoCommand(match { it.contains(".claude.json") }) } returns
+            cmdResult("")
+        coEvery { sshRepository.executeSudoCommand(match { it.contains(".mcp.json") }) } returns
+            cmdResult("")
+        // Stub hasRootAccess
+        every { sshRepository.hasRootAccess() } returns false
     }
 
     // ── 1. Initial detection ─────────────────────────────────────────────
@@ -176,7 +192,8 @@ class ClaudeCodeViewModelTest {
         advanceUntilIdle()
 
         assertThat(vm.state.value.selectedTab).isEqualTo(1)
-        assertThat(vm.state.value.mcpServers).hasSize(1)
+        // MCP scanner now scans all users; at least 1 server from the stubbed user
+        assertThat(vm.state.value.mcpServers).isNotEmpty()
     }
 
     @Test
@@ -213,7 +230,7 @@ class ClaudeCodeViewModelTest {
         advanceUntilIdle()
 
         coEvery { sshRepository.executeCommand(match { it.contains("for d in ~/.claude/projects") }) } returns
-            cmdResult("-home-matt-fleet|5|Y\n-home-matt-web|2|N")
+            cmdResult("-home-matt-fleet|5|Y|/home/matt/fleet\n-home-matt-web|2|N|")
         vm.onEvent(ClaudeCodeEvent.SelectTab(4))
         advanceUntilIdle()
 
@@ -542,15 +559,17 @@ class ClaudeCodeViewModelTest {
         stubDetected()
         stubUsers(listOf(testUser))
         stubMcpRead("{}")
+        // Plugins now come from grep of enabledPlugins in settings.json
+        // Format: "enabledPlugins": {"plugin-x@marketplace": true, ...}
         stubOverview(
             diskUsage = "256M",
             stats = """{"api_calls":100}""",
             projectCount = 5,
             planCount = 3,
             sessionCount = 12,
-            plugins = """["plugin-x","plugin-y","plugin-z"]""",
-            skills = "skill-a.sh\nskill-b.py",
-            hooks = "hook-1.sh"
+            plugins = """"enabledPlugins": {"plugin-x": true, "plugin-y": true, "plugin-z": true}""",
+            skills = "skill-a\nskill-b",
+            hooks = "1"
         )
 
         val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
@@ -563,8 +582,9 @@ class ClaudeCodeViewModelTest {
         assertThat(s.planCount).isEqualTo(3)
         assertThat(s.sessionCount).isEqualTo(12)
         assertThat(s.installedPlugins).containsExactly("plugin-x", "plugin-y", "plugin-z")
-        assertThat(s.customSkills).containsExactly("skill-a.sh", "skill-b.py")
-        assertThat(s.hookFiles).containsExactly("hook-1.sh")
+        assertThat(s.customSkills).containsExactly("skill-a", "skill-b")
+        // Hooks now shows "configured in settings.json" when count > 0
+        assertThat(s.hookFiles).containsExactly("configured in settings.json")
     }
 
     @Test
@@ -572,7 +592,7 @@ class ClaudeCodeViewModelTest {
         stubDetected()
         stubUsers(listOf(testUser))
         stubMcpRead("{}")
-        stubOverview(diskUsage = "", stats = "", projectCount = 0, planCount = 0, sessionCount = 0, plugins = "", skills = "", hooks = "")
+        stubOverview(diskUsage = "", stats = "", projectCount = 0, planCount = 0, sessionCount = 0, plugins = "", skills = "", hooks = "0")
 
         val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
@@ -583,16 +603,18 @@ class ClaudeCodeViewModelTest {
     }
 
     @Test
-    fun `loadOverview parses plugins with object format`() = runTest {
+    fun `loadOverview parses plugins with enabledPlugins format`() = runTest {
         stubDetected()
         stubUsers(listOf(testUser))
         stubMcpRead("{}")
-        stubOverview(plugins = """[{"name":"obj-plugin","version":"1.0"}]""")
+        // Plugins now parsed from settings.json grep: "enabledPlugins": {"name": true/false}
+        stubOverview(plugins = """"enabledPlugins": {"obj-plugin@marketplace": true, "disabled-plugin": false}""")
 
         val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
 
-        assertThat(vm.state.value.installedPlugins).containsExactly("obj-plugin")
+        // Only enabled (true) plugins are listed
+        assertThat(vm.state.value.installedPlugins).containsExactly("obj-plugin@marketplace")
     }
 
     // ── 7. Projects loading and memory viewing ───────────────────────────
@@ -602,8 +624,9 @@ class ClaudeCodeViewModelTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
+        // Format now: name|sessions|mem|realpath (4 fields; realpath from .active_project_path)
         coEvery { sshRepository.executeCommand(match { it.contains("for d in ~/.claude/projects") }) } returns
-            cmdResult("-home-matt-fleet|5|Y\n-home-matt-web|2|N\n-home-matt-api|0|N")
+            cmdResult("-home-matt-fleet|5|Y|/home/matt/fleet\n-home-matt-web|2|N|\n-home-matt-api|0|N|")
         vm.onEvent(ClaudeCodeEvent.LoadProjects)
         advanceUntilIdle()
 
@@ -615,6 +638,8 @@ class ClaudeCodeViewModelTest {
         assertThat(projects[0].hasMemory).isTrue()
         assertThat(projects[1].sessionCount).isEqualTo(2)
         assertThat(projects[1].hasMemory).isFalse()
+        // Without realpath, displayName falls back to raw dir name
+        assertThat(projects[1].displayName).isEqualTo("-home-matt-web")
         assertThat(vm.state.value.isLoadingProjects).isFalse()
     }
 
@@ -687,7 +712,7 @@ class ClaudeCodeViewModelTest {
         advanceUntilIdle()
 
         coEvery { sshRepository.executeCommand(match { it.contains("for d in ~/.claude/projects") }) } returns
-            cmdResult("-home-matt-fleet|3|Y")
+            cmdResult("-home-matt-fleet|3|Y|/home/matt/fleet")
 
         vm.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.PROJECTS))
         advanceUntilIdle()
@@ -843,14 +868,15 @@ class ClaudeCodeViewModelTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
-        coEvery { sshRepository.executeCommand(match { it.contains("find ~/.claude/skills/") }) } returns
-            cmdResult("summarize.md\ntranslate.md")
+        // Skills now loaded via ls -1 ~/.claude/skills/
+        coEvery { sshRepository.executeCommand(match { it.contains("ls -1 ~/.claude/skills/") }) } returns
+            cmdResult("summarize\ntranslate")
 
         vm.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.SKILLS))
         advanceUntilIdle()
 
         assertThat(vm.state.value.skillScripts).hasSize(2)
-        assertThat(vm.state.value.skillScripts[0].filename).isEqualTo("summarize.md")
+        assertThat(vm.state.value.skillScripts[0].filename).isEqualTo("summarize")
     }
 
     @Test
@@ -858,10 +884,11 @@ class ClaudeCodeViewModelTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
-        coEvery { sshRepository.executeCommand(match { it.contains("cat ~/.claude/skills/summarize.md") }) } returns
+        // readClaudeFile uses: cat ~/.claude/skills/summarize 2>/dev/null || echo ''
+        coEvery { sshRepository.executeCommand(match { it.contains("cat ~/") && it.contains(".claude/skills/summarize") }) } returns
             cmdResult("# Summarize\nSummarize the given text concisely.")
 
-        vm.onEvent(ClaudeCodeEvent.EditSkill(SkillScript(filename = "summarize.md")))
+        vm.onEvent(ClaudeCodeEvent.EditSkill(SkillScript(filename = "summarize")))
         advanceUntilIdle()
 
         assertThat(vm.state.value.editingSkill).isNotNull()
@@ -887,7 +914,7 @@ class ClaudeCodeViewModelTest {
 
         coEvery { sshRepository.executeCommand(match { it.contains("mkdir -p ~/.claude/skills") }) } returns cmdResult("")
         coEvery { sshRepository.executeCommand(match { it.contains("cat > ~/") }) } returns cmdResult("")
-        coEvery { sshRepository.executeCommand(match { it.contains("find ~/.claude/skills/") }) } returns cmdResult("new-skill.md")
+        coEvery { sshRepository.executeCommand(match { it.contains("ls -1 ~/.claude/skills/") }) } returns cmdResult("new-skill.md")
         stubOverview()
 
         vm.onEvent(ClaudeCodeEvent.SaveSkill(null, SkillScript(filename = "new-skill.md", content = "# Skill")))
@@ -906,7 +933,7 @@ class ClaudeCodeViewModelTest {
         coEvery { sshRepository.executeCommand(match { it.contains("mkdir -p ~/.claude/skills") }) } returns cmdResult("")
         coEvery { sshRepository.executeCommand(match { it.contains("rm -f ~/.claude/skills/old.md") }) } returns cmdResult("")
         coEvery { sshRepository.executeCommand(match { it.contains("cat > ~/") }) } returns cmdResult("")
-        coEvery { sshRepository.executeCommand(match { it.contains("find ~/.claude/skills/") }) } returns cmdResult("renamed.md")
+        coEvery { sshRepository.executeCommand(match { it.contains("ls -1 ~/.claude/skills/") }) } returns cmdResult("renamed.md")
         stubOverview()
 
         vm.onEvent(ClaudeCodeEvent.SaveSkill("old.md", SkillScript(filename = "renamed.md", content = "content")))
@@ -920,20 +947,20 @@ class ClaudeCodeViewModelTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
-        // Load skills first
-        coEvery { sshRepository.executeCommand(match { it.contains("find ~/.claude/skills/") }) } returns
-            cmdResult("skill-a.md\nskill-b.md")
+        // Load skills first (now uses ls -1 ~/.claude/skills/)
+        coEvery { sshRepository.executeCommand(match { it.contains("ls -1 ~/.claude/skills/") }) } returns
+            cmdResult("skill-a\nskill-b")
         vm.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.SKILLS))
         advanceUntilIdle()
 
-        coEvery { sshRepository.executeCommand(match { it.contains("rm -f ~/.claude/skills/skill-a.md") }) } returns cmdResult("")
+        coEvery { sshRepository.executeCommand(match { it.contains("rm -f ~/.claude/skills/skill-a") }) } returns cmdResult("")
         stubOverview()
 
-        vm.onEvent(ClaudeCodeEvent.DeleteSkill(SkillScript(filename = "skill-a.md")))
+        vm.onEvent(ClaudeCodeEvent.DeleteSkill(SkillScript(filename = "skill-a")))
         advanceUntilIdle()
 
-        assertThat(vm.state.value.skillScripts.map { it.filename }).containsExactly("skill-b.md")
-        assertThat(vm.state.value.successMessage).isEqualTo("Skill 'skill-a.md' deleted")
+        assertThat(vm.state.value.skillScripts.map { it.filename }).containsExactly("skill-b")
+        assertThat(vm.state.value.successMessage).isEqualTo("Skill 'skill-a' deleted")
     }
 
     @Test
@@ -955,23 +982,25 @@ class ClaudeCodeViewModelTest {
         stubDetected()
         stubUsers(listOf(testUser))
         stubMcpRead("{}")
-        stubOverview(plugins = """["plugin-keep","plugin-remove","plugin-also-keep"]""")
+        // Plugins now from enabledPlugins in settings.json grep output
+        stubOverview(plugins = """"enabledPlugins": {"plugin-keep": true, "plugin-remove": true, "plugin-also-keep": true}""")
 
         val vm = ClaudeCodeViewModel(sshRepository, detectSystemUsers, detectClaudeCodeUsers, cacheManager)
         advanceUntilIdle()
 
         assertThat(vm.state.value.installedPlugins).hasSize(3)
 
-        // Stub reading the plugins file for uninstall
-        coEvery { sshRepository.executeCommand(match { it.contains("cat ~/.claude/plugins/installed_plugins.json") }) } returns
-            cmdResult("""["plugin-keep","plugin-remove","plugin-also-keep"]""")
+        // Uninstall now reads settings.json and removes from enabledPlugins
+        // readClaudeFile uses: cat ~/.claude/settings.json 2>/dev/null || echo ''
+        coEvery { sshRepository.executeCommand(match { it.contains(".claude/settings.json") && it.contains("cat") }) } returns
+            cmdResult("""{"enabledPlugins":{"plugin-keep":true,"plugin-remove":true,"plugin-also-keep":true}}""")
         coEvery { sshRepository.executeCommand(match { it.contains("cat > ~/") }) } returns cmdResult("")
 
         vm.onEvent(ClaudeCodeEvent.UninstallPlugin("plugin-remove"))
         advanceUntilIdle()
 
         assertThat(vm.state.value.installedPlugins).containsExactly("plugin-keep", "plugin-also-keep")
-        assertThat(vm.state.value.successMessage).isEqualTo("Plugin 'plugin-remove' uninstalled")
+        assertThat(vm.state.value.successMessage).isEqualTo("Plugin 'plugin-remove' disabled")
     }
 
     // ── 12. Session loading/deleting ─────────────────────────────────────
@@ -993,32 +1022,35 @@ class ClaudeCodeViewModelTest {
         assertThat(sessions).hasSize(2)
         // sorted by modified descending
         assertThat(sessions[0].project).isEqualTo("-home-matt-fleet")
-        assertThat(sessions[0].projectDisplay).isEqualTo("/home/matt/fleet")
+        // projectDisplay now uses the raw project dir name (no decoding)
+        assertThat(sessions[0].projectDisplay).isEqualTo("-home-matt-fleet")
         assertThat(sessions[0].filename).isEqualTo("session-abc.jsonl")
         assertThat(sessions[0].size).isEqualTo("1.0M")
         assertThat(sessions[1].size).isEqualTo("2K")
     }
 
     @Test
-    fun `ViewSession reads last 5 lines of session file`() = runTest {
+    fun `ViewSession reads full session file`() = runTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
         val session = SessionInfo(
             project = "-home-matt-fleet",
-            projectDisplay = "/home/matt/fleet",
+            projectDisplay = "-home-matt-fleet",
             filename = "session-abc.jsonl",
             size = "1.0M",
-            modified = "2025-03-01"
+            modified = "2025-03-01",
+            fullPath = "/home/matt/.claude/projects/-home-matt-fleet/session-abc.jsonl"
         )
-        coEvery { sshRepository.executeCommand(match { it.contains("tail -5") && it.contains("session-abc.jsonl") }) } returns
+        // Now reads full file with cat instead of tail -5
+        coEvery { sshRepository.executeCommand(match { it.contains("cat") && it.contains("session-abc.jsonl") }) } returns
             cmdResult("""{"role":"assistant","content":"Done!"}""")
 
         vm.onEvent(ClaudeCodeEvent.ViewSession(session))
         advanceUntilIdle()
 
         assertThat(vm.state.value.selectedSessionContent).contains("Done!")
-        assertThat(vm.state.value.selectedSessionName).isEqualTo("/home/matt/fleet / session-abc.jsonl")
+        assertThat(vm.state.value.selectedSessionName).isEqualTo("-home-matt-fleet / session-abc.jsonl")
     }
 
     @Test
@@ -1026,14 +1058,14 @@ class ClaudeCodeViewModelTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
-        val session1 = SessionInfo(project = "-home-matt-fleet", projectDisplay = "/home/matt/fleet", filename = "s1.jsonl", size = "1K", modified = "2025-03-01")
-        val session2 = SessionInfo(project = "-home-matt-fleet", projectDisplay = "/home/matt/fleet", filename = "s2.jsonl", size = "2K", modified = "2025-02-28")
-
-        // Load sessions
+        // Load sessions — the parsed sessions get fullPath set from the find output
         coEvery { sshRepository.executeCommand(match { it.contains("find ~/.claude/projects/") && it.contains(".jsonl") }) } returns
             cmdResult("1024|2025-03-01+14:00:00|/home/matt/.claude/projects/-home-matt-fleet/s1.jsonl\n2048|2025-02-28+10:00:00|/home/matt/.claude/projects/-home-matt-fleet/s2.jsonl")
         vm.onEvent(ClaudeCodeEvent.OpenDetail(DetailView.SESSIONS))
         advanceUntilIdle()
+
+        // Use the actual parsed session from the list (has fullPath set)
+        val session1 = vm.state.value.sessionsList.first { it.filename == "s1.jsonl" }
 
         coEvery { sshRepository.executeCommand(match { it.contains("rm -f") && it.contains("s1.jsonl") }) } returns cmdResult("")
         stubOverview()
@@ -1051,9 +1083,9 @@ class ClaudeCodeViewModelTest {
         val vm = createDetectedViewModel()
         advanceUntilIdle()
 
-        // View a session first
-        val session = SessionInfo(project = "p", projectDisplay = "/p", filename = "s.jsonl", size = "1K", modified = "d")
-        coEvery { sshRepository.executeCommand(match { it.contains("tail -5") }) } returns cmdResult("content")
+        // View a session first (now uses cat with fullPath)
+        val session = SessionInfo(project = "p", projectDisplay = "p", filename = "s.jsonl", size = "1K", modified = "d", fullPath = "/home/matt/.claude/projects/p/s.jsonl")
+        coEvery { sshRepository.executeCommand(match { it.contains("cat") && it.contains("s.jsonl") }) } returns cmdResult("content")
         vm.onEvent(ClaudeCodeEvent.ViewSession(session))
         advanceUntilIdle()
 

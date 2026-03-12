@@ -43,6 +43,8 @@ class ServiceDetailViewModelTest {
         val testService = Service(1, 1, "nginx", "nginx", ServiceType.SYSTEMD, ServiceStatus.RUNNING)
         every { serviceRepository.observeServices(any()) } returns flowOf(listOf(testService))
         coEvery { metricsRepository.getMetricsHistory(any()) } returns emptyList()
+        coEvery { getServiceLogs(any(), any(), any()) } returns Result.success(emptyList())
+        coEvery { readConfigFile(any()) } returns Result.success("")
     }
 
     @After
@@ -54,6 +56,7 @@ class ServiceDetailViewModelTest {
 
     private fun createViewModel(): ServiceDetailViewModel {
         serverRepository = mockk()
+        coEvery { serverRepository.getServerConfig() } returns null
         return ServiceDetailViewModel(
             savedStateHandle, serverRepository, serviceRepository, metricsRepository,
             controlService, getServiceLogs, readConfigFile, writeConfigFile
@@ -68,22 +71,25 @@ class ServiceDetailViewModelTest {
     }
 
     @Test
-    fun `select tab updates state`() {
+    fun `select tab updates state`() = runTest {
         val vm = createViewModel()
+        advanceUntilIdle()
         vm.onEvent(ServiceDetailEvent.SelectTab(1))
         assertThat(vm.state.value.selectedTab).isEqualTo(1)
     }
 
     @Test
-    fun `control service shows confirm dialog`() {
+    fun `control service shows confirm dialog`() = runTest {
         val vm = createViewModel()
+        advanceUntilIdle()
         vm.onEvent(ServiceDetailEvent.ControlService(ServiceAction.STOP))
         assertThat(vm.state.value.showConfirmDialog).isEqualTo(ServiceAction.STOP)
     }
 
     @Test
-    fun `dismiss confirm dialog clears it`() {
+    fun `dismiss confirm dialog clears it`() = runTest {
         val vm = createViewModel()
+        advanceUntilIdle()
         vm.onEvent(ServiceDetailEvent.ControlService(ServiceAction.STOP))
         vm.onEvent(ServiceDetailEvent.DismissConfirmDialog)
         assertThat(vm.state.value.showConfirmDialog).isNull()
@@ -116,10 +122,12 @@ class ServiceDetailViewModelTest {
 
     @Test
     fun `save config writes file`() = runTest {
+        coEvery { readConfigFile(any()) } returns Result.success("old content")
         coEvery { writeConfigFile(any(), any()) } returns Result.success(Unit)
 
         val vm = createViewModel()
         vm.onEvent(ServiceDetailEvent.LoadConfig("/etc/nginx/nginx.conf"))
+        advanceUntilIdle()
         vm.onEvent(ServiceDetailEvent.UpdateConfig("new content"))
         vm.onEvent(ServiceDetailEvent.SaveConfig)
         advanceUntilIdle()
